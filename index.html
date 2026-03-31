@@ -1,0 +1,1792 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>bonosAR — Instrumentos Soberanos ARS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;1,9..144,300&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0d0f0e;--surface:#141715;--surface2:#1a1d1b;
+  --border:#252825;--border2:#2e322e;
+  --text:#e8ede9;--text2:#8a9489;--text3:#4d554e;
+  --accent:#a8d5a2;--accent2:#6eb868;--accent-dim:#1a2e1a;
+  --warn:#d4a96a;--warn-dim:#2e2412;
+  --info:#7ab3d4;--info-dim:#121f2a;
+  --danger:#d47a7a;--danger-dim:#2e1a1a;
+  --mono:'DM Mono',monospace;--serif:'Fraunces',serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13px;min-height:100vh;overflow-x:hidden;}
+
+.header{border-bottom:1px solid var(--border);padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:50px;position:sticky;top:0;background:var(--bg);z-index:300;}
+.logo{font-family:var(--serif);font-size:18px;font-weight:300;letter-spacing:-0.5px;}
+.logo span{color:var(--accent);font-style:italic;}
+.hdate{font-size:11px;color:var(--text3);}
+
+.nav{display:flex;border-bottom:1px solid var(--border);padding:0 1.5rem;background:var(--bg);overflow-x:auto;}
+.nav-tab{padding:9px 16px;font-size:11px;font-family:var(--mono);color:var(--text3);cursor:pointer;border:none;border-bottom:2px solid transparent;background:none;transition:all .12s;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap;}
+.nav-tab:hover{color:var(--text2);}
+.nav-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.nav-tab.disabled{opacity:.3;cursor:not-allowed;}
+.soon{font-size:9px;background:var(--surface2);color:var(--text3);padding:1px 4px;border-radius:3px;margin-left:4px;vertical-align:middle;}
+
+/* settlement bar */
+.sbar{display:flex;align-items:center;gap:1rem;padding:7px 1.5rem;border-bottom:1px solid var(--border);background:var(--surface);flex-wrap:wrap;}
+.sbar-field{display:flex;flex-direction:column;gap:2px;flex-shrink:0;}
+.sbar-label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);}
+.sbar-input{background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:4px 8px;font-family:var(--mono);font-size:12px;color:var(--text);outline:none;}
+.sbar-input:focus{border-color:var(--accent-dim);}
+.sbar-input.narrow{width:52px;text-align:center;}
+.sbar-input.date{width:135px;}
+.sbar-arrow{color:var(--text3);font-size:12px;margin-top:12px;flex-shrink:0;}
+.sbar-result{display:flex;flex-direction:column;gap:2px;flex-shrink:0;}
+.sbar-result-val{font-size:13px;font-weight:500;color:var(--accent);}
+.sbar-sep{width:1px;background:var(--border);height:34px;margin:0 4px;flex-shrink:0;}
+.sbar-refresh{display:flex;align-items:center;gap:8px;margin-left:auto;flex-shrink:0;}
+.btn{padding:5px 12px;font-size:11px;font-family:var(--mono);border-radius:4px;border:1px solid var(--border2);background:none;color:var(--text2);cursor:pointer;transition:all .12s;white-space:nowrap;}
+.btn:hover{color:var(--text);border-color:var(--text3);}
+.btn.primary{border-color:var(--accent-dim);color:var(--accent);}
+.btn.primary:hover{background:var(--accent-dim);}
+.btn.danger{border-color:var(--danger-dim);color:var(--danger);}
+.api-status{font-size:11px;color:var(--text3);}
+.api-status.ok{color:var(--accent2);}
+.api-status.err{color:var(--danger);}
+.api-status.loading{color:var(--warn);}
+
+.workspace{display:flex;flex-direction:column;height:calc(100vh - 136px);overflow:hidden;}
+.workspace-top{display:flex;flex:1;min-height:0;overflow:hidden;}
+
+/* left pane */
+.left-pane{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;transition:flex .2s ease;}
+.left-pane.narrowed{flex:0 0 52%;}
+.pane-toolbar{display:flex;align-items:center;gap:10px;padding:8px 1.5rem;border-bottom:1px solid var(--border);background:var(--bg);flex-shrink:0;}
+.pane-title{font-family:var(--serif);font-size:15px;font-weight:300;font-style:italic;color:var(--accent);margin-right:auto;}
+input[type=text].search-box{background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:5px 9px;font-family:var(--mono);font-size:12px;color:var(--text);outline:none;width:140px;}
+input[type=text].search-box:focus{border-color:var(--accent-dim);}
+label.chk{font-size:11px;color:var(--text3);display:flex;align-items:center;gap:5px;cursor:pointer;white-space:nowrap;}
+label.chk input{accent-color:var(--accent2);}
+
+/* table */
+.table-scroll{flex:1;overflow-y:auto;overflow-x:auto;}
+table{width:100%;border-collapse:collapse;min-width:550px;}
+thead tr{background:var(--surface2);position:sticky;top:0;z-index:10;}
+thead th{padding:8px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);text-align:right;font-weight:400;border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none;}
+thead th:first-child{text-align:left;}
+thead th:hover{color:var(--text2);}
+thead th.sorted{color:var(--accent);}
+tbody tr{border-bottom:1px solid var(--border);transition:background .08s;}
+tbody tr:last-child{border-bottom:none;}
+tbody tr:hover{background:var(--surface2);}
+tbody tr.selected{background:var(--accent-dim);}
+td{padding:0;height:36px;text-align:right;font-size:13px;}
+td.ticker-cell{text-align:left;}
+
+/* cell views */
+.cv{padding:0 10px;height:100%;display:flex;align-items:center;justify-content:flex-end;cursor:pointer;}
+.cv.left{justify-content:flex-start;cursor:pointer;}
+.cv.no-edit{cursor:default;}
+.cv.editable:hover{background:rgba(168,213,162,.06);outline:1px solid var(--accent-dim);}
+.c-ticker{font-weight:500;color:var(--accent2);letter-spacing:.03em;}
+.c-date{color:var(--text2);font-size:12px;}
+.c-muted{color:var(--text3);}
+.c-green{color:var(--accent);}
+.c-amber{color:var(--warn);}
+.c-blue{color:var(--info);}
+.c-chg-pos{color:var(--accent2);font-size:11px;}
+.c-chg-neg{color:var(--danger);font-size:11px;}
+tbody tr.selected .cv{color:var(--accent2);}
+tbody tr.selected .c-ticker{color:var(--accent);}
+
+/* inline cell input */
+.cell-input{width:100%;height:100%;background:var(--accent-dim);border:none;border-bottom:1px solid var(--accent);color:var(--accent);font-family:var(--mono);font-size:13px;text-align:right;padding:0 10px;outline:none;}
+.cell-input:focus{border-bottom-color:var(--accent2);}
+
+/* row action */
+.row-act{display:flex;align-items:center;justify-content:flex-end;gap:4px;padding:0 6px;height:100%;}
+.rbtn{background:none;border:none;font-family:var(--mono);font-size:11px;cursor:pointer;padding:3px 5px;border-radius:3px;transition:all .1s;color:var(--text3);}
+.rbtn.del:hover{color:var(--danger);background:var(--danger-dim);}
+
+/* right panel */
+.right-panel{width:0;overflow:hidden;border-left:1px solid transparent;background:var(--surface);display:flex;flex-direction:column;transition:width .2s ease,border-color .2s ease;flex-shrink:0;}
+.right-panel.open{width:46%;border-left-color:var(--border);}
+.panel-header{display:flex;align-items:flex-start;justify-content:space-between;padding:.85rem 1.25rem;border-bottom:1px solid var(--border);background:var(--surface2);flex-shrink:0;}
+.panel-ticker{font-family:var(--serif);font-size:20px;font-weight:300;font-style:italic;color:var(--accent);}
+.panel-meta{font-size:11px;color:var(--text3);margin-top:3px;display:flex;flex-wrap:wrap;gap:10px;}
+.panel-close{background:none;border:1px solid var(--border2);border-radius:4px;color:var(--text3);font-family:var(--mono);font-size:10px;padding:3px 8px;cursor:pointer;flex-shrink:0;}
+.panel-close:hover{color:var(--text);border-color:var(--text3);}
+.panel-body{flex:1;overflow-y:auto;padding:1rem 1.25rem;}
+
+/* metrics */
+.metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--border);border:1px solid var(--border);border-radius:6px;overflow:hidden;margin-bottom:1rem;}
+.metric{background:var(--surface);padding:.75rem .9rem;}
+.metric-label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:4px;}
+.metric-value{font-size:17px;color:var(--text);letter-spacing:-0.5px;white-space:nowrap;}
+.metric-value.green{color:var(--accent);}
+.metric-value.amber{color:var(--warn);}
+.metric-value.blue{color:var(--info);}
+.metric-unit{font-size:10px;color:var(--text3);margin-left:2px;}
+
+/* mode */
+.mode-row{display:flex;gap:1px;background:var(--border);border-radius:4px;padding:1px;margin-bottom:.85rem;width:100%;}
+.mode-btn{flex:1;padding:5px 6px;font-size:11px;font-family:var(--mono);color:var(--text3);cursor:pointer;border-radius:3px;border:none;background:none;transition:all .12s;text-align:center;}
+.mode-btn:hover{color:var(--text2);}
+.mode-btn.active{background:var(--surface2);color:var(--accent);}
+
+/* fields */
+.field-row{display:grid;gap:8px;margin-bottom:.75rem;}
+.cols2{grid-template-columns:1fr 1fr;}
+.cols3{grid-template-columns:1fr 1fr 1fr;}
+.field label{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:4px;}
+.field input,.field select{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:6px 8px;font-family:var(--mono);font-size:12px;color:var(--text);outline:none;transition:border-color .12s;}
+.field input:focus,.field select:focus{border-color:var(--accent-dim);}
+.field input[readonly]{color:var(--text3);cursor:default;border-color:transparent;background:transparent;padding-left:0;}
+.field input.accent-ro{color:var(--accent);border-color:transparent;background:transparent;padding-left:0;font-size:13px;}
+
+.section-label{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:7px;padding-bottom:5px;border-bottom:1px solid var(--border);}
+.res-table{width:100%;border-collapse:collapse;margin-bottom:.9rem;}
+.res-table tr{border-bottom:1px solid var(--border);}
+.res-table tr:last-child{border-bottom:none;}
+.res-table td{padding:6px 0;font-size:12px;}
+.res-table td:first-child{color:var(--text2);}
+.res-table td:last-child{text-align:right;color:var(--text);}
+.res-table tr.hi td:last-child{color:var(--accent);}
+.res-table tr.wa td:last-child{color:var(--warn);}
+.res-table tr.bl td:last-child{color:var(--info);}
+.res-table tr.mu td{color:var(--text3);}
+
+.tip{font-size:11px;padding:8px 10px;background:var(--info-dim);border-radius:4px;border:1px solid #1a2d3a;color:var(--info);line-height:1.5;}
+.div-line{height:1px;background:var(--border);margin:.75rem 0;}
+
+/* section collapsible */
+.section-toggle{display:flex;align-items:center;justify-content:space-between;cursor:pointer;margin-bottom:7px;padding-bottom:5px;border-bottom:1px solid var(--border);}
+.section-toggle span{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);}
+.section-toggle .arrow{font-size:10px;color:var(--text3);transition:transform .15s;}
+.section-toggle.collapsed .arrow{transform:rotate(-90deg);}
+
+/* manual override highlight */
+.cv.override{background:rgba(212,167,106,.08);outline:1px solid rgba(212,167,106,.3);}
+.cv.override::after{content:'✎';font-size:9px;color:var(--warn);margin-left:4px;opacity:.7;}
+
+/* rate heatmap — set via inline style --heat: 0..1 */
+.heat-cell{position:relative;}
+.heat-cell::before{content:'';position:absolute;inset:0;opacity:.35;pointer-events:none;
+  background:linear-gradient(90deg,transparent var(--hp,0%),var(--hc,transparent) var(--hp,0%));}
+
+/* chart area */
+.chart-area{border-top:1px solid var(--border);background:var(--bg);flex-shrink:0;display:flex;flex-direction:column;position:relative;}
+.chart-toolbar{display:flex;align-items:center;gap:12px;padding:6px 1.5rem;border-bottom:1px solid var(--border);flex-shrink:0;}
+.chart-title{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-right:auto;}
+.chart-mode-row{display:flex;gap:1px;background:var(--border);border-radius:4px;padding:1px;}
+.chart-mode-btn{padding:3px 10px;font-size:11px;font-family:var(--mono);color:var(--text3);cursor:pointer;border-radius:3px;border:none;background:none;transition:all .12s;}
+.chart-mode-btn:hover{color:var(--text2);}
+.chart-mode-btn.active{background:var(--surface2);color:var(--accent);}
+.chart-wrap{flex:1;padding:8px 1.5rem 4px;min-height:0;position:relative;}
+.chart-wrap canvas{display:block;}
+/* resize handle */
+.chart-resize-handle{
+  height:8px;flex-shrink:0;cursor:ns-resize;
+  display:flex;align-items:center;justify-content:center;
+  border-top:1px solid var(--border2);
+  background:var(--surface);
+  user-select:none;
+}
+.chart-resize-handle::before{
+  content:'';display:block;width:32px;height:2px;
+  border-radius:2px;background:var(--border2);
+}
+
+/* modal */
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;display:none;align-items:center;justify-content:center;}
+.modal-backdrop.open{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:1.5rem;width:460px;max-width:95vw;}
+.modal-title{font-family:var(--serif);font-size:17px;font-weight:300;font-style:italic;color:var(--accent);margin-bottom:1.1rem;}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:1.1rem;}
+
+/* status */
+.status-bar{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);padding:4px 1.5rem;display:flex;align-items:center;gap:1.5rem;font-size:11px;color:var(--text3);z-index:200;}
+.status-dot{width:5px;height:5px;border-radius:50%;background:var(--accent);display:inline-block;margin-right:5px;}
+.no-rows{padding:3rem;text-align:center;color:var(--text3);font-size:12px;}
+
+.cer-workspace{display:flex;flex:1;min-height:0;overflow:hidden;}
+
+@media(max-width:900px){
+  .workspace{flex-direction:column;height:auto;}
+  .right-panel.open{width:100%;border-left:none;border-top:1px solid var(--border);}
+  .left-pane.narrowed{flex:none;}
+  .metrics{grid-template-columns:repeat(2,minmax(0,1fr));}
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="logo">bonos<span>AR</span></div>
+  <div class="hdate" id="hoy"></div>
+</header>
+
+<nav class="nav">
+  <button class="nav-tab active" id="nav-lecap" onclick="switchTab('lecap')">LECAP</button>
+  <button class="nav-tab" id="nav-cer" onclick="switchTab('cer')">Bonos CER</button>
+  <button class="nav-tab disabled">TAMAR <span class="soon">pronto</span></button>
+  <button class="nav-tab disabled">DLK <span class="soon">pronto</span></button>
+  <button class="nav-tab disabled">Sintéticos <span class="soon">pronto</span></button>
+  <button class="nav-tab disabled">Breakeven <span class="soon">pronto</span></button>
+</nav>
+
+<!-- SETTLEMENT BAR -->
+<div class="sbar">
+  <div class="sbar-field">
+    <div class="sbar-label">Fecha operación</div>
+    <input type="date" class="sbar-input date" id="g-fecha-op" oninput="updateSettlement()">
+  </div>
+  <div class="sbar-arrow">+</div>
+  <div class="sbar-field">
+    <div class="sbar-label">Días háb.</div>
+    <input type="number" class="sbar-input narrow" id="g-plazo" value="1" min="0" max="5" oninput="updateSettlement()">
+  </div>
+  <div class="sbar-arrow">→</div>
+  <div class="sbar-result">
+    <div class="sbar-label">Liquidación</div>
+    <div class="sbar-result-val" id="g-liq-display">—</div>
+  </div>
+  <div class="sbar-sep"></div>
+  <div class="sbar-refresh">
+    <button class="btn primary" onclick="fetchPrices()">↻ Actualizar precios</button>
+    <span class="api-status" id="api-status">sin datos</span>
+  </div>
+</div>
+
+<div class="workspace" id="lecap-workspace">
+<div class="workspace-top">
+
+  <!-- LEFT -->
+  <div class="left-pane" id="left-pane">
+    <div class="pane-toolbar">
+      <span class="pane-title">LECAPs</span>
+      <input type="text" class="search-box" id="search" placeholder="Buscar…" oninput="renderTable()">
+      <label class="chk"><input type="checkbox" id="show-vencidas" onchange="renderTable()"> Vencidas</label>
+      <button class="btn primary" onclick="openModal()">+ Nueva</button>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead><tr>
+          <th onclick="sortBy('ticker')" id="th-ticker" style="text-align:left">Ticker</th>
+          <th onclick="sortBy('vcto')"   id="th-vcto"   class="sorted">Vto ↑</th>
+          <th onclick="sortBy('dias')"   id="th-dias">Días</th>
+          <th onclick="sortBy('precio')" id="th-precio">Precio $</th>
+          <th onclick="sortBy('pct_change')" id="th-pct_change">Var%</th>
+          <th onclick="sortBy('tna')"    id="th-tna">TNA</th>
+          <th onclick="sortBy('tir')"    id="th-tir">TIR</th>
+          <th onclick="sortBy('tem')"    id="th-tem">TEM</th>
+          <th onclick="sortBy('vf')"     id="th-vf">VF $</th>
+          <th style="cursor:default;width:40px;"></th>
+        </tr></thead>
+        <tbody id="table-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel" id="right-panel">
+    <div class="panel-header">
+      <div style="min-width:0">
+        <div class="panel-ticker" id="p-ticker">—</div>
+        <div class="panel-meta" id="p-meta"></div>
+      </div>
+      <button class="panel-close" onclick="closePanel()">cerrar ✕</button>
+    </div>
+    <div class="panel-body">
+
+      <!-- METRICS -->
+      <div class="metrics">
+        <div class="metric"><div class="metric-label">Días (ACT)</div><div class="metric-value" id="pm-dias">—</div></div>
+        <div class="metric"><div class="metric-label">TNA</div><div class="metric-value amber" id="pm-tna">—</div></div>
+        <div class="metric"><div class="metric-label">TIR</div><div class="metric-value blue" id="pm-tir">—</div></div>
+        <div class="metric"><div class="metric-label">TEM</div><div class="metric-value amber" id="pm-tem">—</div></div>
+        <div class="metric"><div class="metric-label">Precio $</div><div class="metric-value green" id="pm-precio">—</div></div>
+        <div class="metric"><div class="metric-label">VF $</div><div class="metric-value" id="pm-vf">—</div></div>
+      </div>
+
+      <!-- MODE -->
+      <div class="mode-row">
+        <button class="mode-btn active" onclick="setMode('precio')">Precio</button>
+        <button class="mode-btn" onclick="setMode('tna')">TNA</button>
+        <button class="mode-btn" onclick="setMode('tir')">TIR</button>
+        <button class="mode-btn" onclick="setMode('tem')">TEM</button>
+      </div>
+
+      <div class="field-row cols3" style="margin-bottom:4px">
+        <div class="field">
+          <label>Liquidación</label>
+          <input type="text" id="p-liq-ro" readonly class="accent-ro">
+        </div>
+        <div class="field" id="pf-precio">
+          <label>Precio $</label>
+          <input type="number" id="p-precio-in" step="0.0001" oninput="recalcPanel()">
+        </div>
+        <div class="field" id="pf-tna" style="display:none">
+          <label>TNA %</label>
+          <input type="number" id="p-tna-in" step="0.0001" oninput="recalcPanel()">
+        </div>
+        <div class="field" id="pf-tir" style="display:none">
+          <label>TIR %</label>
+          <input type="number" id="p-tir-in" step="0.0001" oninput="recalcPanel()">
+        </div>
+        <div class="field" id="pf-tem" style="display:none">
+          <label>TEM %</label>
+          <input type="number" id="p-tem-in" step="0.0001" oninput="recalcPanel()">
+        </div>
+        <div class="field">
+          <label>Láminas</label>
+          <input type="number" id="p-laminas" value="1" min="1" step="1" oninput="recalcPanel()">
+        </div>
+      </div>
+
+      <div class="div-line"></div>
+
+      <!-- FLUJO -->
+      <div class="section-label">Flujo de fondos</div>
+      <table class="res-table">
+        <tr><td>Monto invertido</td><td id="r-inv">—</td></tr>
+        <tr class="hi"><td>Cobro al vencimiento (VF × láminas)</td><td id="r-cobro">—</td></tr>
+        <tr class="hi"><td>Ganancia bruta</td><td id="r-gan">—</td></tr>
+        <tr><td>Retorno del período</td><td id="r-ret">—</td></tr>
+        <tr class="mu"><td>Días residuales (ACT)</td><td id="r-dias">—</td></tr>
+      </table>
+
+      <!-- TASAS -->
+      <div class="section-label">Tasas implícitas</div>
+      <table class="res-table">
+        <tr class="wa"><td>TNA = (VF/P−1)/días×365</td><td id="r-tna">—</td></tr>
+        <tr class="bl"><td>TIR = (1+TNA×d/365)^(365/d)−1</td><td id="r-tir">—</td></tr>
+        <tr class="wa"><td>TEM = (1+TIR)^(1/12)−1</td><td id="r-tem">—</td></tr>
+        <tr class="mu"><td>TEM de emisión (referencia)</td><td id="r-tem-em">—</td></tr>
+        <tr><td>Δ TEM mercado vs emisión</td><td id="r-delta">—</td></tr>
+      </table>
+
+      <!-- DATOS DE EMISIÓN (editable) -->
+      <div class="section-toggle" id="emision-toggle" onclick="toggleEmision()">
+        <span>Datos de emisión</span>
+        <span class="arrow">▾</span>
+      </div>
+      <div id="emision-section">
+        <div class="field-row cols2">
+          <div class="field"><label>Fecha emisión</label><input type="date" id="pe-emision" oninput="saveEmision()"></div>
+          <div class="field"><label>TEM emisión %</label><input type="number" id="pe-tem" step="0.0001" oninput="saveEmision()"></div>
+        </div>
+        <div class="field-row cols2">
+          <div class="field"><label>Fecha vencimiento</label><input type="date" id="pe-vcto" oninput="saveEmision()"></div>
+          <div class="field"><label>VF calculado</label><input type="text" id="pe-vf" readonly class="accent-ro"></div>
+        </div>
+      </div>
+
+      <div class="tip" id="p-tip">—</div>
+    </div>
+  </div>
+</div><!-- end workspace-top -->
+
+<!-- CHART -->
+<div class="chart-area" id="chart-area" style="height:210px;">
+  <div class="chart-resize-handle" id="chart-resize-handle"></div>
+  <div class="chart-toolbar">
+    <span class="chart-title">Curva de tasas</span>
+    <div class="chart-mode-row">
+      <button class="chart-mode-btn active" onclick="setChartMode('tna',this)">TNA</button>
+      <button class="chart-mode-btn" onclick="setChartMode('tir',this)">TIR</button>
+      <button class="chart-mode-btn" onclick="setChartMode('tem',this)">TEM</button>
+    </div>
+  </div>
+  <div class="chart-wrap"><canvas id="curve-chart"></canvas></div>
+</div>
+
+</div><!-- end workspace -->
+
+<!-- ═══════════════════════════════════════════════════════ CER PAGE -->
+<div id="page-cer" style="display:none;height:calc(100vh - 136px);flex-direction:column;overflow:hidden;">
+
+  <div class="cer-workspace">
+
+    <!-- LEFT: CER TABLE -->
+    <div class="left-pane" id="cer-left-pane">
+      <div class="pane-toolbar">
+        <span class="pane-title">Bonos CER</span>
+        <input type="text" class="search-box" id="cer-search" placeholder="Buscar…" oninput="cerRenderTable()">
+        <label class="chk"><input type="checkbox" id="cer-show-vencidas" onchange="cerRenderTable()"> Vencidas</label>
+        <button class="btn" id="cer-fetch-btn" onclick="cerFetchPrices()">↻ Actualizar</button>
+        <span class="api-status" id="cer-api-status"></span>
+        <button class="btn primary" onclick="cerOpenModal()">+ Nueva</button>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr>
+            <th onclick="cerSortBy('ticker')" id="cer-th-ticker" style="text-align:left">Ticker</th>
+            <th onclick="cerSortBy('tipo')"   id="cer-th-tipo">Tipo</th>
+            <th onclick="cerSortBy('vcto')"   id="cer-th-vcto" class="sorted">Vto ↑</th>
+            <th onclick="cerSortBy('dias')"   id="cer-th-dias">Días</th>
+            <th onclick="cerSortBy('precio')" id="cer-th-precio">Precio $</th>
+            <th onclick="cerSortBy('pct_change')" id="cer-th-pct_change">Var%</th>
+            <th onclick="cerSortBy('tir')"    id="cer-th-tir">TIR real</th>
+            <th onclick="cerSortBy('tem')"    id="cer-th-tem">TEM real</th>
+            <th onclick="cerSortBy('tna')"    id="cer-th-tna">TNA real</th>
+            <th style="cursor:default;width:40px;"></th>
+          </tr></thead>
+          <tbody id="cer-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- RIGHT: CER PANEL -->
+    <div class="right-panel" id="cer-right-panel">
+      <div class="panel-header">
+        <div style="min-width:0">
+          <div class="panel-ticker" id="cer-p-ticker">—</div>
+          <div class="panel-meta" id="cer-p-meta"></div>
+        </div>
+        <button class="panel-close" onclick="cerClosePanel()">cerrar ✕</button>
+      </div>
+      <div class="panel-body">
+
+        <!-- TIPO BADGE -->
+        <div style="margin-bottom:.9rem;display:flex;gap:8px;align-items:center;">
+          <span id="cer-p-tipo-badge" style="font-size:11px;padding:2px 9px;border-radius:3px;background:var(--info-dim);color:var(--info);border:1px solid #1a2d3a;">—</span>
+          <span style="font-size:11px;color:var(--text3)" id="cer-p-cupon-label"></span>
+        </div>
+
+        <!-- METRICS -->
+        <div class="metrics" style="grid-template-columns:repeat(3,minmax(0,1fr));">
+          <div class="metric"><div class="metric-label">Días (ACT)</div><div class="metric-value" id="cer-pm-dias">—</div></div>
+          <div class="metric"><div class="metric-label">TIR real</div><div class="metric-value amber" id="cer-pm-tir">—</div></div>
+          <div class="metric"><div class="metric-label">TEM real</div><div class="metric-value amber" id="cer-pm-tem">—</div></div>
+          <div class="metric"><div class="metric-label">TNA real</div><div class="metric-value blue" id="cer-pm-tna">—</div></div>
+          <div class="metric"><div class="metric-label">Precio $</div><div class="metric-value green" id="cer-pm-precio">—</div></div>
+          <div class="metric"><div class="metric-label">Cup. corrido</div><div class="metric-value" id="cer-pm-cc">—</div></div>
+        </div>
+
+        <!-- MODE -->
+        <div class="mode-row">
+          <button class="mode-btn active" onclick="cerSetMode('precio')">Precio</button>
+          <button class="mode-btn" onclick="cerSetMode('tir')">TIR real</button>
+          <button class="mode-btn" onclick="cerSetMode('tem')">TEM real</button>
+          <button class="mode-btn" onclick="cerSetMode('tna')">TNA real</button>
+        </div>
+
+        <div class="field-row cols3" style="margin-bottom:4px">
+          <div class="field">
+            <label>Liquidación</label>
+            <input type="text" id="cer-p-liq-ro" readonly class="accent-ro">
+          </div>
+          <div class="field" id="cer-pf-precio">
+            <label>Precio limpio $</label>
+            <input type="number" id="cer-p-precio-in" step="0.01" oninput="cerRecalcPanel()">
+          </div>
+          <div class="field" id="cer-pf-tir" style="display:none">
+            <label>TIR real %</label>
+            <input type="number" id="cer-p-tir-in" step="0.0001" oninput="cerRecalcPanel()">
+          </div>
+          <div class="field" id="cer-pf-tem" style="display:none">
+            <label>TEM real %</label>
+            <input type="number" id="cer-p-tem-in" step="0.0001" oninput="cerRecalcPanel()">
+          </div>
+          <div class="field" id="cer-pf-tna" style="display:none">
+            <label>TNA real %</label>
+            <input type="number" id="cer-p-tna-in" step="0.0001" oninput="cerRecalcPanel()">
+          </div>
+          <div class="field">
+            <label>VN ($)</label>
+            <input type="number" id="cer-p-vn" value="1000" step="100" oninput="cerRecalcPanel()">
+          </div>
+        </div>
+
+        <div class="div-line"></div>
+
+        <!-- FLUJO -->
+        <div class="section-label">Flujo de fondos (valores reales)</div>
+        <table class="res-table">
+          <tr><td>Precio limpio</td><td id="cer-r-pl">—</td></tr>
+          <tr><td>Cupón corrido</td><td id="cer-r-cc">—</td></tr>
+          <tr class="hi"><td>Precio sucio (invertido)</td><td id="cer-r-ps">—</td></tr>
+          <tr><td>Días residuales</td><td id="cer-r-dias">—</td></tr>
+        </table>
+
+        <!-- TASAS -->
+        <div class="section-label">Tasas reales implícitas</div>
+        <table class="res-table">
+          <tr class="bl"><td>TIR real (ACT/365)</td><td id="cer-r-tir">—</td></tr>
+          <tr class="wa"><td>TEM real = (1+TIR)^(1/12)−1</td><td id="cer-r-tem">—</td></tr>
+          <tr class="wa"><td>TNA real = TEM×12</td><td id="cer-r-tna">—</td></tr>
+        </table>
+
+        <!-- DATOS EMISIÓN -->
+        <div class="section-toggle" id="cer-emision-toggle" onclick="cerToggleEmision()">
+          <span>Datos del bono</span>
+          <span class="arrow">▾</span>
+        </div>
+        <div id="cer-emision-section">
+          <div class="field-row cols2">
+            <div class="field"><label>Tipo</label>
+              <select id="cer-pe-tipo" onchange="cerSaveEmision()">
+                <option value="lecer">LECER (zero coupon)</option>
+                <option value="cupon">Bono con cupón</option>
+              </select>
+            </div>
+            <div class="field"><label>Cupón anual CER+% (solo bonos)</label>
+              <input type="number" id="cer-pe-cupon" step="0.01" placeholder="Ej: 2.00" oninput="cerSaveEmision()">
+            </div>
+          </div>
+          <div class="field-row cols2">
+            <div class="field"><label>Fecha emisión</label><input type="date" id="cer-pe-emision" oninput="cerSaveEmision()"></div>
+            <div class="field"><label>Fecha vencimiento</label><input type="date" id="cer-pe-vcto" oninput="cerSaveEmision()"></div>
+          </div>
+          <div class="field-row cols2">
+            <div class="field"><label>Frecuencia cupón</label>
+              <select id="cer-pe-freq" onchange="cerSaveEmision()">
+                <option value="6">Semestral</option>
+                <option value="3">Trimestral</option>
+                <option value="12">Anual</option>
+              </select>
+            </div>
+            <div class="field"><label>Amortización</label>
+              <select id="cer-pe-amort" onchange="cerSaveEmision()">
+                <option value="bullet">Bullet (al vto)</option>
+                <option value="cuota">Cuotas iguales</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="tip" id="cer-p-tip">Seleccioná un bono para ver el detalle.</div>
+      </div>
+    </div>
+
+  </div><!-- end cer-workspace -->
+</div><!-- end page-cer -->
+
+<!-- CER MODAL -->
+<div class="modal-backdrop" id="cer-modal">
+  <div class="modal" style="width:520px">
+    <div class="modal-title">Nuevo instrumento CER</div>
+    <div class="field-row cols2">
+      <div class="field"><label>Ticker</label><input type="text" id="cer-m-ticker" placeholder="Ej: TZXD5" style="text-transform:uppercase"></div>
+      <div class="field"><label>Tipo</label>
+        <select id="cer-m-tipo" onchange="cerModalTipoChange()">
+          <option value="lecer">LECER (zero coupon)</option>
+          <option value="cupon">Bono con cupón</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-row cols2">
+      <div class="field"><label>Fecha emisión</label><input type="date" id="cer-m-emision"></div>
+      <div class="field"><label>Fecha vencimiento</label><input type="date" id="cer-m-vcto"></div>
+    </div>
+    <div id="cer-m-cupon-fields" style="display:none">
+      <div class="field-row cols3">
+        <div class="field"><label>Cupón CER+% anual</label><input type="number" id="cer-m-cupon" step="0.01" placeholder="Ej: 2.00"></div>
+        <div class="field"><label>Frecuencia</label>
+          <select id="cer-m-freq">
+            <option value="6">Semestral</option>
+            <option value="3">Trimestral</option>
+            <option value="12">Anual</option>
+          </select>
+        </div>
+        <div class="field"><label>Amortización</label>
+          <select id="cer-m-amort">
+            <option value="bullet">Bullet</option>
+            <option value="cuota">Cuotas iguales</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="field-row cols2" style="margin-top:4px">
+      <div class="field"><label>Precio inicial $ (opcional)</label><input type="number" id="cer-m-precio" step="0.01" placeholder="Precio limpio"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="cerCloseModal()">Cancelar</button>
+      <button class="btn primary" onclick="cerSaveModal()">Agregar</button>
+    </div>
+  </div>
+</div>
+
+<!-- LECAP MODAL -->
+  <div class="modal">
+    <div class="modal-title">Nueva LECAP</div>
+    <div class="field-row cols2">
+      <div class="field"><label>Ticker</label><input type="text" id="m-ticker" placeholder="Ej: S31E7" style="text-transform:uppercase"></div>
+      <div class="field"><label>TEM emisión %</label><input type="number" id="m-tem-emision" step="0.0001" oninput="previewModalVF()"></div>
+    </div>
+    <div class="field-row cols2">
+      <div class="field"><label>Fecha emisión</label><input type="date" id="m-emision" oninput="previewModalVF()"></div>
+      <div class="field"><label>Fecha vencimiento</label><input type="date" id="m-vcto" oninput="previewModalVF()"></div>
+    </div>
+    <div class="field-row cols2">
+      <div class="field"><label>Precio inicial $</label><input type="number" id="m-precio" step="0.0001" placeholder="Opcional"></div>
+      <div class="field"><label>VF calculado</label><input type="text" id="m-vf-preview" readonly class="accent-ro" style="font-size:13px;padding-top:6px;"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Cancelar</button>
+      <button class="btn primary" onclick="saveModal()">Agregar</button>
+    </div>
+  </div>
+</div>
+
+<div style="height:30px;"></div>
+<div class="status-bar">
+  <span><span class="status-dot"></span><span id="st-count">—</span></span>
+  <span id="st-sel" style="color:var(--accent)"></span>
+  <span style="margin-left:auto;color:var(--text3)">bonosAR v0.6</span>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<script>
+// ── FERIADOS AR ───────────────────────────────────────────────────────────────
+const FERIADOS_FIJOS=['01-01','05-01','05-25','07-09','12-08','12-25'];
+const FERIADOS_FECHA=new Set([
+  '2024-02-12','2024-02-13','2024-03-24','2024-03-28','2024-03-29','2024-04-02',
+  '2024-06-17','2024-08-17','2024-10-14','2024-11-18','2024-11-20',
+  '2025-03-03','2025-03-04','2025-03-24','2025-04-02','2025-04-18','2025-04-19',
+  '2025-06-16','2025-08-16','2025-10-13','2025-11-17','2025-11-21',
+  '2026-02-16','2026-02-17','2026-03-24','2026-04-02','2026-04-03',
+  '2026-06-15','2026-08-17','2026-10-12','2026-11-20',
+]);
+const fmtDate=d=>d.toISOString().split('T')[0];
+function esFeriado(d){
+  const md=String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  return FERIADOS_FECHA.has(fmtDate(d))||FERIADOS_FIJOS.includes(md);
+}
+function esHabil(d){const w=d.getDay();return w!==0&&w!==6&&!esFeriado(d);}
+function addHabiles(desde,n){
+  let d=new Date(desde);d.setHours(0,0,0,0);
+  while(!esHabil(d))d.setDate(d.getDate()+1);
+  for(let i=0;i<n;){d.setDate(d.getDate()+1);if(esHabil(d))i++;}
+  return d;
+}
+
+// ── UTILIDADES ────────────────────────────────────────────────────────────────
+const TODAY=new Date();TODAY.setHours(0,0,0,0);
+const parseDate=s=>new Date(s+'T00:00:00');
+const fmtPct=(n,d=4)=>isNaN(n)||n===undefined?'—':n.toFixed(d)+'%';
+const fmtP2=n=>isNaN(n)||n===undefined?'—':n.toFixed(2)+'%';
+const fmtN=(n,d=6)=>isNaN(n)||n===undefined?'—':n.toFixed(d);
+const fmtARS=n=>isNaN(n)||n===undefined?'—':'$'+n.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:4});
+const fmtARSk=n=>isNaN(n)||n===undefined?'—':'$'+Math.round(n).toLocaleString('es-AR');
+const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+
+document.getElementById('hoy').textContent=
+  TODAY.toLocaleDateString('es-AR',{weekday:'short',year:'numeric',month:'short',day:'numeric'});
+
+// ── FECHA LIQUIDACIÓN GLOBAL ──────────────────────────────────────────────────
+let G_LIQ=null;
+function updateSettlement(){
+  const opStr=document.getElementById('g-fecha-op').value;
+  const plazo=parseInt(document.getElementById('g-plazo').value)||0;
+  if(!opStr){set('g-liq-display','—');return;}
+  G_LIQ=addHabiles(parseDate(opStr),plazo);
+  document.getElementById('g-liq-display').textContent=
+    G_LIQ.toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'});
+  if(document.getElementById('p-liq-ro'))
+    document.getElementById('p-liq-ro').value=
+      G_LIQ.toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'});
+  DATA=LECAPS.map(enrich);
+  renderTable();
+  if(selectedTicker)recalcPanel();
+}
+
+// ── 30/360 ────────────────────────────────────────────────────────────────────
+function dias360(d1,d2){
+  let y1=d1.getFullYear(),m1=d1.getMonth()+1,dd1=d1.getDate();
+  let y2=d2.getFullYear(),m2=d2.getMonth()+1,dd2=d2.getDate();
+  if(dd1===31)dd1=30;
+  if(dd2===31&&dd1===30)dd2=30;
+  return(y2-y1)*360+(m2-m1)*30+(dd2-dd1);
+}
+function diasACT(a,b){return Math.round((b-a)/86400000);}
+function calcVF(tem_emision,emision,vcto){
+  return Math.pow(1+tem_emision/100, dias360(emision,vcto)/30) * 100;
+}
+
+// ── FÓRMULAS ──────────────────────────────────────────────────────────────────
+// TNA = (VF/Precio − 1) / dias × 365
+const calcTNA=(precio,vf,dias)=>dias>0&&precio>0?((vf/precio-1)/dias*365)*100:NaN;
+// TIR = (1 + TNA×dias/365)^(365/dias) − 1
+const calcTIR=(tna,dias)=>dias>0?( Math.pow(1+(tna/100)*dias/365, 365/dias)-1 )*100:NaN;
+// TEM = (1+TIR)^(1/12) − 1
+const calcTEM=tir=>(Math.pow(1+tir/100,1/12)-1)*100;
+// Inversas
+const temToTIR=tem=>(Math.pow(1+tem/100,12)-1)*100;
+const tirToTNA=(tir,dias)=>((Math.pow(1+tir/100,dias/365)-1)/dias*365)*100;
+const tnaToPrice=(tna,vf,dias)=>vf/(1+(tna/100)*dias/365);
+const tirToPrice=(tir,vf,dias)=>vf/Math.pow(1+tir/100,dias/365);
+
+// ── DATOS ─────────────────────────────────────────────────────────────────────
+// La tabla arranca vacía — usá ↻ Actualizar precios para seleccionar instrumentos
+let LECAPS=[];
+
+// ── ENRICH ────────────────────────────────────────────────────────────────────
+function enrich(r){
+  const em=parseDate(r.emision),vc=parseDate(r.vcto);
+  const liq=G_LIQ||addHabiles(TODAY,1);
+  const vf=calcVF(r.tem_emision,em,vc);
+  const dias=Math.max(0,diasACT(liq,vc));
+  const precio=r.precio;
+  const tna=precio!=null&&dias>0?calcTNA(precio,vf,dias):NaN;
+  const tir=calcTIR(tna,dias);
+  const tem=calcTEM(tir);
+  return{...r,emisionDate:em,vctoDate:vc,vf,dias,tna,tir,tem};
+}
+let DATA=LECAPS.map(enrich);
+
+// ── API FETCH ─────────────────────────────────────────────────────────────────
+async function fetchPrices(){
+  if(!LECAPS.length){
+    document.getElementById('api-status').textContent='agregá letras primero';
+    document.getElementById('api-status').className='api-status';
+    return;
+  }
+  const statusEl=document.getElementById('api-status');
+  statusEl.textContent='cargando…';statusEl.className='api-status loading';
+  try{
+    const [rNotes,rBonds]=await Promise.all([
+      fetch('https://data912.com/live/arg_notes').then(r=>r.json()),
+      fetch('https://data912.com/live/arg_bonds').then(r=>r.json()),
+    ]);
+    const apiMap=new Map([...rNotes,...rBonds].map(x=>[x.symbol,x]));
+    let updated=0, notFound=[];
+    LECAPS=LECAPS.map(r=>{
+      const api=apiMap.get(r.ticker);
+      if(api&&api.c>0){
+        updated++;
+        return{...r,precio:api.c,pct_change:api.pct_change??null,manualOverride:false};
+      }
+      notFound.push(r.ticker);
+      return r;
+    });
+    DATA=LECAPS.map(enrich);
+    renderTable();
+    if(selectedTicker)recalcPanel();
+    const now=new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+    const msg=notFound.length
+      ? `${updated} actualizadas · ${notFound.join(', ')} sin precio · ${now}`
+      : `${updated} actualizadas · ${now}`;
+    statusEl.textContent=msg;
+    statusEl.className=notFound.length?'api-status err':'api-status ok';
+  }catch(e){
+    statusEl.textContent='error de conexión';
+    statusEl.className='api-status err';
+  }
+}
+
+// ── TABLA ─────────────────────────────────────────────────────────────────────
+let sortCol='vcto',sortAsc=true,selectedTicker=null,panelMode='precio',editingCell=null;
+
+const TH_COLS=['ticker','vcto','dias','precio','pct_change','tna','tir','tem','vf'];
+function sortBy(col){
+  sortAsc=sortCol===col?!sortAsc:(col==='vcto'||col==='ticker');
+  sortCol=col;renderTable();
+}
+
+function renderTable(){
+  const q=document.getElementById('search').value.toLowerCase();
+  const showV=document.getElementById('show-vencidas').checked;
+  let rows=DATA.filter(r=>(showV||r.dias>0)&&(!q||r.ticker.toLowerCase().includes(q)));
+  rows.sort((a,b)=>{
+    let av=a[sortCol],bv=b[sortCol];
+    // string sort for ticker and vcto (vcto is ISO string → lexicographic = chronological)
+    if(sortCol==='ticker'||sortCol==='vcto'){
+      av=av||''; bv=bv||'';
+      return sortAsc?av.localeCompare(bv):bv.localeCompare(av);
+    }
+    if(av==null||isNaN(av))av=sortAsc?1e9:-1e9;
+    if(bv==null||isNaN(bv))bv=sortAsc?1e9:-1e9;
+    return sortAsc?(av>bv?1:-1):(av<bv?1:-1);
+  });
+  TH_COLS.forEach(c=>{
+    const th=document.getElementById('th-'+c);if(!th)return;
+    const base=th.textContent.replace(/ [↑↓]$/,'').trim();
+    th.textContent=c===sortCol?base+' '+(sortAsc?'↑':'↓'):base;
+    th.classList.toggle('sorted',c===sortCol);
+  });
+  const tbody=document.getElementById('table-body');
+  if(!rows.length){tbody.innerHTML='<tr><td colspan="10" class="no-rows">Sin resultados. Agregá letras con + Nueva y actualizá precios.</td></tr>';set('st-count','0 letras');renderChart();return;}
+  // cache heat ranges for visible rows
+  window._heatRanges={
+    tna:heatRange('tna'),
+    tir:heatRange('tir'),
+    tem:heatRange('tem'),
+  };
+  tbody.innerHTML=rows.map(r=>buildRow(r)).join('');
+  set('st-count',rows.length+' letra'+(rows.length!==1?'s':''));
+  renderChart();
+}
+
+// ── HEATMAP HELPERS ───────────────────────────────────────────────────────────
+function heatRange(col){
+  const vals=DATA.map(r=>r[col]).filter(v=>v!=null&&!isNaN(v));
+  if(vals.length<2)return null;
+  return{min:Math.min(...vals),max:Math.max(...vals)};
+}
+// returns inline style string for heatmap cell background
+function heatStyle(val,range,col){
+  if(!range||val==null||isNaN(val))return'';
+  const t=range.max===range.min?0.5:(val-range.min)/(range.max-range.min);
+  // rojo (tasa baja) → verde (tasa alta)
+  const r=Math.round(180*(1-t));
+  const g=Math.round(160*t);
+  const b=0;
+  return `background:rgba(${r},${g},${b},0.22);`;
+}
+
+function buildRow(r){
+  const v=r.dias<=0;
+  const sel=r.ticker===selectedTicker?'selected':'';
+  const vctoStr=r.vcto?r.vcto.split('-').reverse().join('/'):'—';
+  const noPrice=r.precio==null;
+  const chg=r.pct_change;
+  const chgStr=chg==null?'':`<span class="${chg>=0?'c-chg-pos':'c-chg-neg'}">${chg>=0?'+':''}${chg.toFixed(2)}%</span>`;
+  const isOverride=!!r.manualOverride;
+
+  // precompute heat ranges once per render (cached on window)
+  const HR=window._heatRanges||{};
+
+  function cellContent(col){
+    const key=editingCell&&editingCell.ticker===r.ticker&&editingCell.col===col;
+    const val=r[col];
+    const isRate=col!=='precio';
+    const disp=!isRate?fmtARS(val):(val==null||isNaN(val)?'—':fmtP2(val));
+    const colorClass=!isRate?(v?'c-muted':'c-green'):col==='tna'||col==='tem'?(v?'c-muted':'c-amber'):(v?'c-muted':'c-blue');
+    const overrideCls=isOverride&&!v?'override':'';
+    if(key){
+      const startVal=val!=null&&!isNaN(val)?val.toFixed(!isRate?4:6):'';
+      return `<input class="cell-input" id="ci-input" type="number" step="0.0001" value="${startVal}"
+        onblur="commitCell()" onkeydown="cellKey(event)" autofocus>`;
+    }
+    const hs=isRate&&!v?heatStyle(val,HR[col],col):'';
+    return `<div class="cv editable ${colorClass} ${overrideCls}" style="${hs}" onclick="startCell(event,'${r.ticker}','${col}')">${noPrice&&col!=='precio'?'—':disp}</div>`;
+  }
+
+  return `<tr class="${sel}" onclick="handleRowClick(event,'${r.ticker}')">
+    <td class="ticker-cell"><div class="cv left no-edit"><span class="c-ticker">${r.ticker}</span></div></td>
+    <td><div class="cv no-edit c-date">${vctoStr}</div></td>
+    <td><div class="cv no-edit c-muted">${v?'<span style="color:var(--text3)">vencida</span>':r.dias}</div></td>
+    <td>${cellContent('precio')}</td>
+    <td><div class="cv no-edit" style="justify-content:flex-end">${chgStr}</div></td>
+    <td>${cellContent('tna')}</td>
+    <td>${cellContent('tir')}</td>
+    <td>${cellContent('tem')}</td>
+    <td><div class="cv no-edit c-muted">${fmtARS(r.vf)}</div></td>
+    <td onclick="event.stopPropagation()"><div class="row-act">
+      <button class="rbtn del" title="Eliminar" onclick="deleteRow('${r.ticker}')">✕</button>
+    </div></td>
+  </tr>`;
+}
+
+// ── EDICIÓN INLINE DE CELDAS ──────────────────────────────────────────────────
+function startCell(e,ticker,col){
+  e.stopPropagation();
+  editingCell={ticker,col};
+  renderTable();
+  // focus after render
+  setTimeout(()=>{const inp=document.getElementById('ci-input');if(inp)inp.focus();},10);
+}
+
+function cellKey(e){
+  if(e.key==='Enter')commitCell();
+  if(e.key==='Escape'){editingCell=null;renderTable();}
+}
+
+function commitCell(){
+  if(!editingCell)return;
+  const inp=document.getElementById('ci-input');
+  const val=inp?parseFloat(inp.value):NaN;
+  const {ticker,col}=editingCell;
+  editingCell=null;
+  if(isNaN(val)||val<=0){renderTable();return;}
+
+  const idx=LECAPS.findIndex(r=>r.ticker===ticker);
+  if(idx<0){renderTable();return;}
+
+  const r=DATA.find(d=>d.ticker===ticker);
+  const dias=r?r.dias:0;
+  const vf=r?r.vf:1;
+
+  let precio;
+  if(col==='precio')       precio=val;
+  else if(col==='tna')     precio=tnaToPrice(val,vf,dias);
+  else if(col==='tir')     precio=tirToPrice(val,vf,dias);
+  else { const tir=temToTIR(val); precio=tirToPrice(tir,vf,dias); }
+
+  LECAPS[idx]={...LECAPS[idx],precio,manualOverride:true};
+  DATA=LECAPS.map(enrich);
+  renderTable();
+  renderChart();
+  if(selectedTicker===ticker)recalcPanel();
+}
+
+// ── ROW CLICK → PANEL ────────────────────────────────────────────────────────
+function handleRowClick(e,ticker){
+  if(e.target.tagName==='INPUT'||e.target.tagName==='BUTTON')return;
+  if(editingCell){commitCell();return;}
+  openPanel(ticker);
+}
+
+function deleteRow(ticker){
+  if(!confirm('¿Eliminar '+ticker+'?'))return;
+  LECAPS=LECAPS.filter(r=>r.ticker!==ticker);
+  DATA=LECAPS.map(enrich);
+  if(selectedTicker===ticker)closePanel();
+  renderTable();
+}
+
+// ── PANEL LATERAL ─────────────────────────────────────────────────────────────
+function openPanel(ticker){
+  selectedTicker=ticker;
+  const r=DATA.find(d=>d.ticker===ticker);if(!r)return;
+
+  document.getElementById('left-pane').classList.add('narrowed');
+  document.getElementById('right-panel').classList.add('open');
+
+  set('p-ticker',ticker);
+  document.getElementById('p-meta').innerHTML=
+    `<span>Emisión: ${r.emision.split('-').reverse().join('/')}</span>`+
+    `<span>Vto: ${r.vcto.split('-').reverse().join('/')}</span>`+
+    `<span>TEM emisión: ${fmtP2(r.tem_emision)}</span>`;
+
+  // liquidación readonly
+  const liqDate=G_LIQ||addHabiles(TODAY,1);
+  document.getElementById('p-liq-ro').value=
+    liqDate.toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'});
+
+  // populate inputs
+  document.getElementById('p-precio-in').value=r.precio!=null?r.precio.toFixed(4):'';
+  document.getElementById('p-tna-in').value=isNaN(r.tna)?'':r.tna.toFixed(6);
+  document.getElementById('p-tir-in').value=isNaN(r.tir)?'':r.tir.toFixed(6);
+  document.getElementById('p-tem-in').value=isNaN(r.tem)?'':r.tem.toFixed(6);
+  document.getElementById('p-laminas').value='1';
+
+  // emission section
+  document.getElementById('pe-emision').value=r.emision;
+  document.getElementById('pe-vcto').value=r.vcto;
+  document.getElementById('pe-tem').value=r.tem_emision;
+  document.getElementById('pe-vf').value=fmtN(r.vf,6);
+
+  setMode('precio',false);
+  set('st-sel',ticker+' seleccionada');
+  renderTable();
+  recalcPanel();
+}
+
+function closePanel(){
+  selectedTicker=null;
+  document.getElementById('left-pane').classList.remove('narrowed');
+  document.getElementById('right-panel').classList.remove('open');
+  set('st-sel','');
+  renderTable();
+}
+
+function setMode(m,doRecalc=true){
+  panelMode=m;
+  ['precio','tna','tir','tem'].forEach(x=>{
+    document.getElementById('pf-'+x).style.display=x===m?'block':'none';
+  });
+  document.querySelectorAll('.mode-btn').forEach((b,i)=>{
+    b.classList.toggle('active',['precio','tna','tir','tem'][i]===m);
+  });
+  if(doRecalc)recalcPanel();
+}
+
+function recalcPanel(){
+  if(!selectedTicker)return;
+  const r=DATA.find(d=>d.ticker===selectedTicker);if(!r)return;
+  const liq=G_LIQ||addHabiles(TODAY,1);
+  const dias=diasACT(liq,r.vctoDate);
+  const laminas=parseFloat(document.getElementById('p-laminas').value)||1;
+  const vf=r.vf;
+
+  if(dias<=0){set('p-tip','Instrumento vencido.');return;}
+
+  let precio,tna,tir,tem;
+  if(panelMode==='precio'){
+    precio=parseFloat(document.getElementById('p-precio-in').value);
+    if(!precio||precio<=0)return;
+    tna=calcTNA(precio,vf,dias);tir=calcTIR(tna,dias);tem=calcTEM(tir);
+  }else if(panelMode==='tna'){
+    tna=parseFloat(document.getElementById('p-tna-in').value);
+    if(!tna)return;
+    precio=tnaToPrice(tna,vf,dias);tir=calcTIR(tna,dias);tem=calcTEM(tir);
+  }else if(panelMode==='tir'){
+    tir=parseFloat(document.getElementById('p-tir-in').value);
+    if(!tir)return;
+    precio=tirToPrice(tir,vf,dias);tna=tirToTNA(tir,dias);tem=calcTEM(tir);
+  }else{
+    tem=parseFloat(document.getElementById('p-tem-in').value);
+    if(!tem)return;
+    tir=temToTIR(tem);tna=tirToTNA(tir,dias);precio=tirToPrice(tir,vf,dias);
+  }
+
+  const inv=precio*laminas,cobro=vf*laminas,gan=cobro-inv,ret=(cobro/inv-1)*100;
+  const delta=tem-r.tem_emision;
+
+  // metrics
+  set('pm-dias',dias);
+  document.getElementById('pm-tna').innerHTML=fmtP2(tna)+'<span class="metric-unit">%</span>';
+  document.getElementById('pm-tir').innerHTML=fmtP2(tir)+'<span class="metric-unit">%</span>';
+  document.getElementById('pm-tem').innerHTML=fmtP2(tem)+'<span class="metric-unit">%</span>';
+  set('pm-precio',fmtARS(precio));
+  set('pm-vf',fmtARS(vf));
+
+  // flujo
+  set('r-inv',fmtARSk(inv));set('r-cobro',fmtARSk(cobro));
+  set('r-gan',fmtARSk(gan)+' ('+fmtP2(gan/inv*100)+')');
+  set('r-ret',fmtP2(ret));set('r-dias',dias+' días');
+
+  // tasas
+  set('r-tna',fmtPct(tna));set('r-tir',fmtPct(tir));set('r-tem',fmtPct(tem));
+  set('r-tem-em',fmtP2(r.tem_emision));
+  const dEl=document.getElementById('r-delta');
+  const sign=delta>=0?'+':'';
+  dEl.textContent=sign+fmtP2(delta);
+  dEl.style.color=delta>0.001?'var(--danger)':delta<-0.001?'var(--accent)':'var(--text2)';
+
+  // sync
+  if(panelMode!=='precio')document.getElementById('p-precio-in').value=precio.toFixed(4);
+  if(panelMode!=='tna')   document.getElementById('p-tna-in').value=tna.toFixed(6);
+  if(panelMode!=='tir')   document.getElementById('p-tir-in').value=tir.toFixed(6);
+  if(panelMode!=='tem')   document.getElementById('p-tem-in').value=tem.toFixed(6);
+
+  set('p-tip',`${dias} días ACT · TNA ${fmtP2(tna)} · TIR ${fmtP2(tir)} · TEM ${fmtP2(tem)}`);
+}
+
+// ── DATOS DE EMISIÓN (desde panel) ───────────────────────────────────────────
+function saveEmision(){
+  if(!selectedTicker)return;
+  const emision=document.getElementById('pe-emision').value;
+  const vcto=document.getElementById('pe-vcto').value;
+  const tem_emision=parseFloat(document.getElementById('pe-tem').value);
+  if(!emision||!vcto||isNaN(tem_emision))return;
+  const vf=calcVF(tem_emision,parseDate(emision),parseDate(vcto));
+  document.getElementById('pe-vf').value=fmtN(vf,6);
+  const idx=LECAPS.findIndex(r=>r.ticker===selectedTicker);
+  if(idx<0)return;
+  LECAPS[idx]={...LECAPS[idx],emision,vcto,tem_emision};
+  DATA=LECAPS.map(enrich);
+  // update panel meta
+  document.getElementById('p-meta').innerHTML=
+    `<span>Emisión: ${emision.split('-').reverse().join('/')}</span>`+
+    `<span>Vto: ${vcto.split('-').reverse().join('/')}</span>`+
+    `<span>TEM emisión: ${fmtP2(tem_emision)}</span>`;
+  renderTable();
+  recalcPanel();
+}
+
+function toggleEmision(){
+  const sec=document.getElementById('emision-section');
+  const tog=document.getElementById('emision-toggle');
+  const hidden=sec.style.display==='none';
+  sec.style.display=hidden?'block':'none';
+  tog.classList.toggle('collapsed',!hidden);
+}
+
+// ── MODAL NUEVA LECAP ─────────────────────────────────────────────────────────
+function openModal(){
+  ['m-ticker','m-tem-emision','m-emision','m-vcto','m-precio'].forEach(id=>{document.getElementById(id).value='';});
+  document.getElementById('m-vf-preview').value='';
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal(){document.getElementById('modal').classList.remove('open');}
+function previewModalVF(){
+  const tem=parseFloat(document.getElementById('m-tem-emision').value);
+  const em=document.getElementById('m-emision').value;
+  const vc=document.getElementById('m-vcto').value;
+  if(isNaN(tem)||!em||!vc){document.getElementById('m-vf-preview').value='';return;}
+  document.getElementById('m-vf-preview').value=fmtN(calcVF(tem,parseDate(em),parseDate(vc)),6);
+}
+['m-tem-emision','m-emision','m-vcto'].forEach(id=>document.getElementById(id).addEventListener('input',previewModalVF));
+function saveModal(){
+  const ticker=(document.getElementById('m-ticker').value||'').toUpperCase().trim();
+  const tem_emision=parseFloat(document.getElementById('m-tem-emision').value);
+  const emision=document.getElementById('m-emision').value;
+  const vcto=document.getElementById('m-vcto').value;
+  const precioRaw=document.getElementById('m-precio').value;
+  const precio=precioRaw?parseFloat(precioRaw):null;
+  if(!ticker||isNaN(tem_emision)||!emision||!vcto){alert('Completá ticker, TEM emisión y fechas.');return;}
+  if(LECAPS.find(r=>r.ticker===ticker)){alert('Ya existe ese ticker.');return;}
+  LECAPS.push({ticker,emision,vcto,tem_emision,precio,pct_change:null});
+  DATA=LECAPS.map(enrich);
+  closeModal();renderTable();openPanel(ticker);
+}
+
+// ── CURVA DE TASAS (Chart.js) ─────────────────────────────────────────────────
+let chartMode='tna', curveChart=null;
+
+function setChartMode(mode, btn){
+  chartMode=mode;
+  document.querySelectorAll('.chart-mode-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderChart();
+}
+
+function renderChart(){
+  const canvas=document.getElementById('curve-chart');
+  if(!canvas)return;
+
+  const pts=DATA
+    .filter(r=>r.dias>0&&r.precio!=null&&!isNaN(r[chartMode]))
+    .sort((a,b)=>a.dias-b.dias);
+
+  if(curveChart){curveChart.destroy();curveChart=null;}
+  // remove stale tooltip
+  const old=document.getElementById('chart-tooltip');
+  if(old)old.remove();
+  if(!pts.length)return;
+
+  const xVals=pts.map(r=>r.dias);
+  const yVals=pts.map(r=>r[chartMode]);
+  const tickers=pts.map(r=>r.ticker);
+  const overrides=pts.map(r=>!!r.manualOverride);
+
+  // regression
+  const lx=xVals.map(x=>Math.log(x));
+  const n=xVals.length;
+  const sumLx=lx.reduce((s,v)=>s+v,0);
+  const sumY=yVals.reduce((s,v)=>s+v,0);
+  const sumLx2=lx.reduce((s,v)=>s+v*v,0);
+  const sumLxY=lx.reduce((s,v,i)=>s+v*yVals[i],0);
+  const denom=n*sumLx2-sumLx*sumLx;
+  const b=denom!==0?(n*sumLxY-sumLx*sumY)/denom:0;
+  const a=(sumY-b*sumLx)/n;
+  const xMin=Math.min(...xVals),xMax=Math.max(...xVals);
+  const trendData=[];
+  for(let i=0;i<=120;i++){
+    const x=xMin+(xMax-xMin)*i/120;
+    trendData.push({x:Math.round(x),y:a+b*Math.log(x)});
+  }
+
+  const axisLabels={tna:'TNA (%)',tir:'TIR (%)',tem:'TEM (%)'};
+  const pointColors=pts.map(r=>r.manualOverride?'#d4a96a':'#a8d5a2');
+  const pointBorder=pts.map(r=>r.manualOverride?'#b8883a':'#6eb868');
+
+  if(window.ChartDataLabels) Chart.register(ChartDataLabels);
+
+  // external HTML tooltip element
+  const tooltipEl=document.createElement('div');
+  tooltipEl.id='chart-tooltip';
+  tooltipEl.style.cssText='position:fixed;pointer-events:none;display:none;z-index:999;'+
+    'background:#1a1d1b;border:1px solid #2e322e;border-radius:5px;padding:8px 12px;'+
+    'font-family:DM Mono,monospace;font-size:12px;white-space:nowrap;';
+  document.body.appendChild(tooltipEl);
+
+  curveChart=new Chart(canvas,{
+    type:'scatter',
+    data:{
+      datasets:[
+        {
+          label:'Letras',
+          data:xVals.map((x,i)=>({x,y:yVals[i]})),
+          pointBackgroundColor:pointColors,
+          pointBorderColor:pointBorder,
+          pointBorderWidth:1.5,
+          pointRadius:6,
+          pointHoverRadius:9,
+          showLine:false,
+          datalabels:{
+            display:true,
+            formatter:(_,ctx)=>tickers[ctx.dataIndex],
+            color:ctx=>overrides[ctx.dataIndex]?'#d4a96a':'#8a9489',
+            font:{size:10,family:'DM Mono, monospace'},
+            anchor:'end',
+            align:'top',
+            offset:4,
+            clip:false,
+          },
+        },
+        {
+          label:'Tendencia log.',
+          data:trendData,
+          borderColor:'rgba(122,179,212,0.55)',
+          borderWidth:1.5,
+          pointRadius:0,
+          showLine:true,
+          fill:false,
+          tension:0,
+          datalabels:{display:false},
+        },
+      ]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      layout:{padding:{top:22}},
+      plugins:{
+        legend:{display:false},
+        tooltip:{enabled:false,external:({chart,tooltip})=>{
+          if(tooltip.opacity===0){tooltipEl.style.display='none';return;}
+          if(tooltip.dataPoints[0].datasetIndex!==0){tooltipEl.style.display='none';return;}
+          const dp=tooltip.dataPoints[0];
+          const i=dp.dataIndex;
+          const rate=yVals[i].toFixed(4);
+          const ovr=overrides[i]?' <span style="color:#d4a96a">✎ manual</span>':'';
+          tooltipEl.innerHTML=
+            `<div style="color:#a8d5a2;margin-bottom:3px">${tickers[i]} · ${xVals[i]} días</div>`+
+            `<div style="color:#8a9489">${chartMode.toUpperCase()}: <span style="color:#e8ede9">${rate}%</span>${ovr}</div>`;
+          // position near cursor using caretX/Y relative to canvas bounding rect
+          const rect=chart.canvas.getBoundingClientRect();
+          const x=rect.left+tooltip.caretX+12;
+          const y=rect.top+tooltip.caretY-10;
+          tooltipEl.style.left=x+'px';
+          tooltipEl.style.top=y+'px';
+          tooltipEl.style.display='block';
+        }},
+        datalabels:{},
+      },
+      scales:{
+        x:{
+          title:{display:true,text:'Días al vencimiento',color:'#4d554e',font:{size:10,family:'DM Mono, monospace'}},
+          ticks:{color:'#4d554e',font:{size:10,family:'DM Mono, monospace'}},
+          grid:{color:'#252825'},
+          type:'linear',
+        },
+        y:{
+          title:{display:true,text:axisLabels[chartMode],color:'#4d554e',font:{size:10,family:'DM Mono, monospace'}},
+          ticks:{color:'#4d554e',font:{size:10,family:'DM Mono, monospace'},callback:v=>v.toFixed(2)+'%'},
+          grid:{color:'#252825'},
+        },
+      },
+      onHover:(_,els)=>{
+        canvas.style.cursor=els.length&&els[0].datasetIndex===0?'pointer':'default';
+      },
+    },
+  });
+
+  // hide tooltip when mouse leaves chart area
+  canvas.addEventListener('mouseleave',()=>tooltipEl.style.display='none');
+}
+
+// ── RESIZE DRAG ───────────────────────────────────────────────────────────────
+(function initResize(){
+  const handle=document.getElementById('chart-resize-handle');
+  const area=document.getElementById('chart-area');
+  const MIN_H=120, MAX_H=600;
+  let dragging=false, startY=0, startH=0;
+
+  handle.addEventListener('mousedown',e=>{
+    dragging=true;
+    startY=e.clientY;
+    startH=area.offsetHeight;
+    document.body.style.cursor='ns-resize';
+    document.body.style.userSelect='none';
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove',e=>{
+    if(!dragging)return;
+    // dragging up = bigger chart (handle is at top of chart area)
+    const delta=startY-e.clientY;
+    const newH=Math.min(MAX_H,Math.max(MIN_H,startH+delta));
+    area.style.height=newH+'px';
+    if(curveChart)curveChart.resize();
+  });
+  document.addEventListener('mouseup',()=>{
+    if(!dragging)return;
+    dragging=false;
+    document.body.style.cursor='';
+    document.body.style.userSelect='';
+    if(curveChart)curveChart.resize();
+  });
+}());
+
+// ══════════════════════════════════════════════════════════════ TAB SWITCHER
+let currentTab='lecap';
+function switchTab(tab){
+  currentTab=tab;
+  document.querySelectorAll('.nav-tab:not(.disabled)').forEach(b=>{
+    b.classList.toggle('active', b.id==='nav-'+tab);
+  });
+  const lecapWorkspace=document.getElementById('lecap-workspace');
+  const chartArea=document.getElementById('chart-area');
+  const cerPage=document.getElementById('page-cer');
+
+  if(tab==='lecap'){
+    lecapWorkspace.style.display='flex';
+    chartArea.style.display='flex';
+    cerPage.style.display='none';
+  } else {
+    lecapWorkspace.style.display='none';
+    chartArea.style.display='none';
+    cerPage.style.display='flex';
+  }
+}
+
+// ══════════════════════════════════════════════════════════════ CER DATA & STATE
+let CER_BONDS=[];
+let cerSortCol='vcto', cerSortAsc=true, cerSelectedTicker=null, cerPanelMode='precio', cerEditingCell=null;
+
+// ── CER MATH ──────────────────────────────────────────────────────────────────
+// LECER: zero coupon ajustado CER — tratamos precio como % del VN ajustado
+// TIR real = (VF/precio)^(365/dias) - 1   (VF=100 para LECER normalizado)
+function cerTirLecer(precio, dias){ return dias>0&&precio>0?(Math.pow(100/precio,365/dias)-1)*100:NaN; }
+function cerTemFromTir(tir){ return (Math.pow(1+tir/100,1/12)-1)*100; }
+function cerTnaFromTem(tem){ return tem*12; }
+function cerPriceFromTir_lecer(tir, dias){ return 100/Math.pow(1+tir/100,dias/365); }
+function cerPriceFromTem_lecer(tem, dias){ return cerPriceFromTir_lecer(cerTemToTir(tem),dias); }
+function cerTemToTir(tem){ return (Math.pow(1+tem/100,12)-1)*100; }
+function cerTnaToTir(tna){ return cerTemToTir(tna/12); }
+
+// Generar fechas de cupón para bono CER con cupón
+function cerCouponDates(emisionStr, vctoStr, freqMeses){
+  const vcto=parseDate(vctoStr);
+  const dates=[];
+  let d=new Date(vcto);
+  while(true){
+    dates.unshift(new Date(d));
+    d=new Date(d);
+    d.setMonth(d.getMonth()-freqMeses);
+    if(d<=parseDate(emisionStr))break;
+  }
+  return dates;
+}
+
+// Cupón corrido para bono con cupón (lineal entre fechas de cupón)
+function cerCuponCorrido(r, liq){
+  if(r.tipo!=='cupon'||!r.cupon||!r.emision||!r.vcto)return 0;
+  const freq=r.freq||6;
+  const cuponPeriodo=r.cupon/2*(freq/6); // cupón del período
+  const dates=cerCouponDates(r.emision,r.vcto,freq);
+  // encontrar el período actual
+  const liqD=liq||G_LIQ||addHabiles(TODAY,1);
+  for(let i=0;i<dates.length;i++){
+    const prev=i===0?parseDate(r.emision):dates[i-1];
+    const next=dates[i];
+    if(liqD>=prev&&liqD<next){
+      const elapsed=diasACT(prev,liqD);
+      const total=diasACT(prev,next);
+      return total>0?(elapsed/total)*cuponPeriodo:0;
+    }
+  }
+  return 0;
+}
+
+// TIR real bono con cupón — Newton-Raphson sobre flujos en % VN real
+function cerTirBono(precioSucio, r, liq){
+  if(!r.cupon||!r.vcto||!r.emision)return NaN;
+  const liqD=liq||G_LIQ||addHabiles(TODAY,1);
+  const freq=r.freq||6;
+  const cuponPer=r.cupon*(freq/12); // cupón semestral en %
+  const dates=cerCouponDates(r.emision,r.vcto,freq);
+  const vcto=parseDate(r.vcto);
+
+  // construir flujos: (días desde liq, monto)
+  const flujos=[];
+  const n=dates.length;
+  dates.forEach((d,i)=>{
+    if(d<=liqD)return;
+    const dias=diasACT(liqD,d);
+    let amort=0;
+    if(r.amort==='bullet'&&i===n-1) amort=100;
+    else if(r.amort==='cuota') amort=100/n;
+    flujos.push({dias, monto:cuponPer+amort});
+  });
+  if(!flujos.length)return NaN;
+
+  // Newton-Raphson
+  let tir=0.02; // seed 2% anual real
+  for(let iter=0;iter<80;iter++){
+    let pv=0,dpv=0;
+    flujos.forEach(f=>{
+      const t=f.dias/365;
+      const df=Math.pow(1+tir,t);
+      pv+=f.monto/df;
+      dpv-=t*f.monto/Math.pow(1+tir,t+1);
+    });
+    const err=pv-precioSucio;
+    if(Math.abs(err)<1e-8)break;
+    tir=tir-err/dpv;
+  }
+  return tir*100;
+}
+
+function cerPriceSucioBono(tir, r, liq){
+  if(!r.cupon||!r.vcto||!r.emision)return NaN;
+  const liqD=liq||G_LIQ||addHabiles(TODAY,1);
+  const freq=r.freq||6;
+  const cuponPer=r.cupon*(freq/12);
+  const dates=cerCouponDates(r.emision,r.vcto,freq);
+  const n=dates.length;
+  let pv=0;
+  dates.forEach((d,i)=>{
+    if(d<=liqD)return;
+    const dias=diasACT(liqD,d);
+    let amort=0;
+    if(r.amort==='bullet'&&i===n-1) amort=100;
+    else if(r.amort==='cuota') amort=100/n;
+    pv+=(cuponPer+amort)/Math.pow(1+tir/100,dias/365);
+  });
+  return pv;
+}
+
+// ── CER ENRICH ────────────────────────────────────────────────────────────────
+function cerEnrich(r){
+  const liq=G_LIQ||addHabiles(TODAY,1);
+  const vctoDate=r.vcto?parseDate(r.vcto):null;
+  const dias=vctoDate?Math.max(0,diasACT(liq,vctoDate)):0;
+  let tir=NaN,tem=NaN,tna=NaN,cc=0;
+
+  if(r.precio!=null&&dias>0){
+    if(r.tipo==='lecer'){
+      tir=cerTirLecer(r.precio,dias);
+    } else {
+      cc=cerCuponCorrido(r,liq);
+      const ps=r.precio+cc;
+      tir=cerTirBono(ps,r,liq);
+    }
+    tem=cerTemFromTir(tir);
+    tna=cerTnaFromTem(tem);
+  }
+  return{...r,vctoDate,dias,tir,tem,tna,cc};
+}
+let CER_DATA=[];
+
+// ── CER API FETCH ─────────────────────────────────────────────────────────────
+async function cerFetchPrices(){
+  if(!CER_BONDS.length){
+    document.getElementById('cer-api-status').textContent='agregá bonos primero';return;
+  }
+  const st=document.getElementById('cer-api-status');
+  st.textContent='cargando…';st.className='api-status loading';
+  try{
+    const [rN,rB]=await Promise.all([
+      fetch('https://data912.com/live/arg_notes').then(r=>r.json()),
+      fetch('https://data912.com/live/arg_bonds').then(r=>r.json()),
+    ]);
+    const map=new Map([...rN,...rB].map(x=>[x.symbol,x]));
+    let updated=0,notFound=[];
+    CER_BONDS=CER_BONDS.map(r=>{
+      const api=map.get(r.ticker);
+      if(api&&api.c>0){updated++;return{...r,precio:api.c,pct_change:api.pct_change??null,manualOverride:false};}
+      notFound.push(r.ticker);return r;
+    });
+    CER_DATA=CER_BONDS.map(cerEnrich);
+    cerRenderTable();
+    if(cerSelectedTicker)cerRecalcPanel();
+    const now=new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+    st.textContent=notFound.length?`${updated} actualizados · sin precio: ${notFound.join(', ')} · ${now}`:`${updated} actualizados · ${now}`;
+    st.className=notFound.length?'api-status err':'api-status ok';
+  }catch(e){
+    document.getElementById('cer-api-status').textContent='error de conexión';
+    document.getElementById('cer-api-status').className='api-status err';
+  }
+}
+
+// ── CER TABLE ─────────────────────────────────────────────────────────────────
+const CER_TH=['ticker','tipo','vcto','dias','precio','pct_change','tir','tem','tna'];
+function cerSortBy(col){
+  cerSortAsc=cerSortCol===col?!cerSortAsc:(col==='vcto'||col==='ticker');
+  cerSortCol=col;cerRenderTable();
+}
+
+function cerHeatStyle(val,col){
+  const vals=CER_DATA.map(r=>r[col]).filter(v=>v!=null&&!isNaN(v));
+  if(vals.length<2||val==null||isNaN(val))return'';
+  const mn=Math.min(...vals),mx=Math.max(...vals);
+  const t=mx===mn?0.5:(val-mn)/(mx-mn);
+  const rv=Math.round(180*(1-t)),gv=Math.round(160*t);
+  return `background:rgba(${rv},${gv},0,0.22);`;
+}
+
+function cerRenderTable(){
+  CER_DATA=CER_BONDS.map(cerEnrich);
+  const q=document.getElementById('cer-search').value.toLowerCase();
+  const showV=document.getElementById('cer-show-vencidas').checked;
+  let rows=CER_DATA.filter(r=>(showV||r.dias>0)&&(!q||r.ticker.toLowerCase().includes(q)));
+  rows.sort((a,b)=>{
+    if(cerSortCol==='ticker'||cerSortCol==='vcto'||cerSortCol==='tipo'){
+      const av=a[cerSortCol]||'',bv=b[cerSortCol]||'';
+      return cerSortAsc?av.localeCompare(bv):bv.localeCompare(av);
+    }
+    let av=a[cerSortCol],bv=b[cerSortCol];
+    if(av==null||isNaN(av))av=cerSortAsc?1e9:-1e9;
+    if(bv==null||isNaN(bv))bv=cerSortAsc?1e9:-1e9;
+    return cerSortAsc?(av>bv?1:-1):(av<bv?1:-1);
+  });
+  CER_TH.forEach(c=>{
+    const th=document.getElementById('cer-th-'+c);if(!th)return;
+    const base=th.textContent.replace(/ [↑↓]$/,'').trim();
+    th.textContent=c===cerSortCol?base+' '+(cerSortAsc?'↑':'↓'):base;
+    th.classList.toggle('sorted',c===cerSortCol);
+  });
+  const tbody=document.getElementById('cer-table-body');
+  if(!rows.length){tbody.innerHTML='<tr><td colspan="10" class="no-rows">Agregá bonos CER con + Nueva y actualizá precios.</td></tr>';set('st-count','0 bonos');return;}
+
+  tbody.innerHTML=rows.map(r=>{
+    const v=r.dias<=0;
+    const sel=r.ticker===cerSelectedTicker?'selected':'';
+    const vctoStr=r.vcto?r.vcto.split('-').reverse().join('/'):'—';
+    const chg=r.pct_change;
+    const chgStr=chg==null?'':`<span class="${chg>=0?'c-chg-pos':'c-chg-neg'}">${chg>=0?'+':''}${chg.toFixed(2)}%</span>`;
+    const tipoBadge=r.tipo==='lecer'
+      ?'<span style="font-size:10px;color:var(--info)">LECER</span>'
+      :'<span style="font-size:10px;color:var(--warn)">CPN</span>';
+
+    function cerc(col){
+      const key=cerEditingCell&&cerEditingCell.ticker===r.ticker&&cerEditingCell.col===col;
+      const val=r[col];
+      const isRate=col!=='precio';
+      const disp=!isRate?fmtARS(val):(val==null||isNaN(val)?'—':fmtP2(val));
+      const cc=!isRate?(v?'c-muted':'c-green'):(v?'c-muted':'c-amber');
+      const oc=r.manualOverride&&!v?'override':'';
+      if(key){
+        const sv=val!=null&&!isNaN(val)?val.toFixed(!isRate?2:6):'';
+        return`<input class="cell-input" id="cer-ci-input" type="number" step="0.01" value="${sv}" onblur="cerCommitCell()" onkeydown="cerCellKey(event)" autofocus>`;
+      }
+      const hs=isRate&&!v?cerHeatStyle(val,col):'';
+      return`<div class="cv editable ${cc} ${oc}" style="${hs}" onclick="cerStartCell(event,'${r.ticker}','${col}')">${r.precio==null&&col!=='precio'?'—':disp}</div>`;
+    }
+
+    return`<tr class="${sel}" onclick="cerHandleRowClick(event,'${r.ticker}')">
+      <td class="ticker-cell"><div class="cv left no-edit"><span class="c-ticker">${r.ticker}</span></div></td>
+      <td><div class="cv no-edit" style="justify-content:center">${tipoBadge}</div></td>
+      <td><div class="cv no-edit c-date">${vctoStr}</div></td>
+      <td><div class="cv no-edit c-muted">${v?'<span style="color:var(--text3)">vencida</span>':r.dias}</div></td>
+      <td>${cerc('precio')}</td>
+      <td><div class="cv no-edit">${chgStr}</div></td>
+      <td>${cerc('tir')}</td>
+      <td>${cerc('tem')}</td>
+      <td>${cerc('tna')}</td>
+      <td onclick="event.stopPropagation()"><div class="row-act">
+        <button class="rbtn del" onclick="cerDeleteRow('${r.ticker}')">✕</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+  set('st-count',rows.length+' bono'+(rows.length!==1?'s':''));
+}
+
+// ── CER INLINE EDIT ───────────────────────────────────────────────────────────
+function cerStartCell(e,ticker,col){
+  e.stopPropagation();cerEditingCell={ticker,col};cerRenderTable();
+  setTimeout(()=>{const i=document.getElementById('cer-ci-input');if(i)i.focus();},10);
+}
+function cerCellKey(e){if(e.key==='Enter')cerCommitCell();if(e.key==='Escape'){cerEditingCell=null;cerRenderTable();}}
+function cerCommitCell(){
+  if(!cerEditingCell)return;
+  const inp=document.getElementById('cer-ci-input');
+  const val=inp?parseFloat(inp.value):NaN;
+  const{ticker,col}=cerEditingCell;cerEditingCell=null;
+  if(isNaN(val)||val<=0){cerRenderTable();return;}
+  const idx=CER_BONDS.findIndex(r=>r.ticker===ticker);if(idx<0){cerRenderTable();return;}
+  const r=CER_DATA.find(d=>d.ticker===ticker);
+  const liq=G_LIQ||addHabiles(TODAY,1);
+  let precio;
+  if(col==='precio') precio=val;
+  else{
+    const tir=col==='tir'?val:col==='tem'?cerTemToTir(val):cerTnaToTir(val);
+    if(r.tipo==='lecer') precio=cerPriceFromTir_lecer(tir,r.dias);
+    else{ const ps=cerPriceSucioBono(tir,r,liq); precio=ps-cerCuponCorrido(r,liq); }
+  }
+  CER_BONDS[idx]={...CER_BONDS[idx],precio,manualOverride:true};
+  CER_DATA=CER_BONDS.map(cerEnrich);
+  cerRenderTable();
+  if(cerSelectedTicker===ticker)cerRecalcPanel();
+}
+function cerHandleRowClick(e,ticker){
+  if(e.target.tagName==='INPUT'||e.target.tagName==='BUTTON')return;
+  if(cerEditingCell){cerCommitCell();return;}
+  cerOpenPanel(ticker);
+}
+function cerDeleteRow(ticker){
+  if(!confirm('¿Eliminar '+ticker+'?'))return;
+  CER_BONDS=CER_BONDS.filter(r=>r.ticker!==ticker);
+  CER_DATA=CER_BONDS.map(cerEnrich);
+  if(cerSelectedTicker===ticker)cerClosePanel();
+  cerRenderTable();
+}
+
+// ── CER PANEL ─────────────────────────────────────────────────────────────────
+function cerOpenPanel(ticker){
+  cerSelectedTicker=ticker;
+  const r=CER_DATA.find(d=>d.ticker===ticker);if(!r)return;
+  document.getElementById('cer-left-pane').classList.add('narrowed');
+  document.getElementById('cer-right-panel').classList.add('open');
+  set('cer-p-ticker',ticker);
+  const tipoLabel=r.tipo==='lecer'?'LECER — Zero Coupon CER':`Bono CER · Cupón ${r.cupon??'—'}% + CER`;
+  document.getElementById('cer-p-tipo-badge').textContent=r.tipo==='lecer'?'LECER':'BONO CPN';
+  document.getElementById('cer-p-cupon-label').textContent=r.tipo==='lecer'?'Zero coupon ajustado CER':`Cupón: ${r.cupon??'—'}% a/a · ${r.freq??6}m · ${r.amort==='bullet'?'Bullet':'Cuotas'}`;
+  document.getElementById('cer-p-meta').innerHTML=
+    `<span>Emisión: ${r.emision?r.emision.split('-').reverse().join('/'):'—'}</span>`+
+    `<span>Vto: ${r.vcto?r.vcto.split('-').reverse().join('/'):'—'}</span>`;
+  const liq=G_LIQ||addHabiles(TODAY,1);
+  document.getElementById('cer-p-liq-ro').value=liq.toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'});
+  document.getElementById('cer-p-precio-in').value=r.precio!=null?r.precio.toFixed(2):'';
+  document.getElementById('cer-p-tir-in').value=isNaN(r.tir)?'':r.tir.toFixed(6);
+  document.getElementById('cer-p-tem-in').value=isNaN(r.tem)?'':r.tem.toFixed(6);
+  document.getElementById('cer-p-tna-in').value=isNaN(r.tna)?'':r.tna.toFixed(6);
+  document.getElementById('cer-p-vn').value='1000';
+  // emission fields
+  document.getElementById('cer-pe-tipo').value=r.tipo||'lecer';
+  document.getElementById('cer-pe-emision').value=r.emision||'';
+  document.getElementById('cer-pe-vcto').value=r.vcto||'';
+  document.getElementById('cer-pe-cupon').value=r.cupon||'';
+  document.getElementById('cer-pe-freq').value=r.freq||6;
+  document.getElementById('cer-pe-amort').value=r.amort||'bullet';
+  cerSetMode('precio',false);
+  set('st-sel',ticker+' seleccionado');
+  cerRenderTable();cerRecalcPanel();
+}
+function cerClosePanel(){
+  cerSelectedTicker=null;
+  document.getElementById('cer-left-pane').classList.remove('narrowed');
+  document.getElementById('cer-right-panel').classList.remove('open');
+  set('st-sel','');cerRenderTable();
+}
+function cerSetMode(m,doRecalc=true){
+  cerPanelMode=m;
+  ['precio','tir','tem','tna'].forEach(x=>{
+    document.getElementById('cer-pf-'+x).style.display=x===m?'block':'none';
+  });
+  document.querySelectorAll('#cer-right-panel .mode-btn').forEach((b,i)=>{
+    b.classList.toggle('active',['precio','tir','tem','tna'][i]===m);
+  });
+  if(doRecalc)cerRecalcPanel();
+}
+function cerRecalcPanel(){
+  if(!cerSelectedTicker)return;
+  const r=CER_DATA.find(d=>d.ticker===cerSelectedTicker);if(!r)return;
+  const liq=G_LIQ||addHabiles(TODAY,1);
+  const dias=r.dias;
+  const vn=parseFloat(document.getElementById('cer-p-vn').value)||1000;
+  if(dias<=0){set('cer-p-tip','Instrumento vencido.');return;}
+
+  let pl,ps,tir,tem,tna,cc=r.cc||0;
+
+  if(cerPanelMode==='precio'){
+    pl=parseFloat(document.getElementById('cer-p-precio-in').value);
+    if(!pl||pl<=0)return;
+    if(r.tipo==='lecer'){tir=cerTirLecer(pl,dias);}
+    else{ps=pl+cc;tir=cerTirBono(ps,r,liq);}
+  } else {
+    let tirIn;
+    if(cerPanelMode==='tir') tirIn=parseFloat(document.getElementById('cer-p-tir-in').value);
+    else if(cerPanelMode==='tem') tirIn=cerTemToTir(parseFloat(document.getElementById('cer-p-tem-in').value));
+    else tirIn=cerTnaToTir(parseFloat(document.getElementById('cer-p-tna-in').value));
+    if(!tirIn&&tirIn!==0)return;
+    tir=tirIn;
+    if(r.tipo==='lecer') pl=cerPriceFromTir_lecer(tir,dias);
+    else{ps=cerPriceSucioBono(tir,r,liq);pl=ps-cc;}
+  }
+  tem=cerTemFromTir(tir);tna=cerTnaFromTem(tem);
+  if(r.tipo==='lecer'){ps=pl;cc=0;}else ps=pl+cc;
+
+  // metrics
+  set('cer-pm-dias',dias);
+  document.getElementById('cer-pm-tir').innerHTML=fmtP2(tir)+'<span class="metric-unit">%</span>';
+  document.getElementById('cer-pm-tem').innerHTML=fmtP2(tem)+'<span class="metric-unit">%</span>';
+  document.getElementById('cer-pm-tna').innerHTML=fmtP2(tna)+'<span class="metric-unit">%</span>';
+  set('cer-pm-precio',fmtARS(pl));
+  set('cer-pm-cc',cc>0?fmtARS(cc):'—');
+  // results
+  const scale=vn/100;
+  set('cer-r-pl',fmtARSk(pl*scale));
+  set('cer-r-cc',cc>0?fmtARSk(cc*scale):'—');
+  set('cer-r-ps',fmtARSk(ps*scale));
+  set('cer-r-dias',dias+' días');
+  set('cer-r-tir',fmtPct(tir));set('cer-r-tem',fmtPct(tem));set('cer-r-tna',fmtPct(tna));
+  // sync inputs
+  if(cerPanelMode!=='precio')document.getElementById('cer-p-precio-in').value=pl.toFixed(4);
+  if(cerPanelMode!=='tir')   document.getElementById('cer-p-tir-in').value=tir.toFixed(6);
+  if(cerPanelMode!=='tem')   document.getElementById('cer-p-tem-in').value=tem.toFixed(6);
+  if(cerPanelMode!=='tna')   document.getElementById('cer-p-tna-in').value=tna.toFixed(6);
+  set('cer-p-tip',`${dias} días · TIR real ${fmtP2(tir)} · TEM real ${fmtP2(tem)} · TNA real ${fmtP2(tna)}`);
+}
+
+// ── CER SAVE EMISSION ─────────────────────────────────────────────────────────
+function cerSaveEmision(){
+  if(!cerSelectedTicker)return;
+  const idx=CER_BONDS.findIndex(r=>r.ticker===cerSelectedTicker);if(idx<0)return;
+  CER_BONDS[idx]={...CER_BONDS[idx],
+    tipo:document.getElementById('cer-pe-tipo').value,
+    emision:document.getElementById('cer-pe-emision').value,
+    vcto:document.getElementById('cer-pe-vcto').value,
+    cupon:parseFloat(document.getElementById('cer-pe-cupon').value)||null,
+    freq:parseInt(document.getElementById('cer-pe-freq').value)||6,
+    amort:document.getElementById('cer-pe-amort').value,
+  };
+  CER_DATA=CER_BONDS.map(cerEnrich);
+  cerRenderTable();cerRecalcPanel();
+}
+function cerToggleEmision(){
+  const sec=document.getElementById('cer-emision-section');
+  const tog=document.getElementById('cer-emision-toggle');
+  const hidden=sec.style.display==='none';
+  sec.style.display=hidden?'block':'none';
+  tog.classList.toggle('collapsed',!hidden);
+}
+
+// ── CER MODAL ─────────────────────────────────────────────────────────────────
+function cerOpenModal(){
+  ['cer-m-ticker','cer-m-cupon','cer-m-precio'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('cer-m-tipo').value='lecer';
+  document.getElementById('cer-m-emision').value='';
+  document.getElementById('cer-m-vcto').value='';
+  document.getElementById('cer-m-freq').value='6';
+  document.getElementById('cer-m-amort').value='bullet';
+  cerModalTipoChange();
+  document.getElementById('cer-modal').classList.add('open');
+}
+function cerCloseModal(){document.getElementById('cer-modal').classList.remove('open');}
+function cerModalTipoChange(){
+  const isCupon=document.getElementById('cer-m-tipo').value==='cupon';
+  document.getElementById('cer-m-cupon-fields').style.display=isCupon?'block':'none';
+}
+function cerSaveModal(){
+  const ticker=(document.getElementById('cer-m-ticker').value||'').toUpperCase().trim();
+  const tipo=document.getElementById('cer-m-tipo').value;
+  const emision=document.getElementById('cer-m-emision').value;
+  const vcto=document.getElementById('cer-m-vcto').value;
+  const precioRaw=document.getElementById('cer-m-precio').value;
+  const precio=precioRaw?parseFloat(precioRaw):null;
+  if(!ticker||!vcto){alert('Completá ticker y fecha de vencimiento.');return;}
+  if(CER_BONDS.find(r=>r.ticker===ticker)){alert('Ya existe ese ticker.');return;}
+  const bond={ticker,tipo,emision,vcto,precio,pct_change:null,manualOverride:false};
+  if(tipo==='cupon'){
+    bond.cupon=parseFloat(document.getElementById('cer-m-cupon').value)||null;
+    bond.freq=parseInt(document.getElementById('cer-m-freq').value)||6;
+    bond.amort=document.getElementById('cer-m-amort').value;
+  }
+  CER_BONDS.push(bond);
+  CER_DATA=CER_BONDS.map(cerEnrich);
+  cerCloseModal();cerRenderTable();cerOpenPanel(ticker);
+}
+
+// ── CER UPDATE SETTLEMENT ─────────────────────────────────────────────────────
+// Hook into global updateSettlement to also refresh CER
+const _origUpdateSettlement=updateSettlement;
+// (called at end of file after updateSettlement is defined)
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+document.getElementById('g-fecha-op').value=fmtDate(TODAY);
+updateSettlement();
+
+// hook CER into settlement refresh
+const _origUS=updateSettlement;
+window.updateSettlement=function(){
+  _origUS();
+  if(CER_DATA.length){CER_DATA=CER_BONDS.map(cerEnrich);cerRenderTable();}
+  if(cerSelectedTicker)cerRecalcPanel();
+};
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    if(currentTab==='cer'){
+      if(cerEditingCell){cerEditingCell=null;cerRenderTable();return;}
+      if(document.getElementById('cer-modal').classList.contains('open')){cerCloseModal();return;}
+      if(cerSelectedTicker)cerClosePanel();
+    } else {
+      if(editingCell){editingCell=null;renderTable();return;}
+      if(document.getElementById('modal').classList.contains('open')){closeModal();return;}
+      if(selectedTicker)closePanel();
+    }
+  }
+});
+document.getElementById('modal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});
+document.getElementById('cer-modal').addEventListener('click',e=>{if(e.target===e.currentTarget)cerCloseModal();});
+</script>
+</body>
+</html>
