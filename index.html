@@ -701,8 +701,8 @@ const parseDate=s=>new Date(s+'T00:00:00');
 const fmtPct=(n,d=4)=>isNaN(n)||n===undefined?'—':n.toFixed(d)+'%';
 const fmtP2=n=>isNaN(n)||n===undefined?'—':n.toFixed(2)+'%';
 const fmtN=(n,d=6)=>isNaN(n)||n===undefined?'—':n.toFixed(d);
-const fmtARS=n=>isNaN(n)||n===undefined?'—':'$'+n.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:4});
-const fmtARSk=n=>isNaN(n)||n===undefined?'—':'$'+Math.round(n).toLocaleString('es-AR');
+const fmtARS=n=>n==null||isNaN(n)||n===undefined?'—':'$'+n.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:4});
+const fmtARSk=n=>n==null||isNaN(n)||n===undefined?'—':'$'+Math.round(n).toLocaleString('es-AR');
 const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
 
 document.getElementById('hoy').textContent=
