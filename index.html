@@ -678,12 +678,33 @@ tbody tr.selected .c-ticker{color:var(--accent);}
             <option value="12">Anual</option>
           </select>
         </div>
-        <div class="field"><label>Amortización</label>
-          <select id="cer-m-amort">
-            <option value="bullet">Bullet</option>
-            <option value="cuota">Cuotas iguales</option>
+        <div class="field"><label>Base cupón</label>
+          <select id="cer-m-cupon-base">
+            <option value="original">VN original</option>
+            <option value="residual">VN residual</option>
           </select>
         </div>
+      </div>
+      <div class="field-row cols1" style="margin-top:8px">
+        <div class="field"><label>Amortización</label>
+          <select id="cer-m-amort" onchange="cerModalAmortChange()">
+            <option value="bullet">Bullet (todo al vto)</option>
+            <option value="cuota">Cuotas iguales</option>
+            <option value="custom">Personalizado</option>
+          </select>
+        </div>
+      </div>
+      <!-- calendario de amortización personalizado -->
+      <div id="cer-m-amort-custom" style="display:none;margin-top:10px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <span style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">Calendario de amortización</span>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <span style="font-size:11px;color:var(--text3)" id="cer-m-amort-total">Total: 0%</span>
+            <button type="button" class="btn" style="padding:2px 8px;font-size:11px;margin:0" onclick="cerAmortAddRow()">+ Fila</button>
+          </div>
+        </div>
+        <div id="cer-m-amort-rows" style="display:flex;flex-direction:column;gap:4px;max-height:160px;overflow-y:auto;"></div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">Las fechas de cupón se calculan automáticamente. El % debe sumar 100.</div>
       </div>
     </div>
     <div class="field-row cols2" style="margin-top:4px">
@@ -1557,38 +1578,59 @@ function xirr(flujos, seed=0.1){
 }
 
 // ── CONSTRUIR FLUJOS CER ──────────────────────────────────────────────────────
-// Devuelve array de flujos para XIRR en pesos constantes (reales)
-// CF₀ = −(Precio / Factor)   → precio deflactado
-// CF_i = Cupón_i + Amort_i   → en VN=100 reales
 function cerBuildFlujos(r, precio, factor){
   const liq=G_LIQ||addHabiles(TODAY,1);
   const flujos=[];
-
-  // CF₀: inversión a fecha de liquidación
-  const cf0 = -(precio / factor);
-  flujos.push({fecha: new Date(liq), monto: cf0});
+  flujos.push({fecha:new Date(liq), monto:-(precio/factor)});
 
   if(r.tipo==='lecer'){
-    // Zero coupon: un solo flujo al vto = 100
-    flujos.push({fecha: parseDate(r.vcto), monto: 100});
+    flujos.push({fecha:parseDate(r.vcto), monto:100});
 
   } else if(r.tipo==='cupon'){
     const freq=r.freq||6;
-    const cuponPer=(r.cupon/100)*(freq/12)*100; // cupón por período sobre VN=100
+    const cuponAnual=(r.cupon||0)/100;
+    const cuponBase=r.cuponBase||'original';
     const dates=cerCouponDates(r.emision,r.vcto,freq);
     const n=dates.length;
+
+    // tabla de amortización: [{fecha:'YYYY-MM-DD', pct:number}]
+    let amortTable;
+    if(r.amort==='custom'&&r.amortSchedule?.length){
+      amortTable=r.amortSchedule.map(s=>({fecha:s.fecha,pct:s.pct}));
+    } else if(r.amort==='bullet'){
+      amortTable=[{fecha:r.vcto,pct:100}];
+    } else {
+      amortTable=dates.map(d=>({fecha:fmtDate(d),pct:100/n}));
+    }
+    const amortMap=new Map(amortTable.map(a=>[a.fecha,a.pct]));
+
+    // VN residual antes de cada fecha de cupón
     let vnResidual=100;
-
-    dates.forEach((d,i)=>{
-      if(d<=liq)return; // ya pagado
-      let amort=0;
-      if(r.amort==='bullet') amort=(i===n-1)?100:0;
-      else if(r.amort==='cuota') amort=100/n;
-
-      // cupón sobre VN original (tasa fija sobre 100 siempre)
-      const cf=cuponPer+amort;
-      flujos.push({fecha:new Date(d), monto:cf});
+    // Pre-calcular amortizaciones acumuladas por fecha de cupón
+    dates.forEach(d=>{
+      if(d<=liq){
+        // actualizar vnResidual por amortizaciones ya ocurridas
+        const a=amortMap.get(fmtDate(d))||0;
+        vnResidual=Math.max(0,vnResidual-a);
+        return;
+      }
+      const fechaStr=fmtDate(d);
+      const amortMonto=amortMap.get(fechaStr)||0;
+      const baseCalculo=cuponBase==='residual'?vnResidual:100;
+      const cuponMonto=baseCalculo*(cuponAnual*(freq/12));
+      flujos.push({fecha:new Date(d), monto:cuponMonto+amortMonto});
+      vnResidual=Math.max(0,vnResidual-amortMonto);
     });
+
+    // amortizaciones custom que no coinciden con fechas de cupón
+    amortTable.forEach(a=>{
+      const dA=parseDate(a.fecha);
+      if(dA<=liq)return;
+      const yaIncluida=dates.some(d=>fmtDate(d)===a.fecha);
+      if(!yaIncluida&&a.pct>0)flujos.push({fecha:dA,monto:a.pct});
+    });
+
+    flujos.sort((a,b)=>a.fecha-b.fecha);
   }
 
   return flujos;
@@ -1964,6 +2006,10 @@ function cerOpenModal(){
   document.getElementById('cer-m-vcto').value='';
   document.getElementById('cer-m-freq').value='6';
   document.getElementById('cer-m-amort').value='bullet';
+  document.getElementById('cer-m-cupon-base').value='original';
+  document.getElementById('cer-m-amort-rows').innerHTML='';
+  document.getElementById('cer-m-amort-total').textContent='Total: 0%';
+  document.getElementById('cer-m-amort-custom').style.display='none';
   cerModalTipoChange();
   document.getElementById('cer-modal').classList.add('open');
 }
@@ -1971,6 +2017,42 @@ function cerCloseModal(){document.getElementById('cer-modal').classList.remove('
 function cerModalTipoChange(){
   const isCupon=document.getElementById('cer-m-tipo').value==='cupon';
   document.getElementById('cer-m-cupon-fields').style.display=isCupon?'block':'none';
+}
+function cerModalAmortChange(){
+  const v=document.getElementById('cer-m-amort').value;
+  document.getElementById('cer-m-amort-custom').style.display=v==='custom'?'block':'none';
+  if(v==='custom'&&document.getElementById('cer-m-amort-rows').children.length===0)cerAmortAddRow();
+}
+let _cerAmortRowId=0;
+function cerAmortAddRow(){
+  const id=++_cerAmortRowId;
+  const row=document.createElement('div');
+  row.id='cer-amort-row-'+id;
+  row.style.cssText='display:flex;gap:6px;align-items:center;';
+  row.innerHTML=`
+    <input type="date" style="flex:1;background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:5px 8px;font-family:var(--mono);font-size:12px;color:var(--text);outline:none;" onchange="cerAmortUpdateTotal()">
+    <input type="number" step="0.01" min="0" max="100" style="width:80px;background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:5px 8px;font-family:var(--mono);font-size:12px;color:var(--text);outline:none;" placeholder="%" oninput="cerAmortUpdateTotal()">
+    <button type="button" onclick="document.getElementById('cer-amort-row-${id}').remove();cerAmortUpdateTotal()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:2px 4px;">✕</button>`;
+  document.getElementById('cer-m-amort-rows').appendChild(row);
+}
+function cerAmortUpdateTotal(){
+  const rows=document.getElementById('cer-m-amort-rows').querySelectorAll('div');
+  let total=0;
+  rows.forEach(r=>{const inp=r.querySelectorAll('input')[1];if(inp)total+=parseFloat(inp.value)||0;});
+  const el=document.getElementById('cer-m-amort-total');
+  el.textContent=`Total: ${total.toFixed(2)}%`;
+  el.style.color=Math.abs(total-100)<0.01?'var(--accent2)':'var(--danger)';
+}
+function cerAmortGetSchedule(){
+  const rows=document.getElementById('cer-m-amort-rows').querySelectorAll('div');
+  const schedule=[];
+  rows.forEach(r=>{
+    const inputs=r.querySelectorAll('input');
+    const fecha=inputs[0]?.value;
+    const pct=parseFloat(inputs[1]?.value)||0;
+    if(fecha&&pct>0)schedule.push({fecha,pct});
+  });
+  return schedule.sort((a,b)=>a.fecha.localeCompare(b.fecha));
 }
 function cerSaveModal(){
   try{
@@ -1988,6 +2070,13 @@ function cerSaveModal(){
       bond.cupon=parseFloat(document.getElementById('cer-m-cupon').value)||null;
       bond.freq=parseInt(document.getElementById('cer-m-freq').value)||6;
       bond.amort=document.getElementById('cer-m-amort').value;
+      bond.cuponBase=document.getElementById('cer-m-cupon-base').value; // 'original' | 'residual'
+      if(bond.amort==='custom'){
+        const sched=cerAmortGetSchedule();
+        const total=sched.reduce((s,r)=>s+r.pct,0);
+        if(Math.abs(total-100)>0.01){alert(`El calendario de amortización suma ${total.toFixed(2)}% — debe sumar 100%.`);return;}
+        bond.amortSchedule=sched; // [{fecha, pct}]
+      }
     }
     CER_BONDS.push(bond);
     try{CER_DATA=CER_BONDS.map(cerEnrich);}catch(e){console.error('cerEnrich error:',e);CER_DATA=CER_BONDS.map(r=>({...r,dias:0,tir:NaN,tem:NaN,tna:NaN,factor:null,cc:0}));}
