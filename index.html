@@ -578,10 +578,16 @@ tbody tr.selected .c-ticker{color:var(--accent);}
                 <option value="12">Anual</option>
               </select>
             </div>
+            <div class="field"><label>Primer cupón <span style="color:var(--text3);font-weight:400">(opcional)</span></label>
+              <input type="date" id="cer-pe-primer-cupon" oninput="cerSaveEmision()" placeholder="Período corto inicial">
+            </div>
+          </div>
+          <div class="field-row cols1">
             <div class="field"><label>Amortización</label>
               <select id="cer-pe-amort" onchange="cerSaveEmision()">
                 <option value="bullet">Bullet (al vto)</option>
                 <option value="cuota">Cuotas iguales</option>
+                <option value="custom">Personalizado</option>
               </select>
             </div>
           </div>
@@ -685,7 +691,12 @@ tbody tr.selected .c-ticker{color:var(--accent);}
           </select>
         </div>
       </div>
-      <div class="field-row cols1" style="margin-top:8px">
+      <div class="field-row cols2" style="margin-top:8px">
+        <div class="field">
+          <label>Primer cupón <span style="color:var(--text3);font-weight:400">(opcional)</span></label>
+          <input type="date" id="cer-m-primer-cupon">
+          <div style="font-size:10px;color:var(--text3);margin-top:3px">Si está vacío se calcula desde emisión + frecuencia. Usá esto para períodos cortos iniciales.</div>
+        </div>
         <div class="field"><label>Amortización</label>
           <select id="cer-m-amort" onchange="cerModalAmortChange()">
             <option value="bullet">Bullet (todo al vto)</option>
@@ -1519,18 +1530,37 @@ function cerFactor(emision){
 }
 
 // ── FECHAS DE CUPÓN ───────────────────────────────────────────────────────────
-function cerCouponDates(emisionStr, vctoStr, freqMeses){
+// Si primerCuponStr está definido, el primer pago es esa fecha (período corto/largo inicial)
+// Los siguientes se generan cada freqMeses desde el primer cupón hasta el vencimiento
+function cerCouponDates(emisionStr, vctoStr, freqMeses, primerCuponStr){
   const vcto=parseDate(vctoStr);
   const emision=parseDate(emisionStr);
   const dates=[];
-  let d=new Date(vcto);
-  while(true){
-    dates.unshift(new Date(d));
-    const prev=new Date(d);
-    prev.setMonth(prev.getMonth()-freqMeses);
-    if(prev<=emision)break;
-    d=prev;
+
+  if(primerCuponStr){
+    // primer cupón explícito → generar desde ahí hacia adelante cada freqMeses
+    let d=parseDate(primerCuponStr);
+    while(d<=vcto){
+      dates.push(new Date(d));
+      d=new Date(d);
+      d.setMonth(d.getMonth()+freqMeses);
+    }
+    // asegurar que el vencimiento está incluido como último flujo
+    if(dates.length===0||fmtDate(dates[dates.length-1])!==vctoStr){
+      dates.push(new Date(vcto));
+    }
+  } else {
+    // comportamiento original: hacia atrás desde vto
+    let d=new Date(vcto);
+    while(true){
+      dates.unshift(new Date(d));
+      const prev=new Date(d);
+      prev.setMonth(prev.getMonth()-freqMeses);
+      if(prev<=emision)break;
+      d=prev;
+    }
   }
+
   return dates;
 }
 
@@ -1539,7 +1569,7 @@ function cerCuponCorrido(r, liq){
   if(r.tipo!=='cupon'||!r.cupon||!r.emision||!r.vcto)return 0;
   const freq=r.freq||6;
   const cuponPer=(r.cupon/100)*(freq/12)*100; // % sobre VN=100
-  const dates=cerCouponDates(r.emision,r.vcto,freq);
+  const dates=cerCouponDates(r.emision,r.vcto,freq,r.primerCupon||null);
   const liqD=liq||G_LIQ||addHabiles(TODAY,1);
   for(let i=0;i<dates.length;i++){
     const prev=i===0?parseDate(r.emision):dates[i-1];
@@ -1590,7 +1620,7 @@ function cerBuildFlujos(r, precio, factor){
     const freq=r.freq||6;
     const cuponAnual=(r.cupon||0)/100;
     const cuponBase=r.cuponBase||'original';
-    const dates=cerCouponDates(r.emision,r.vcto,freq);
+    const dates=cerCouponDates(r.emision,r.vcto,freq,r.primerCupon||null);
     const n=dates.length;
 
     // tabla de amortización: [{fecha:'YYYY-MM-DD', pct:number}]
@@ -1659,7 +1689,7 @@ function cerPrecioFromTir(tir, r, factor){
   // precio_real = suma(CF_i / (1+tir/100)^t_i) → precio_mercado = precio_real × factor
   const freq=r.freq||6;
   const cuponPer=(r.cupon/100)*(freq/12)*100;
-  const dates=cerCouponDates(r.emision,r.vcto,freq);
+  const dates=cerCouponDates(r.emision,r.vcto,freq,r.primerCupon||null);
   const n=dates.length;
   let pv=0;
   dates.forEach((d,i)=>{
@@ -1877,6 +1907,7 @@ function cerOpenPanel(ticker){
   document.getElementById('cer-pe-cupon').value=r.cupon||'';
   document.getElementById('cer-pe-freq').value=r.freq||6;
   document.getElementById('cer-pe-amort').value=r.amort||'bullet';
+  document.getElementById('cer-pe-primer-cupon').value=r.primerCupon||'';
   cerSetMode('precio',false);
   set('st-sel',ticker+' seleccionado');
   cerRenderTable();cerRecalcPanel();
@@ -1986,6 +2017,7 @@ function cerSaveEmision(){
     cupon:parseFloat(document.getElementById('cer-pe-cupon').value)||null,
     freq:parseInt(document.getElementById('cer-pe-freq').value)||6,
     amort:document.getElementById('cer-pe-amort').value,
+    primerCupon:document.getElementById('cer-pe-primer-cupon').value||null,
   };
   CER_DATA=CER_BONDS.map(cerEnrich);
   cerRenderTable();cerRecalcPanel();
@@ -2000,7 +2032,7 @@ function cerToggleEmision(){
 
 // ── CER MODAL ─────────────────────────────────────────────────────────────────
 function cerOpenModal(){
-  ['cer-m-ticker','cer-m-cupon','cer-m-precio'].forEach(id=>document.getElementById(id).value='');
+  ['cer-m-ticker','cer-m-cupon','cer-m-precio','cer-m-primer-cupon'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('cer-m-tipo').value='lecer';
   document.getElementById('cer-m-emision').value='';
   document.getElementById('cer-m-vcto').value='';
@@ -2070,7 +2102,8 @@ function cerSaveModal(){
       bond.cupon=parseFloat(document.getElementById('cer-m-cupon').value)||null;
       bond.freq=parseInt(document.getElementById('cer-m-freq').value)||6;
       bond.amort=document.getElementById('cer-m-amort').value;
-      bond.cuponBase=document.getElementById('cer-m-cupon-base').value; // 'original' | 'residual'
+      bond.cuponBase=document.getElementById('cer-m-cupon-base').value;
+      bond.primerCupon=document.getElementById('cer-m-primer-cupon').value||null; // 'original' | 'residual'
       if(bond.amort==='custom'){
         const sched=cerAmortGetSchedule();
         const total=sched.reduce((s,r)=>s+r.pct,0);
