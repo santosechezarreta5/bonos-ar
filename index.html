@@ -1377,13 +1377,46 @@ function cerCouponDates(emisionStr, vctoStr, freqMeses){
   return dates;
 }
 
-// Cupón corrido para bono con cupón (lineal entre fechas de cupón)
+// ── FACTOR DE AJUSTE CER ──────────────────────────────────────────────────────
+// Para una fecha dada, busca el CER del día hábil -10
+function cerGetFechaCer(fecha){
+  return restarHabiles(fecha, 10);
+}
+function cerGetValorCer(fecha){
+  const fechaCer = cerGetFechaCer(fecha);
+  return cerIndexGet(fmtDate(fechaCer));
+}
+function cerFactor(emision){
+  // Factor = CER(hoy -10 háb) / CER(emisión -10 háb)
+  const liq = G_LIQ||addHabiles(TODAY,1);
+  const cerHoy = cerGetValorCer(liq);
+  const cerIni = cerGetValorCer(parseDate(emision));
+  if(!cerHoy||!cerIni||cerIni===0) return null;
+  return cerHoy / cerIni;
+}
+
+// ── FECHAS DE CUPÓN ───────────────────────────────────────────────────────────
+function cerCouponDates(emisionStr, vctoStr, freqMeses){
+  const vcto=parseDate(vctoStr);
+  const emision=parseDate(emisionStr);
+  const dates=[];
+  let d=new Date(vcto);
+  while(true){
+    dates.unshift(new Date(d));
+    const prev=new Date(d);
+    prev.setMonth(prev.getMonth()-freqMeses);
+    if(prev<=emision)break;
+    d=prev;
+  }
+  return dates;
+}
+
+// ── CUPÓN CORRIDO (sobre VN=100, tasa anual) ──────────────────────────────────
 function cerCuponCorrido(r, liq){
   if(r.tipo!=='cupon'||!r.cupon||!r.emision||!r.vcto)return 0;
   const freq=r.freq||6;
-  const cuponPeriodo=r.cupon/2*(freq/6); // cupón del período
+  const cuponPer=(r.cupon/100)*(freq/12)*100; // % sobre VN=100
   const dates=cerCouponDates(r.emision,r.vcto,freq);
-  // encontrar el período actual
   const liqD=liq||G_LIQ||addHabiles(TODAY,1);
   for(let i=0;i<dates.length;i++){
     const prev=i===0?parseDate(r.emision):dates[i-1];
@@ -1391,68 +1424,107 @@ function cerCuponCorrido(r, liq){
     if(liqD>=prev&&liqD<next){
       const elapsed=diasACT(prev,liqD);
       const total=diasACT(prev,next);
-      return total>0?(elapsed/total)*cuponPeriodo:0;
+      return total>0?(elapsed/total)*cuponPer:0;
     }
   }
   return 0;
 }
 
-// TIR real bono con cupón — Newton-Raphson sobre flujos en % VN real
-function cerTirBono(precioSucio, r, liq){
-  if(!r.cupon||!r.vcto||!r.emision)return NaN;
-  const liqD=liq||G_LIQ||addHabiles(TODAY,1);
-  const freq=r.freq||6;
-  const cuponPer=r.cupon*(freq/12); // cupón semestral en %
-  const dates=cerCouponDates(r.emision,r.vcto,freq);
-  const vcto=parseDate(r.vcto);
+// ── XIRR — TIR con fechas irregulares (Newton-Raphson) ───────────────────────
+// flujos: [{fecha: Date, monto: number}]  (monto negativo = inversión)
+function xirr(flujos, seed=0.1){
+  if(!flujos||flujos.length<2)return NaN;
+  const t0=flujos[0].fecha;
+  const ts=flujos.map(f=>diasACT(t0,f.fecha)/365);
+  const cs=flujos.map(f=>f.monto);
 
-  // construir flujos: (días desde liq, monto)
-  const flujos=[];
-  const n=dates.length;
-  dates.forEach((d,i)=>{
-    if(d<=liqD)return;
-    const dias=diasACT(liqD,d);
-    let amort=0;
-    if(r.amort==='bullet'&&i===n-1) amort=100;
-    else if(r.amort==='cuota') amort=100/n;
-    flujos.push({dias, monto:cuponPer+amort});
-  });
-  if(!flujos.length)return NaN;
-
-  // Newton-Raphson
-  let tir=0.02; // seed 2% anual real
-  for(let iter=0;iter<80;iter++){
-    let pv=0,dpv=0;
-    flujos.forEach(f=>{
-      const t=f.dias/365;
-      const df=Math.pow(1+tir,t);
-      pv+=f.monto/df;
-      dpv-=t*f.monto/Math.pow(1+tir,t+1);
-    });
-    const err=pv-precioSucio;
-    if(Math.abs(err)<1e-8)break;
-    tir=tir-err/dpv;
+  let r=seed;
+  for(let iter=0;iter<200;iter++){
+    let npv=0, dnpv=0;
+    for(let i=0;i<cs.length;i++){
+      const df=Math.pow(1+r, ts[i]);
+      npv+=cs[i]/df;
+      dnpv-=ts[i]*cs[i]/Math.pow(1+r, ts[i]+1);
+    }
+    if(Math.abs(dnpv)<1e-12)break;
+    const step=npv/dnpv;
+    r-=step;
+    if(Math.abs(step)<1e-10)break;
   }
-  return tir*100;
+  return isFinite(r)?r*100:NaN;
 }
 
-function cerPriceSucioBono(tir, r, liq){
-  if(!r.cupon||!r.vcto||!r.emision)return NaN;
-  const liqD=liq||G_LIQ||addHabiles(TODAY,1);
+// ── CONSTRUIR FLUJOS CER ──────────────────────────────────────────────────────
+// Devuelve array de flujos para XIRR en pesos constantes (reales)
+// CF₀ = −(Precio / Factor)   → precio deflactado
+// CF_i = Cupón_i + Amort_i   → en VN=100 reales
+function cerBuildFlujos(r, precio, factor){
+  const liq=G_LIQ||addHabiles(TODAY,1);
+  const flujos=[];
+
+  // CF₀: inversión a fecha de liquidación
+  const cf0 = -(precio / factor);
+  flujos.push({fecha: new Date(liq), monto: cf0});
+
+  if(r.tipo==='lecer'){
+    // Zero coupon: un solo flujo al vto = 100
+    flujos.push({fecha: parseDate(r.vcto), monto: 100});
+
+  } else if(r.tipo==='cupon'){
+    const freq=r.freq||6;
+    const cuponPer=(r.cupon/100)*(freq/12)*100; // cupón por período sobre VN=100
+    const dates=cerCouponDates(r.emision,r.vcto,freq);
+    const n=dates.length;
+    let vnResidual=100;
+
+    dates.forEach((d,i)=>{
+      if(d<=liq)return; // ya pagado
+      let amort=0;
+      if(r.amort==='bullet') amort=(i===n-1)?100:0;
+      else if(r.amort==='cuota') amort=100/n;
+
+      // cupón sobre VN original (tasa fija sobre 100 siempre)
+      const cf=cuponPer+amort;
+      flujos.push({fecha:new Date(d), monto:cf});
+    });
+  }
+
+  return flujos;
+}
+
+// ── TIR LECER (caso simple: 2 flujos) ─────────────────────────────────────────
+function cerTirLecer(precio, dias, factor){
+  // CF₀ = −precio/factor, CF_vto = 100, horizonte = dias
+  // TIR real: (100 / (precio/factor))^(365/dias) − 1
+  if(!factor||factor<=0||!precio||precio<=0||dias<=0)return NaN;
+  const cf0=precio/factor; // precio real
+  return (Math.pow(100/cf0, 365/dias)-1)*100;
+}
+
+// ── PRECIO DESDE TIR (bono cupón) ─────────────────────────────────────────────
+function cerPrecioFromTir(tir, r, factor){
+  const liq=G_LIQ||addHabiles(TODAY,1);
+  if(r.tipo==='lecer'){
+    const dias=diasACT(liq,parseDate(r.vcto));
+    // precio real = 100 / (1+tir/100)^(dias/365)
+    // precio mercado = precio_real × factor
+    const precioReal=100/Math.pow(1+tir/100,dias/365);
+    return precioReal*factor;
+  }
+  // Para bonos: buscar precio via Newton-Raphson sobre XIRR
+  // precio_real = suma(CF_i / (1+tir/100)^t_i) → precio_mercado = precio_real × factor
   const freq=r.freq||6;
-  const cuponPer=r.cupon*(freq/12);
+  const cuponPer=(r.cupon/100)*(freq/12)*100;
   const dates=cerCouponDates(r.emision,r.vcto,freq);
   const n=dates.length;
   let pv=0;
   dates.forEach((d,i)=>{
-    if(d<=liqD)return;
-    const dias=diasACT(liqD,d);
-    let amort=0;
-    if(r.amort==='bullet'&&i===n-1) amort=100;
-    else if(r.amort==='cuota') amort=100/n;
+    if(d<=liq)return;
+    const dias=diasACT(liq,d);
+    let amort=r.amort==='bullet'?(i===n-1?100:0):100/n;
     pv+=(cuponPer+amort)/Math.pow(1+tir/100,dias/365);
   });
-  return pv;
+  return pv*factor; // precio de mercado
 }
 
 // ── CER ENRICH ────────────────────────────────────────────────────────────────
@@ -1460,20 +1532,23 @@ function cerEnrich(r){
   const liq=G_LIQ||addHabiles(TODAY,1);
   const vctoDate=r.vcto?parseDate(r.vcto):null;
   const dias=vctoDate?Math.max(0,diasACT(liq,vctoDate)):0;
+  const factor=r.emision?cerFactor(r.emision):null;
   let tir=NaN,tem=NaN,tna=NaN,cc=0;
 
-  if(r.precio!=null&&dias>0){
+  if(r.precio!=null&&dias>0&&factor){
     if(r.tipo==='lecer'){
-      tir=cerTirLecer(r.precio,dias);
+      tir=cerTirLecer(r.precio,dias,factor);
     } else {
       cc=cerCuponCorrido(r,liq);
-      const ps=r.precio+cc;
-      tir=cerTirBono(ps,r,liq);
+      const flujos=cerBuildFlujos(r,r.precio,factor);
+      tir=xirr(flujos);
     }
-    tem=cerTemFromTir(tir);
-    tna=cerTnaFromTem(tem);
+    if(!isNaN(tir)){
+      tem=cerTemFromTir(tir);
+      tna=cerTnaFromTem(tem);
+    }
   }
-  return{...r,vctoDate,dias,tir,tem,tna,cc};
+  return{...r,vctoDate,dias,factor,tir,tem,tna,cc};
 }
 let CER_DATA=[];
 
@@ -1605,14 +1680,13 @@ function cerCommitCell(){
   if(isNaN(val)||val<=0){cerRenderTable();return;}
   const idx=CER_BONDS.findIndex(r=>r.ticker===ticker);if(idx<0){cerRenderTable();return;}
   const r=CER_DATA.find(d=>d.ticker===ticker);
-  const liq=G_LIQ||addHabiles(TODAY,1);
+  const factor=r?.factor;
   let precio;
   if(col==='precio') precio=val;
-  else{
+  else if(factor){
     const tir=col==='tir'?val:col==='tem'?cerTemToTir(val):cerTnaToTir(val);
-    if(r.tipo==='lecer') precio=cerPriceFromTir_lecer(tir,r.dias);
-    else{ const ps=cerPriceSucioBono(tir,r,liq); precio=ps-cerCuponCorrido(r,liq); }
-  }
+    precio=cerPrecioFromTir(tir,r,factor);
+  } else { cerRenderTable(); return; }
   CER_BONDS[idx]={...CER_BONDS[idx],precio,manualOverride:true};
   CER_DATA=CER_BONDS.map(cerEnrich);
   cerRenderTable();
@@ -1684,48 +1758,76 @@ function cerRecalcPanel(){
   const liq=G_LIQ||addHabiles(TODAY,1);
   const dias=r.dias;
   const vn=parseFloat(document.getElementById('cer-p-vn').value)||1000;
+  const scale=vn/100;
+
   if(dias<=0){set('cer-p-tip','Instrumento vencido.');return;}
 
-  let pl,ps,tir,tem,tna,cc=r.cc||0;
+  const factor=r.factor;
+  if(!factor){
+    set('cer-p-tip','Sin datos CER para calcular el factor de ajuste. Actualizá el índice CER.');
+    return;
+  }
+
+  let precio,tir,tem,tna,cc=r.cc||0;
 
   if(cerPanelMode==='precio'){
-    pl=parseFloat(document.getElementById('cer-p-precio-in').value);
-    if(!pl||pl<=0)return;
-    if(r.tipo==='lecer'){tir=cerTirLecer(pl,dias);}
-    else{ps=pl+cc;tir=cerTirBono(ps,r,liq);}
+    precio=parseFloat(document.getElementById('cer-p-precio-in').value);
+    if(!precio||precio<=0)return;
+    if(r.tipo==='lecer'){
+      tir=cerTirLecer(precio,dias,factor);
+    } else {
+      const flujos=cerBuildFlujos(r,precio,factor);
+      tir=xirr(flujos);
+    }
   } else {
     let tirIn;
-    if(cerPanelMode==='tir') tirIn=parseFloat(document.getElementById('cer-p-tir-in').value);
+    if(cerPanelMode==='tir')      tirIn=parseFloat(document.getElementById('cer-p-tir-in').value);
     else if(cerPanelMode==='tem') tirIn=cerTemToTir(parseFloat(document.getElementById('cer-p-tem-in').value));
-    else tirIn=cerTnaToTir(parseFloat(document.getElementById('cer-p-tna-in').value));
+    else                          tirIn=cerTnaToTir(parseFloat(document.getElementById('cer-p-tna-in').value));
     if(!tirIn&&tirIn!==0)return;
     tir=tirIn;
-    if(r.tipo==='lecer') pl=cerPriceFromTir_lecer(tir,dias);
-    else{ps=cerPriceSucioBono(tir,r,liq);pl=ps-cc;}
+    precio=cerPrecioFromTir(tir,r,factor);
   }
-  tem=cerTemFromTir(tir);tna=cerTnaFromTem(tem);
-  if(r.tipo==='lecer'){ps=pl;cc=0;}else ps=pl+cc;
 
-  // metrics
+  tem=cerTemFromTir(tir);
+  tna=cerTnaFromTem(tem);
+  const precioReal=precio/factor;  // precio deflactado (CF₀ real)
+
+  // métricas
   set('cer-pm-dias',dias);
   document.getElementById('cer-pm-tir').innerHTML=fmtP2(tir)+'<span class="metric-unit">%</span>';
   document.getElementById('cer-pm-tem').innerHTML=fmtP2(tem)+'<span class="metric-unit">%</span>';
   document.getElementById('cer-pm-tna').innerHTML=fmtP2(tna)+'<span class="metric-unit">%</span>';
-  set('cer-pm-precio',fmtARS(pl));
-  set('cer-pm-cc',cc>0?fmtARS(cc):'—');
-  // results
-  const scale=vn/100;
-  set('cer-r-pl',fmtARSk(pl*scale));
-  set('cer-r-cc',cc>0?fmtARSk(cc*scale):'—');
-  set('cer-r-ps',fmtARSk(ps*scale));
-  set('cer-r-dias',dias+' días');
-  set('cer-r-tir',fmtPct(tir));set('cer-r-tem',fmtPct(tem));set('cer-r-tna',fmtPct(tna));
+  set('cer-pm-precio',fmtARS(precio));
+  set('cer-pm-cc',factor?'× '+factor.toFixed(6):'—');
+
+  // flujo de fondos
+  const cerIniDate=cerGetFechaCer(parseDate(r.emision));
+  const cerHoyDate=cerGetFechaCer(liq);
+  const cerIniVal=cerIndexGet(fmtDate(cerIniDate));
+  const cerHoyVal=cerIndexGet(fmtDate(cerHoyDate));
+
+  set('cer-r-pl', fmtARSk(precio*scale)+' (mercado)');
+  set('cer-r-cc', fmtN(precioReal,6)+' (real, VN=100)');
+  set('cer-r-ps', fmtARSk(precioReal*scale)+' (real)');
+  set('cer-r-dias', dias+' días');
+  set('cer-r-tir',fmtPct(tir));
+  set('cer-r-tem',fmtPct(tem));
+  set('cer-r-tna',fmtPct(tna));
+
   // sync inputs
-  if(cerPanelMode!=='precio')document.getElementById('cer-p-precio-in').value=pl.toFixed(4);
-  if(cerPanelMode!=='tir')   document.getElementById('cer-p-tir-in').value=tir.toFixed(6);
-  if(cerPanelMode!=='tem')   document.getElementById('cer-p-tem-in').value=tem.toFixed(6);
-  if(cerPanelMode!=='tna')   document.getElementById('cer-p-tna-in').value=tna.toFixed(6);
-  set('cer-p-tip',`${dias} días · TIR real ${fmtP2(tir)} · TEM real ${fmtP2(tem)} · TNA real ${fmtP2(tna)}`);
+  if(cerPanelMode!=='precio') document.getElementById('cer-p-precio-in').value=precio.toFixed(4);
+  if(cerPanelMode!=='tir')    document.getElementById('cer-p-tir-in').value=tir.toFixed(6);
+  if(cerPanelMode!=='tem')    document.getElementById('cer-p-tem-in').value=tem.toFixed(6);
+  if(cerPanelMode!=='tna')    document.getElementById('cer-p-tna-in').value=tna.toFixed(6);
+
+  const cerIniStr=cerIniVal?`${fmtDisp?fmtDisp(fmtDate(cerIniDate)):fmtDate(cerIniDate)} = ${cerIniVal.toFixed(4)}`:'—';
+  const cerHoyStr=cerHoyVal?`${fmtDate(cerHoyDate).split('-').reverse().join('/')} = ${cerHoyVal.toFixed(4)}`:'—';
+  set('cer-p-tip',
+    `Factor CER: ${factor.toFixed(6)} · `+
+    `CER emisión (${cerIniStr}) · CER hoy (${cerHoyStr}) · `+
+    `Precio real: ${precioReal.toFixed(4)} · `+
+    `TIR real ${fmtP2(tir)} · TEM ${fmtP2(tem)}`);
 }
 
 // ── CER SAVE EMISSION ─────────────────────────────────────────────────────────
