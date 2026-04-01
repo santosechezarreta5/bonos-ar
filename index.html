@@ -252,8 +252,17 @@ tbody tr.selected .c-ticker{color:var(--accent);}
     <div class="sbar-result-val" id="g-liq-display">—</div>
   </div>
   <div class="sbar-sep"></div>
+  <div class="sbar-field">
+    <div class="sbar-label">Token CER · <a href="https://estadisticasbcra.com/api/registracion" target="_blank" style="color:var(--info);text-decoration:none">registrarse</a></div>
+    <div style="display:flex;gap:6px;align-items:center;">
+      <input type="password" class="sbar-input" id="g-cer-token" placeholder="Bearer token…" style="width:160px;" oninput="saveCerToken()">
+      <button class="btn" style="padding:3px 9px;font-size:11px;margin:0;" onclick="cerFetchIndex(true)">↻ CER</button>
+      <span class="api-status" id="g-cer-status"></span>
+    </div>
+  </div>
+  <div class="sbar-sep"></div>
   <div class="sbar-refresh">
-    <button class="btn primary" onclick="fetchPrices()">↻ Actualizar precios</button>
+    <button class="btn primary" onclick="fetchPrices()">↻ Precios</button>
     <span class="api-status" id="api-status">sin datos</span>
   </div>
 </div>
@@ -412,12 +421,37 @@ tbody tr.selected .c-ticker{color:var(--accent);}
     <div class="left-pane" id="cer-left-pane">
       <div class="pane-toolbar">
         <span class="pane-title">Bonos CER</span>
+        <span class="api-status" id="cer-data-status" style="font-size:10px;"></span>
         <input type="text" class="search-box" id="cer-search" placeholder="Buscar…" oninput="cerRenderTable()">
         <label class="chk"><input type="checkbox" id="cer-show-vencidas" onchange="cerRenderTable()"> Vencidas</label>
-        <button class="btn" id="cer-fetch-btn" onclick="cerFetchPrices()">↻ Actualizar</button>
+        <button class="btn" id="cer-fetch-btn" onclick="cerFetchPrices()">↻ Precios</button>
         <span class="api-status" id="cer-api-status"></span>
         <button class="btn primary" onclick="cerOpenModal()">+ Nueva</button>
       </div>
+      <!-- CER INDEX STRIP -->
+      <div id="cer-index-strip" style="border-bottom:1px solid var(--border);background:var(--surface2);flex-shrink:0;display:none;">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 1.5rem 4px;">
+          <span style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);">Índice CER · BCRA</span>
+          <div style="display:flex;align-items:center;gap:12px;">
+            <span style="font-size:11px;color:var(--text2)" id="cer-idx-hoy">—</span>
+            <span style="font-size:11px;color:var(--text3)" id="cer-idx-fecha">—</span>
+            <button class="btn" style="padding:2px 8px;font-size:10px;" onclick="cerToggleIndexTable()">ver tabla ▾</button>
+          </div>
+        </div>
+        <div id="cer-index-table-wrap" style="display:none;max-height:200px;overflow-y:auto;padding:0 1.5rem .5rem;">
+          <table style="width:100%;border-collapse:collapse;font-size:12px;">
+            <thead><tr style="background:var(--surface);">
+              <th style="text-align:left;padding:4px 8px;font-size:10px;color:var(--text3);font-weight:400;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border)">Fecha</th>
+              <th style="text-align:right;padding:4px 8px;font-size:10px;color:var(--text3);font-weight:400;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border)">CER</th>
+              <th style="text-align:right;padding:4px 8px;font-size:10px;color:var(--text3);font-weight:400;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border)">Var. diaria</th>
+              <th style="text-align:right;padding:4px 8px;font-size:10px;color:var(--text3);font-weight:400;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border)">Var. 30d</th>
+              <th style="text-align:right;padding:4px 8px;font-size:10px;color:var(--text3);font-weight:400;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border)">Var. anual</th>
+            </tr></thead>
+            <tbody id="cer-index-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
       <div class="table-scroll">
         <table>
           <thead><tr>
@@ -1313,6 +1347,8 @@ function switchTab(tab){
     lecapWorkspace.style.display='none';
     chartArea.style.display='none';
     cerPage.style.display='flex';
+    // cargar índice CER si no está cargado
+    if(!CER_INDEX.length) cerFetchIndex();
   }
 }
 
@@ -1755,6 +1791,150 @@ function cerSaveModal(){
   cerCloseModal();cerRenderTable();cerOpenPanel(ticker);
 }
 
+// ── CER TOKEN ─────────────────────────────────────────────────────────────────
+const CER_TOKEN_KEY='bonosAR_cer_token_v1';
+function getCerToken(){return (document.getElementById('g-cer-token')?.value||'').trim();}
+function saveCerToken(){
+  const t=getCerToken();
+  if(t)localStorage.setItem(CER_TOKEN_KEY,t);
+}
+
+// ── CER INDEX — estadisticasbcra.com ─────────────────────────────────────────
+// Endpoint: GET https://api.estadisticasbcra.com/cer
+// Auth: Bearer token (gratuito en estadisticasbcra.com/api/registracion)
+// Respuesta: [{d:'YYYY-MM-DD', v:number}]
+// Cache localStorage 23hs
+
+const CER_CACHE_KEY='bonosAR_cer_index_v2';
+const CER_CACHE_TTL=23*60*60*1000;
+let CER_INDEX=[];   // [{fecha:'YYYY-MM-DD', valor:number}] ordenado asc
+
+function cerIndexGet(dateStr){
+  if(!dateStr||!CER_INDEX.length)return null;
+  const exact=CER_INDEX.find(r=>r.fecha===dateStr);
+  if(exact)return exact.valor;
+  // más cercano anterior disponible
+  for(let i=CER_INDEX.length-1;i>=0;i--){
+    if(CER_INDEX[i].fecha<=dateStr)return CER_INDEX[i].valor;
+  }
+  return null;
+}
+
+async function cerFetchIndex(force=false){
+  const st=document.getElementById('g-cer-status');
+  const stTab=document.getElementById('cer-data-status');
+
+  // 1. intentar cache
+  if(!force){
+    try{
+      const cached=localStorage.getItem(CER_CACHE_KEY);
+      if(cached){
+        const{ts,data}=JSON.parse(cached);
+        if(Date.now()-ts<CER_CACHE_TTL&&data&&data.length>100){
+          CER_INDEX=data;
+          const dt=new Date(ts).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+          if(st){st.textContent=`${data.length} días · ${dt}`;st.className='api-status ok';}
+          if(stTab){stTab.textContent=`CER · ${data.length} registros`;stTab.className='api-status ok';}
+          cerRenderIndexStrip();
+          return true;
+        }
+      }
+    }catch(e){}
+  }
+
+  const token=getCerToken();
+  if(!token){
+    if(st){st.textContent='ingresá token ↑';st.className='api-status err';}
+    return false;
+  }
+
+  if(st){st.textContent='cargando…';st.className='api-status loading';}
+  if(stTab){stTab.textContent='CER: cargando…';stTab.className='api-status loading';}
+
+  try{
+    const res=await fetch('https://api.estadisticasbcra.com/cer',{
+      headers:{Authorization:'Bearer '+token},
+      signal:AbortSignal.timeout(15000)
+    });
+    if(res.status===401){
+      if(st){st.textContent='token inválido';st.className='api-status err';}
+      return false;
+    }
+    if(!res.ok){
+      if(st){st.textContent='error '+res.status;st.className='api-status err';}
+      return false;
+    }
+    const data=await res.json();
+    if(!Array.isArray(data)||data.length<10){
+      if(st){st.textContent='respuesta vacía';st.className='api-status err';}
+      return false;
+    }
+
+    // normalizar y ordenar asc
+    CER_INDEX=data
+      .map(x=>({fecha:x.d,valor:x.v}))
+      .sort((a,b)=>a.fecha.localeCompare(b.fecha));
+
+    try{localStorage.setItem(CER_CACHE_KEY,JSON.stringify({ts:Date.now(),data:CER_INDEX}));}catch(e){}
+
+    const now=new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+    if(st){st.textContent=`${CER_INDEX.length} días · ${now}`;st.className='api-status ok';}
+    if(stTab){stTab.textContent=`CER · ${CER_INDEX.length} registros · ${now}`;stTab.className='api-status ok';}
+
+    cerRenderIndexStrip();
+    return true;
+
+  }catch(e){
+    if(st){st.textContent='error: '+e.message;st.className='api-status err';}
+    return false;
+  }
+}
+
+function cerRenderIndexStrip(){
+  const strip=document.getElementById('cer-index-strip');
+  if(!strip||!CER_INDEX.length)return;
+  strip.style.display='block';
+
+  const sorted=[...CER_INDEX].sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  const last=sorted[sorted.length-1];
+  const prev=sorted[sorted.length-2];
+
+  // header: valor de hoy y fecha
+  const varDia=prev?(last.valor/prev.valor-1)*100:null;
+  set('cer-idx-hoy', last.valor.toFixed(6)+' '+(varDia!=null?(varDia>=0?'▲':'▼')+Math.abs(varDia).toFixed(4)+'%':''));
+  set('cer-idx-fecha', last.fecha.split('-').reverse().join('/'));
+
+  // tabla: últimos 30 días
+  const tbody=document.getElementById('cer-index-tbody');
+  if(!tbody)return;
+  const rows=sorted.slice(-30).reverse(); // más reciente arriba
+  tbody.innerHTML=rows.map((r,i)=>{
+    const p=sorted[sorted.indexOf(sorted.find(x=>x.fecha===r.fecha))-1];
+    const varD=p?(r.valor/p.valor-1)*100:null;
+    const prev30=sorted.find(x=>x.fecha<=fmtDate(new Date(parseDate(r.fecha).getTime()-30*86400000)));
+    const var30=prev30?(r.valor/prev30.valor-1)*100:null;
+    const prev365=sorted.find(x=>x.fecha<=fmtDate(new Date(parseDate(r.fecha).getTime()-365*86400000)));
+    const var365=prev365?(r.valor/prev365.valor-1)*100:null;
+    const clr=c=>c==null?'<span style="color:var(--text3)">—</span>'
+      :`<span style="color:${c>=0?'var(--accent2)':'var(--danger)'}">${c>=0?'+':''}${c.toFixed(4)}%</span>`;
+    return `<tr style="border-bottom:1px solid var(--border)${i===0?' background:var(--accent-dim)':''}">
+      <td style="padding:4px 8px;color:${i===0?'var(--accent)':'var(--text2)'};font-size:12px">${r.fecha.split('-').reverse().join('/')}</td>
+      <td style="padding:4px 8px;text-align:right;color:${i===0?'var(--accent)':'var(--text)'};font-family:var(--mono);font-size:12px">${r.valor.toFixed(6)}</td>
+      <td style="padding:4px 8px;text-align:right;font-size:12px">${clr(varD)}</td>
+      <td style="padding:4px 8px;text-align:right;font-size:12px">${clr(var30)}</td>
+      <td style="padding:4px 8px;text-align:right;font-size:12px">${clr(var365)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function cerToggleIndexTable(){
+  const wrap=document.getElementById('cer-index-table-wrap');
+  const btn=document.querySelector('[onclick="cerToggleIndexTable()"]');
+  const hidden=wrap.style.display==='none';
+  wrap.style.display=hidden?'block':'none';
+  if(btn)btn.textContent=hidden?'ocultar ▴':'ver tabla ▾';
+}
+
 // ── CER UPDATE SETTLEMENT ─────────────────────────────────────────────────────
 // Hook into global updateSettlement to also refresh CER
 const _origUpdateSettlement=updateSettlement;
@@ -1763,6 +1943,13 @@ const _origUpdateSettlement=updateSettlement;
 // ── INIT ──────────────────────────────────────────────────────────────────────
 document.getElementById('g-fecha-op').value=fmtDate(TODAY);
 updateSettlement();
+
+// recuperar token CER guardado
+const savedCerToken=localStorage.getItem(CER_TOKEN_KEY);
+if(savedCerToken){
+  document.getElementById('g-cer-token').value=savedCerToken;
+  cerFetchIndex(); // intenta cache primero, si hay datos recientes no hace request
+}
 
 // hook CER into settlement refresh
 const _origUS=updateSettlement;
