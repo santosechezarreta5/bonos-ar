@@ -252,13 +252,9 @@ tbody tr.selected .c-ticker{color:var(--accent);}
     <div class="sbar-result-val" id="g-liq-display">—</div>
   </div>
   <div class="sbar-sep"></div>
-  <div class="sbar-field">
-    <div class="sbar-label">Token CER · <a href="https://estadisticasbcra.com/api/registracion" target="_blank" style="color:var(--info);text-decoration:none">registrarse</a></div>
-    <div style="display:flex;gap:6px;align-items:center;">
-      <input type="password" class="sbar-input" id="g-cer-token" placeholder="Bearer token…" style="width:160px;" oninput="saveCerToken()">
-      <button class="btn" style="padding:3px 9px;font-size:11px;margin:0;" onclick="cerFetchIndex(true)">↻ CER</button>
-      <span class="api-status" id="g-cer-status"></span>
-    </div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <button class="btn" style="padding:3px 9px;font-size:11px;margin:0;" onclick="cerFetchIndex(true)">↻ CER</button>
+    <span class="api-status" id="g-cer-status">sin datos</span>
   </div>
   <div class="sbar-sep"></div>
   <div class="sbar-refresh">
@@ -1791,21 +1787,13 @@ function cerSaveModal(){
   cerCloseModal();cerRenderTable();cerOpenPanel(ticker);
 }
 
-// ── CER TOKEN ─────────────────────────────────────────────────────────────────
-const CER_TOKEN_KEY='bonosAR_cer_token_v1';
-function getCerToken(){return (document.getElementById('g-cer-token')?.value||'').trim();}
-function saveCerToken(){
-  const t=getCerToken();
-  if(t)localStorage.setItem(CER_TOKEN_KEY,t);
-}
+// ── CER INDEX — BCRA vía Cloudflare Worker ────────────────────────────────────
+// Worker: royal-resonance-d470.santosechezarreta5.workers.dev/cer
+// Proxea api.bcra.gob.ar/estadisticas/v4.0/Monetarias/30
+// Sin token. Cache localStorage 23hs.
 
-// ── CER INDEX — estadisticasbcra.com ─────────────────────────────────────────
-// Endpoint: GET https://api.estadisticasbcra.com/cer
-// Auth: Bearer token (gratuito en estadisticasbcra.com/api/registracion)
-// Respuesta: [{d:'YYYY-MM-DD', v:number}]
-// Cache localStorage 23hs
-
-const CER_CACHE_KEY='bonosAR_cer_index_v2';
+const WORKER_URL='https://royal-resonance-d470.santosechezarreta5.workers.dev/cer';
+const CER_CACHE_KEY='bonosAR_cer_bcra_v1';
 const CER_CACHE_TTL=23*60*60*1000;
 let CER_INDEX=[];   // [{fecha:'YYYY-MM-DD', valor:number}] ordenado asc
 
@@ -1813,18 +1801,24 @@ function cerIndexGet(dateStr){
   if(!dateStr||!CER_INDEX.length)return null;
   const exact=CER_INDEX.find(r=>r.fecha===dateStr);
   if(exact)return exact.valor;
-  // más cercano anterior disponible
   for(let i=CER_INDEX.length-1;i>=0;i--){
     if(CER_INDEX[i].fecha<=dateStr)return CER_INDEX[i].valor;
   }
   return null;
 }
 
+async function cerFetchPage(desde,limit,offset){
+  const url=`${WORKER_URL}?desde=${desde}&limit=${limit}&offset=${offset}`;
+  const res=await fetch(url,{signal:AbortSignal.timeout(15000)});
+  if(!res.ok)return null;
+  return res.json();
+}
+
 async function cerFetchIndex(force=false){
   const st=document.getElementById('g-cer-status');
   const stTab=document.getElementById('cer-data-status');
 
-  // 1. intentar cache
+  // intentar cache
   if(!force){
     try{
       const cached=localStorage.getItem(CER_CACHE_KEY);
@@ -1832,8 +1826,8 @@ async function cerFetchIndex(force=false){
         const{ts,data}=JSON.parse(cached);
         if(Date.now()-ts<CER_CACHE_TTL&&data&&data.length>100){
           CER_INDEX=data;
-          const dt=new Date(ts).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
-          if(st){st.textContent=`${data.length} días · ${dt}`;st.className='api-status ok';}
+          const last=data[data.length-1];
+          if(st){st.textContent=`CER ${last.fecha.split('-').reverse().join('/')} = ${last.valor.toFixed(4)}`;st.className='api-status ok';}
           if(stTab){stTab.textContent=`CER · ${data.length} registros`;stTab.className='api-status ok';}
           cerRenderIndexStrip();
           return true;
@@ -1842,43 +1836,40 @@ async function cerFetchIndex(force=false){
     }catch(e){}
   }
 
-  const token=getCerToken();
-  if(!token){
-    if(st){st.textContent='ingresá token ↑';st.className='api-status err';}
-    return false;
-  }
-
-  if(st){st.textContent='cargando…';st.className='api-status loading';}
+  if(st){st.textContent='CER: cargando…';st.className='api-status loading';}
   if(stTab){stTab.textContent='CER: cargando…';stTab.className='api-status loading';}
 
   try{
-    const res=await fetch('https://royal-resonance-d470.santosechezarreta5.workers.dev/cer',{
-      headers:{Authorization:'Bearer '+token},
-      signal:AbortSignal.timeout(15000)
-    });
-    if(res.status===401){
-      if(st){st.textContent='token inválido';st.className='api-status err';}
-      return false;
+    const DESDE='2023-01-01';
+    const LIMIT=3000;
+    let allResults=[];
+    let offset=0;
+
+    while(true){
+      const page=await cerFetchPage(DESDE,LIMIT,offset);
+      if(!page||!page.results||!page.results.length)break;
+      allResults=allResults.concat(page.results);
+      if(st)st.textContent=`CER: ${allResults.length} registros…`;
+      const total=page.metadata?.resultset?.count;
+      if(total&&allResults.length>=total)break;
+      if(page.results.length<LIMIT)break;
+      offset+=LIMIT;
     }
-    if(!res.ok){
-      if(st){st.textContent='error '+res.status;st.className='api-status err';}
-      return false;
-    }
-    const data=await res.json();
-    if(!Array.isArray(data)||data.length<10){
-      if(st){st.textContent='respuesta vacía';st.className='api-status err';}
+
+    if(!allResults.length){
+      if(st){st.textContent='CER: sin datos';st.className='api-status err';}
       return false;
     }
 
-    // normalizar y ordenar asc
-    CER_INDEX=data
-      .map(x=>({fecha:x.d,valor:x.v}))
+    CER_INDEX=allResults
+      .map(r=>({fecha:r.fecha.split('T')[0],valor:r.valor}))
       .sort((a,b)=>a.fecha.localeCompare(b.fecha));
 
     try{localStorage.setItem(CER_CACHE_KEY,JSON.stringify({ts:Date.now(),data:CER_INDEX}));}catch(e){}
 
+    const last=CER_INDEX[CER_INDEX.length-1];
     const now=new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
-    if(st){st.textContent=`${CER_INDEX.length} días · ${now}`;st.className='api-status ok';}
+    if(st){st.textContent=`CER ${last.fecha.split('-').reverse().join('/')} = ${last.valor.toFixed(4)} · ${now}`;st.className='api-status ok';}
     if(stTab){stTab.textContent=`CER · ${CER_INDEX.length} registros · ${now}`;stTab.className='api-status ok';}
 
     cerRenderIndexStrip();
@@ -1944,12 +1935,8 @@ const _origUpdateSettlement=updateSettlement;
 document.getElementById('g-fecha-op').value=fmtDate(TODAY);
 updateSettlement();
 
-// recuperar token CER guardado
-const savedCerToken=localStorage.getItem(CER_TOKEN_KEY);
-if(savedCerToken){
-  document.getElementById('g-cer-token').value=savedCerToken;
-  cerFetchIndex(); // intenta cache primero, si hay datos recientes no hace request
-}
+// cargar CER automáticamente al arrancar (usa cache si está fresco)
+cerFetchIndex();
 
 // hook CER into settlement refresh
 const _origUS=updateSettlement;
