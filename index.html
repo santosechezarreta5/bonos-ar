@@ -258,6 +258,11 @@ tbody tr.selected .c-ticker{color:var(--accent);}
     <span class="api-status" id="g-cer-status">sin datos</span>
   </div>
   <div class="sbar-sep"></div>
+  <div style="display:flex;align-items:center;gap:6px;">
+    <button class="btn" style="padding:3px 9px;font-size:11px;margin:0;" onclick="exportarPortfolio()" title="Exportar bonos a JSON">⬇ Export</button>
+    <label class="btn" style="padding:3px 9px;font-size:11px;margin:0;cursor:pointer;" title="Importar bonos desde JSON">⬆ Import<input type="file" accept=".json" style="display:none" onchange="importarPortfolio(event)"></label>
+  </div>
+  <div class="sbar-sep"></div>
   <div class="sbar-refresh">
     <button class="btn primary" onclick="fetchPrices()">↻ Precios</button>
     <span class="api-status" id="api-status">sin datos</span>
@@ -934,6 +939,7 @@ async function fetchPrices(){
       return r;
     });
     DATA=LECAPS.map(enrich);
+    savePortfolio();
     renderTable();
     if(selectedTicker)recalcPanel();
     const now=new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
@@ -1087,7 +1093,7 @@ function commitCell(){
   else if(col==='tir')     precio=tirToPrice(val,vf,dias);
   else { const tir=temToTIR(val); precio=tirToPrice(tir,vf,dias); }
 
-  LECAPS[idx]={...LECAPS[idx],precio,manualOverride:true};
+  LECAPS[idx]={...LECAPS[idx],precio,manualOverride:true};savePortfolio();
   DATA=LECAPS.map(enrich);
   renderTable();
   renderChart();
@@ -1103,7 +1109,7 @@ function handleRowClick(e,ticker){
 
 function deleteRow(ticker){
   if(!confirm('¿Eliminar '+ticker+'?'))return;
-  LECAPS=LECAPS.filter(r=>r.ticker!==ticker);
+  LECAPS=LECAPS.filter(r=>r.ticker!==ticker);savePortfolio();
   DATA=LECAPS.map(enrich);
   if(selectedTicker===ticker)closePanel();
   renderTable();
@@ -1241,6 +1247,7 @@ function saveEmision(){
   if(idx<0)return;
   LECAPS[idx]={...LECAPS[idx],emision,vcto,tem_emision};
   DATA=LECAPS.map(enrich);
+  savePortfolio();
   // update panel meta
   document.getElementById('p-meta').innerHTML=
     `<span>Emisión: ${emision.split('-').reverse().join('/')}</span>`+
@@ -1284,6 +1291,7 @@ function saveModal(){
   if(LECAPS.find(r=>r.ticker===ticker)){alert('Ya existe ese ticker.');return;}
   LECAPS.push({ticker,emision,vcto,tem_emision,precio,pct_change:null});
   DATA=LECAPS.map(enrich);
+  savePortfolio();
   closeModal();renderTable();openPanel(ticker);
 }
 
@@ -1746,6 +1754,7 @@ async function cerFetchPrices(){
       notFound.push(r.ticker);return r;
     });
     CER_DATA=CER_BONDS.map(cerEnrich);
+    savePortfolio();
     cerRenderTable();
     if(cerSelectedTicker)cerRecalcPanel();
     const now=new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
@@ -1861,7 +1870,7 @@ function cerCommitCell(){
     const tir=col==='tir'?val:col==='tem'?cerTemToTir(val):cerTnaToTir(val);
     precio=cerPrecioFromTir(tir,r,factor);
   } else { cerRenderTable(); return; }
-  CER_BONDS[idx]={...CER_BONDS[idx],precio,manualOverride:true};
+  CER_BONDS[idx]={...CER_BONDS[idx],precio,manualOverride:true};savePortfolio();
   CER_DATA=CER_BONDS.map(cerEnrich);
   cerRenderTable();
   if(cerSelectedTicker===ticker)cerRecalcPanel();
@@ -1873,7 +1882,7 @@ function cerHandleRowClick(e,ticker){
 }
 function cerDeleteRow(ticker){
   if(!confirm('¿Eliminar '+ticker+'?'))return;
-  CER_BONDS=CER_BONDS.filter(r=>r.ticker!==ticker);
+  CER_BONDS=CER_BONDS.filter(r=>r.ticker!==ticker);savePortfolio();
   CER_DATA=CER_BONDS.map(cerEnrich);
   if(cerSelectedTicker===ticker)cerClosePanel();
   cerRenderTable();
@@ -2020,6 +2029,7 @@ function cerSaveEmision(){
     primerCupon:document.getElementById('cer-pe-primer-cupon').value||null,
   };
   CER_DATA=CER_BONDS.map(cerEnrich);
+  savePortfolio();
   cerRenderTable();cerRecalcPanel();
 }
 function cerToggleEmision(){
@@ -2113,6 +2123,7 @@ function cerSaveModal(){
     }
     CER_BONDS.push(bond);
     try{CER_DATA=CER_BONDS.map(cerEnrich);}catch(e){console.error('cerEnrich error:',e);CER_DATA=CER_BONDS.map(r=>({...r,dias:0,tir:NaN,tem:NaN,tna:NaN,factor:null,cc:0}));}
+    savePortfolio();
     cerCloseModal();
     cerRenderTable();
     // fetch precio automáticamente
@@ -2438,6 +2449,126 @@ function ferExportar(){
     w.document.write(`<pre style="font-family:monospace;font-size:12px;padding:1rem">${texto}</pre>`);
   });
 }
+// ══════════════════════════════════════════════════════════════ PERSISTENCIA
+const LS_LECAPS='bonosAR_lecaps_v1';
+const LS_CER='bonosAR_cer_bonds_v1';
+
+// ── GUARDAR ───────────────────────────────────────────────────────────────────
+function savePortfolio(){
+  try{
+    // guardar solo los campos de definición del bono, no los calculados
+    const lecapsSave=LECAPS.map(r=>({
+      ticker:r.ticker,emision:r.emision,vcto:r.vcto,
+      tem_emision:r.tem_emision,precio:r.precio,
+      pct_change:r.pct_change,manualOverride:r.manualOverride||false
+    }));
+    const cerSave=CER_BONDS.map(r=>({
+      ticker:r.ticker,tipo:r.tipo,emision:r.emision,vcto:r.vcto,
+      cupon:r.cupon,freq:r.freq,amort:r.amort,cuponBase:r.cuponBase,
+      primerCupon:r.primerCupon||null,
+      amortSchedule:r.amortSchedule||null,
+      precio:r.precio,pct_change:r.pct_change,
+      manualOverride:r.manualOverride||false
+    }));
+    localStorage.setItem(LS_LECAPS,JSON.stringify(lecapsSave));
+    localStorage.setItem(LS_CER,JSON.stringify(cerSave));
+  }catch(e){console.warn('savePortfolio error:',e);}
+}
+
+// ── CARGAR ────────────────────────────────────────────────────────────────────
+function loadPortfolio(){
+  try{
+    const rawL=localStorage.getItem(LS_LECAPS);
+    if(rawL){
+      const parsed=JSON.parse(rawL);
+      if(Array.isArray(parsed)&&parsed.length){
+        LECAPS=parsed;
+        DATA=LECAPS.map(enrich);
+        renderTable();
+      }
+    }
+  }catch(e){console.warn('loadPortfolio LECAP error:',e);}
+  try{
+    const rawC=localStorage.getItem(LS_CER);
+    if(rawC){
+      const parsed=JSON.parse(rawC);
+      if(Array.isArray(parsed)&&parsed.length){
+        CER_BONDS=parsed;
+        CER_DATA=CER_BONDS.map(r=>{
+          try{return cerEnrich(r);}
+          catch(e){return{...r,dias:0,tir:NaN,tem:NaN,tna:NaN,factor:null,cc:0};}
+        });
+        cerRenderTable();
+      }
+    }
+  }catch(e){console.warn('loadPortfolio CER error:',e);}
+}
+
+// ── EXPORTAR JSON ─────────────────────────────────────────────────────────────
+function exportarPortfolio(){
+  const data={
+    version:1,
+    fecha:new Date().toISOString(),
+    lecaps:LECAPS.map(r=>({
+      ticker:r.ticker,emision:r.emision,vcto:r.vcto,
+      tem_emision:r.tem_emision,precio:r.precio,manualOverride:r.manualOverride||false
+    })),
+    cer_bonds:CER_BONDS.map(r=>({
+      ticker:r.ticker,tipo:r.tipo,emision:r.emision,vcto:r.vcto,
+      cupon:r.cupon,freq:r.freq,amort:r.amort,cuponBase:r.cuponBase,
+      primerCupon:r.primerCupon||null,amortSchedule:r.amortSchedule||null,
+      precio:r.precio,manualOverride:r.manualOverride||false
+    }))
+  };
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=`bonosAR_${fmtDate(TODAY)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── IMPORTAR JSON ─────────────────────────────────────────────────────────────
+function importarPortfolio(event){
+  const file=event.target.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const data=JSON.parse(e.target.result);
+      let nL=0,nC=0;
+      if(data.lecaps&&Array.isArray(data.lecaps)){
+        data.lecaps.forEach(r=>{
+          if(!r.ticker)return;
+          if(LECAPS.find(x=>x.ticker===r.ticker))return; // no duplicar
+          LECAPS.push(r);nL++;
+        });
+        DATA=LECAPS.map(enrich);
+        renderTable();
+      }
+      if(data.cer_bonds&&Array.isArray(data.cer_bonds)){
+        data.cer_bonds.forEach(r=>{
+          if(!r.ticker)return;
+          if(CER_BONDS.find(x=>x.ticker===r.ticker))return;
+          CER_BONDS.push(r);nC++;
+        });
+        CER_DATA=CER_BONDS.map(r=>{
+          try{return cerEnrich(r);}
+          catch(e2){return{...r,dias:0,tir:NaN,tem:NaN,tna:NaN,factor:null,cc:0};}
+        });
+        cerRenderTable();
+      }
+      savePortfolio();
+      alert(`✓ Importado: ${nL} LECAP${nL!==1?'s':''}, ${nC} bono${nC!==1?'s':''} CER.`);
+    }catch(err){
+      alert('Error al importar: '+err.message);
+    }
+    event.target.value=''; // reset file input
+  };
+  reader.readAsText(file);
+}
+
 // Limpiar datos viejos de versiones anteriores
 ['bonosAR_cer_index_v1','bonosAR_cer_index_v2','cer_data_cache_v1','cer_data_v2','bonosAR_cer_bcra_v1'].forEach(k=>{
   try{localStorage.removeItem(k);}catch(e){}
@@ -2445,6 +2576,7 @@ function ferExportar(){
 
 document.getElementById('g-fecha-op').value=fmtDate(TODAY);
 updateSettlement();
+loadPortfolio();
 cerFetchIndex();
 
 // hook CER into settlement refresh
