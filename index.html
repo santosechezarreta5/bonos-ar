@@ -233,6 +233,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
   <button class="nav-tab disabled">DLK <span class="soon">pronto</span></button>
   <button class="nav-tab disabled">Sintéticos <span class="soon">pronto</span></button>
   <button class="nav-tab disabled">Breakeven <span class="soon">pronto</span></button>
+  <button class="nav-tab" id="nav-feriados" onclick="switchTab('feriados')" style="margin-left:auto">Feriados</button>
 </nav>
 
 <!-- SETTLEMENT BAR -->
@@ -593,6 +594,69 @@ tbody tr.selected .c-ticker{color:var(--accent);}
   </div><!-- end cer-workspace -->
 </div><!-- end page-cer -->
 
+<!-- ═══════════════════════════════════════════════════════ FERIADOS PAGE -->
+<div id="page-feriados" style="display:none;height:calc(100vh - 136px);overflow-y:auto;padding:2rem 2.5rem;">
+  <div style="max-width:700px;margin:0 auto;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;">
+      <div>
+        <div style="font-family:var(--serif);font-size:20px;font-weight:300;font-style:italic;color:var(--accent)">Feriados AR</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:3px">Usados en todos los cálculos de días hábiles</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <select id="fer-filtro-año" class="sbar-input" style="width:90px" onchange="ferRender()">
+          <option value="">Todos</option>
+        </select>
+        <button class="btn primary" style="margin:0;padding:6px 14px;font-size:12px" onclick="ferOpenModal()">+ Agregar</button>
+        <button class="btn" style="margin:0;padding:6px 14px;font-size:12px" onclick="ferExportar()">⬇ Exportar</button>
+      </div>
+    </div>
+
+    <!-- contador -->
+    <div style="font-size:11px;color:var(--text3);margin-bottom:.75rem" id="fer-count"></div>
+
+    <!-- tabla -->
+    <table style="width:100%;border-collapse:collapse;" id="fer-table">
+      <thead>
+        <tr style="border-bottom:1px solid var(--border2)">
+          <th style="text-align:left;padding:6px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Fecha</th>
+          <th style="text-align:left;padding:6px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Día</th>
+          <th style="text-align:left;padding:6px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Descripción</th>
+          <th style="text-align:center;padding:6px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Tipo</th>
+          <th style="width:40px"></th>
+        </tr>
+      </thead>
+      <tbody id="fer-tbody"></tbody>
+    </table>
+
+    <!-- sección fijos -->
+    <div style="margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border)">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:.75rem">Feriados fijos (aplican todos los años)</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px;">
+        ${FERIADOS_FIJOS.map(f=>`
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:6px 10px;font-size:12px;">
+            <span style="color:var(--text3)">Cada ${f.mm_dd.split('-').reverse().join('/')}</span>
+            <span style="color:var(--text2);margin-left:8px">${f.desc}</span>
+          </div>`).join('')}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FERIADOS MODAL -->
+<div class="modal-backdrop" id="fer-modal">
+  <div class="modal" style="width:420px">
+    <div class="modal-title">Agregar feriado</div>
+    <div class="field-row cols2">
+      <div class="field"><label>Fecha</label><input type="date" id="fer-m-fecha"></div>
+      <div class="field"><label>Descripción</label><input type="text" id="fer-m-desc" placeholder="Ej: Puente turístico"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="ferCloseModal()">Cancelar</button>
+      <button class="btn primary" onclick="ferSaveModal()">Agregar</button>
+    </div>
+  </div>
+</div>
+
 <!-- CER MODAL -->
 <div class="modal-backdrop" id="cer-modal">
   <div class="modal" style="width:520px">
@@ -673,19 +737,64 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script>
 // ── FERIADOS AR ───────────────────────────────────────────────────────────────
-const FERIADOS_FIJOS=['01-01','05-01','05-25','07-09','12-08','12-25'];
-const FERIADOS_FECHA=new Set([
-  '2024-02-12','2024-02-13','2024-03-24','2024-03-28','2024-03-29','2024-04-02',
-  '2024-06-17','2024-08-17','2024-10-14','2024-11-18','2024-11-20',
-  '2025-03-03','2025-03-04','2025-03-24','2025-04-02','2025-04-18','2025-04-19',
-  '2025-06-16','2025-08-16','2025-10-13','2025-11-17','2025-11-21',
-  '2026-02-16','2026-02-17','2026-03-24','2026-04-02','2026-04-03',
-  '2026-06-15','2026-08-17','2026-10-12','2026-11-20',
-]);
-const fmtDate=d=>d.toISOString().split('T')[0];
+// Feriados fijos (aplican todos los años)
+const FERIADOS_FIJOS=[
+  {mm_dd:'01-01', desc:'Año Nuevo'},
+  {mm_dd:'03-24', desc:'Día de la Memoria'},
+  {mm_dd:'04-02', desc:'Día del Veterano de Malvinas'},
+  {mm_dd:'05-01', desc:'Día del Trabajador'},
+  {mm_dd:'05-25', desc:'Día de la Revolución de Mayo'},
+  {mm_dd:'07-09', desc:'Día de la Independencia'},
+  {mm_dd:'12-08', desc:'Inmaculada Concepción'},
+  {mm_dd:'12-25', desc:'Navidad'},
+];
+
+// Feriados con fecha exacta hardcodeados (movibles, puentes, semana santa, etc.)
+const FERIADOS_BASE=[
+  {fecha:'2024-02-12',desc:'Carnaval'},{fecha:'2024-02-13',desc:'Carnaval'},
+  {fecha:'2024-03-28',desc:'Jueves Santo'},{fecha:'2024-03-29',desc:'Viernes Santo'},
+  {fecha:'2024-06-17',desc:'Güemes'},{fecha:'2024-08-17',desc:'San Martín'},
+  {fecha:'2024-10-14',desc:'Día de la Raza (puente)'},{fecha:'2024-11-18',desc:'Soberanía Nacional (puente)'},
+  {fecha:'2024-11-20',desc:'Soberanía Nacional'},
+  {fecha:'2025-03-03',desc:'Carnaval'},{fecha:'2025-03-04',desc:'Carnaval'},
+  {fecha:'2025-04-18',desc:'Viernes Santo'},{fecha:'2025-04-19',desc:'Sábado Santo'},
+  {fecha:'2025-06-16',desc:'Güemes'},{fecha:'2025-08-16',desc:'San Martín (puente)'},
+  {fecha:'2025-10-13',desc:'Día de la Raza (puente)'},{fecha:'2025-11-17',desc:'Soberanía Nacional (puente)'},
+  {fecha:'2025-11-21',desc:'Soberanía Nacional (puente)'},
+  {fecha:'2026-02-16',desc:'Carnaval'},{fecha:'2026-02-17',desc:'Carnaval'},
+  {fecha:'2026-04-03',desc:'Viernes Santo'},
+  {fecha:'2026-06-15',desc:'Güemes'},{fecha:'2026-08-17',desc:'San Martín'},
+  {fecha:'2026-10-12',desc:'Día de la Raza'},{fecha:'2026-11-20',desc:'Soberanía Nacional'},
+];
+
+// localStorage key para feriados manuales
+const FERIADOS_LS_KEY='bonosAR_feriados_extra_v1';
+
+// Carga feriados manuales del localStorage
+function feriadosLoadExtra(){
+  try{
+    const raw=localStorage.getItem(FERIADOS_LS_KEY);
+    return raw?JSON.parse(raw):[];
+  }catch(e){return[];}
+}
+function feriadosSaveExtra(extras){
+  try{localStorage.setItem(FERIADOS_LS_KEY,JSON.stringify(extras));}catch(e){}
+}
+
+// Set unificado de fechas feriado (recalculado cuando cambian los extras)
+let _FERIADOS_EXTRA=feriadosLoadExtra();
+let FERIADOS_FECHA=new Set();
+function feriadosRebuildSet(){
+  FERIADOS_FECHA=new Set([
+    ...FERIADOS_BASE.map(f=>f.fecha),
+    ..._FERIADOS_EXTRA.map(f=>f.fecha)
+  ]);
+}
+feriadosRebuildSet();
+
 function esFeriado(d){
-  const md=String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-  return FERIADOS_FECHA.has(fmtDate(d))||FERIADOS_FIJOS.includes(md);
+  const mm_dd=String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  return FERIADOS_FECHA.has(fmtDate(d))||FERIADOS_FIJOS.some(f=>f.mm_dd===mm_dd);
 }
 function esHabil(d){const w=d.getDay();return w!==0&&w!==6&&!esFeriado(d);}
 function addHabiles(desde,n){
@@ -1336,17 +1445,22 @@ function switchTab(tab){
   const lecapWorkspace=document.getElementById('lecap-workspace');
   const chartArea=document.getElementById('chart-area');
   const cerPage=document.getElementById('page-cer');
+  const ferPage=document.getElementById('page-feriados');
+
+  lecapWorkspace.style.display='none';
+  chartArea.style.display='none';
+  cerPage.style.display='none';
+  ferPage.style.display='none';
 
   if(tab==='lecap'){
     lecapWorkspace.style.display='flex';
     chartArea.style.display='flex';
-    cerPage.style.display='none';
-  } else {
-    lecapWorkspace.style.display='none';
-    chartArea.style.display='none';
+  } else if(tab==='cer'){
     cerPage.style.display='flex';
-    // cargar índice CER si no está cargado
     if(!CER_INDEX.length) cerFetchIndex();
+  } else if(tab==='feriados'){
+    ferPage.style.display='block';
+    ferInit();
   }
 }
 
@@ -2048,7 +2162,115 @@ function cerToggleIndexTable(){
 const _origUpdateSettlement=updateSettlement;
 // (called at end of file after updateSettlement is defined)
 
-// ── INIT ──────────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════ FERIADOS UI
+const DIAS_SEMANA=['dom','lun','mar','mié','jue','vie','sáb'];
+
+function ferGetTodos(){
+  // todos los feriados de fecha exacta: base + extras
+  const todos=[
+    ...FERIADOS_BASE.map(f=>({...f,tipo:'base'})),
+    ..._FERIADOS_EXTRA.map(f=>({...f,tipo:'extra'})),
+  ];
+  return todos.sort((a,b)=>a.fecha.localeCompare(b.fecha));
+}
+
+function ferInit(){
+  // poblar selector de años
+  const todos=ferGetTodos();
+  const años=[...new Set(todos.map(f=>f.fecha.substring(0,4)))].sort();
+  const sel=document.getElementById('fer-filtro-año');
+  const valActual=sel.value;
+  sel.innerHTML='<option value="">Todos</option>'+años.map(a=>`<option value="${a}"${a===valActual?'selected':''}>${a}</option>`).join('');
+  ferRender();
+}
+
+function ferRender(){
+  const año=document.getElementById('fer-filtro-año').value;
+  let todos=ferGetTodos();
+  if(año) todos=todos.filter(f=>f.fecha.startsWith(año));
+
+  const tbody=document.getElementById('fer-tbody');
+  if(!todos.length){
+    tbody.innerHTML=`<tr><td colspan="5" style="padding:2rem;text-align:center;color:var(--text3);font-size:12px">Sin feriados para mostrar</td></tr>`;
+    set('fer-count','');return;
+  }
+
+  tbody.innerHTML=todos.map(f=>{
+    const d=new Date(f.fecha+'T00:00:00');
+    const diaSem=DIAS_SEMANA[d.getDay()];
+    const fechaDisp=f.fecha.split('-').reverse().join('/');
+    const esExtra=f.tipo==='extra';
+    const tipoBadge=esExtra
+      ?'<span style="font-size:10px;color:var(--warn);background:rgba(212,169,106,.12);padding:2px 6px;border-radius:3px">manual</span>'
+      :'<span style="font-size:10px;color:var(--text3);background:var(--surface2);padding:2px 6px;border-radius:3px">base</span>';
+    const delBtn=esExtra
+      ?`<button onclick="ferEliminar('${f.fecha}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:2px 6px" title="Eliminar">✕</button>`
+      :'';
+    return`<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:7px 8px;font-size:12px;color:var(--accent);font-family:var(--mono)">${fechaDisp}</td>
+      <td style="padding:7px 8px;font-size:11px;color:var(--text3);text-transform:capitalize">${diaSem}</td>
+      <td style="padding:7px 8px;font-size:12px;color:var(--text2)">${f.desc||'—'}</td>
+      <td style="padding:7px 8px;text-align:center">${tipoBadge}</td>
+      <td style="padding:7px 8px;text-align:center">${delBtn}</td>
+    </tr>`;
+  }).join('');
+
+  set('fer-count',`${todos.length} feriado${todos.length!==1?'s':''} · ${_FERIADOS_EXTRA.length} manual${_FERIADOS_EXTRA.length!==1?'es':''}`);
+}
+
+function ferOpenModal(){
+  document.getElementById('fer-m-fecha').value='';
+  document.getElementById('fer-m-desc').value='';
+  document.getElementById('fer-modal').classList.add('open');
+}
+function ferCloseModal(){document.getElementById('fer-modal').classList.remove('open');}
+
+function ferSaveModal(){
+  const fecha=document.getElementById('fer-m-fecha').value;
+  const desc=(document.getElementById('fer-m-desc').value||'').trim();
+  if(!fecha){alert('Ingresá una fecha.');return;}
+  // verificar si ya existe
+  const yaBase=FERIADOS_BASE.some(f=>f.fecha===fecha);
+  const yaExtra=_FERIADOS_EXTRA.some(f=>f.fecha===fecha);
+  const yaFijo=(()=>{
+    const d=new Date(fecha+'T00:00:00');
+    const mm_dd=String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    return FERIADOS_FIJOS.some(f=>f.mm_dd===mm_dd);
+  })();
+  if(yaBase||yaExtra||yaFijo){alert('Esa fecha ya está registrada como feriado.');return;}
+  _FERIADOS_EXTRA.push({fecha,desc:desc||'Feriado manual'});
+  feriadosSaveExtra(_FERIADOS_EXTRA);
+  feriadosRebuildSet();
+  ferCloseModal();
+  ferInit();
+}
+
+function ferEliminar(fecha){
+  if(!confirm(`¿Eliminar el feriado del ${fecha.split('-').reverse().join('/')}?`))return;
+  _FERIADOS_EXTRA=_FERIADOS_EXTRA.filter(f=>f.fecha!==fecha);
+  feriadosSaveExtra(_FERIADOS_EXTRA);
+  feriadosRebuildSet();
+  ferInit();
+}
+
+function ferExportar(){
+  const todos=ferGetTodos();
+  const extras=_FERIADOS_EXTRA;
+  const jsBase=`// Feriados base (${FERIADOS_BASE.length} registros)\nconst FERIADOS_BASE=[\n`+
+    FERIADOS_BASE.map(f=>`  {fecha:'${f.fecha}',desc:'${f.desc}'}`).join(',\n')+'\n];';
+  const jsExtra=extras.length
+    ?`\n\n// Feriados manuales (${extras.length} registros)\nconst FERIADOS_EXTRA=[\n`+
+      extras.map(f=>`  {fecha:'${f.fecha}',desc:'${f.desc}'}`).join(',\n')+'\n];'
+    :'';
+  const texto=jsBase+jsExtra;
+  navigator.clipboard.writeText(texto).then(()=>{
+    alert(`✓ Copiado al portapapeles.\n${todos.length} feriados (${extras.length} manuales).`);
+  }).catch(()=>{
+    // fallback: mostrar en textarea
+    const w=window.open('','_blank','width=600,height=400');
+    w.document.write(`<pre style="font-family:monospace;font-size:12px;padding:1rem">${texto}</pre>`);
+  });
+}
 // Limpiar datos viejos de versiones anteriores
 ['bonosAR_cer_index_v1','bonosAR_cer_index_v2','cer_data_cache_v1','cer_data_v2'].forEach(k=>{
   try{localStorage.removeItem(k);}catch(e){}
@@ -2068,7 +2290,9 @@ window.updateSettlement=function(){
 
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
-    if(currentTab==='cer'){
+    if(currentTab==='feriados'){
+      if(document.getElementById('fer-modal').classList.contains('open')){ferCloseModal();return;}
+    } else if(currentTab==='cer'){
       if(cerEditingCell){cerEditingCell=null;cerRenderTable();return;}
       if(document.getElementById('cer-modal').classList.contains('open')){cerCloseModal();return;}
       if(cerSelectedTicker)cerClosePanel();
@@ -2081,6 +2305,7 @@ document.addEventListener('keydown',e=>{
 });
 document.getElementById('modal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});
 document.getElementById('cer-modal').addEventListener('click',e=>{if(e.target===e.currentTarget)cerCloseModal();});
+document.getElementById('fer-modal').addEventListener('click',e=>{if(e.target===e.currentTarget)ferCloseModal();});
 </script>
 </body>
 </html>
