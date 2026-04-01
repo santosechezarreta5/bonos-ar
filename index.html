@@ -233,6 +233,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
   <button class="nav-tab disabled">DLK <span class="soon">pronto</span></button>
   <button class="nav-tab disabled">Sintéticos <span class="soon">pronto</span></button>
   <button class="nav-tab disabled">Breakeven <span class="soon">pronto</span></button>
+  <button class="nav-tab" id="nav-proyecciones" onclick="switchTab('proyecciones')">Proyecciones</button>
   <button class="nav-tab" id="nav-feriados" onclick="switchTab('feriados')" style="margin-left:auto">Feriados</button>
 </nav>
 
@@ -604,6 +605,83 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 
   </div><!-- end cer-workspace -->
 </div><!-- end page-cer -->
+
+<!-- ═══════════════════════════════════════════════════════ PROYECCIONES PAGE -->
+<div id="page-proyecciones" style="display:none;height:calc(100vh - 136px);overflow-y:auto;padding:2rem 2.5rem;">
+  <div style="max-width:900px;margin:0 auto;">
+
+    <!-- HEADER -->
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1.5rem;gap:1rem;flex-wrap:wrap;">
+      <div>
+        <div style="font-family:var(--serif);font-size:20px;font-weight:300;font-style:italic;color:var(--accent)">Proyecciones · Inflación & CER</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:3px">Sendero de inflación mensual · coeficiente diario CER proyectado</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <span class="api-status" id="proj-status"></span>
+        <button class="btn primary" style="margin:0;padding:6px 14px;font-size:12px" onclick="projRecalc()">↻ Recalcular</button>
+      </div>
+    </div>
+
+    <!-- RESUMEN CER -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:7px;overflow:hidden;margin-bottom:1.5rem;" id="proj-summary">
+      <div style="background:var(--surface);padding:.8rem 1rem;">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:4px">Último CER real</div>
+        <div style="font-size:18px;color:var(--accent);font-family:var(--mono)" id="proj-cer-last-val">—</div>
+        <div style="font-size:11px;color:var(--text3)" id="proj-cer-last-fecha">—</div>
+      </div>
+      <div style="background:var(--surface);padding:.8rem 1rem;">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:4px">Primer día proyectado</div>
+        <div style="font-size:18px;color:var(--warn);font-family:var(--mono)" id="proj-cer-first-proj">—</div>
+        <div style="font-size:11px;color:var(--text3)" id="proj-cer-first-fecha">—</div>
+      </div>
+      <div style="background:var(--surface);padding:.8rem 1rem;">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:4px">Meses proyectados</div>
+        <div style="font-size:18px;color:var(--text2);font-family:var(--mono)" id="proj-meses-count">—</div>
+        <div style="font-size:11px;color:var(--text3)" id="proj-horizonte">—</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;align-items:start;">
+
+      <!-- LEFT: TABLA DE INFLACIÓN -->
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">Sendero de inflación mensual</div>
+          <div style="font-size:11px;color:var(--text3)" id="proj-last-pub"></div>
+        </div>
+        <table style="width:100%;border-collapse:collapse;" id="proj-table">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border2)">
+              <th style="text-align:left;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Mes</th>
+              <th style="text-align:left;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Publicación</th>
+              <th style="text-align:right;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Inflación %</th>
+              <th style="text-align:right;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Coef. diario</th>
+              <th style="width:32px"></th>
+            </tr>
+          </thead>
+          <tbody id="proj-tbody"></tbody>
+        </table>
+        <button class="btn" style="width:100%;margin-top:8px;padding:6px;font-size:12px" onclick="projAddMes()">+ Agregar mes</button>
+      </div>
+
+      <!-- RIGHT: PREVIEW CER PROYECTADO -->
+      <div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:.75rem">CER proyectado · próximos 30 días</div>
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border2)">
+              <th style="text-align:left;padding:5px 8px;font-size:10px;color:var(--text3);font-weight:400;text-transform:uppercase;letter-spacing:.06em">Fecha</th>
+              <th style="text-align:right;padding:5px 8px;font-size:10px;color:var(--text3);font-weight:400;text-transform:uppercase;letter-spacing:.06em">CER</th>
+              <th style="text-align:center;padding:5px 8px;font-size:10px;color:var(--text3);font-weight:400;text-transform:uppercase;letter-spacing:.06em">Tipo</th>
+            </tr>
+          </thead>
+          <tbody id="proj-preview-tbody"></tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+</div>
 
 <!-- ═══════════════════════════════════════════════════════ FERIADOS PAGE -->
 <div id="page-feriados" style="display:none;height:calc(100vh - 136px);overflow-y:auto;padding:2rem 2.5rem;">
@@ -1489,6 +1567,7 @@ function switchTab(tab){
   chartArea.style.display='none';
   cerPage.style.display='none';
   ferPage.style.display='none';
+  document.getElementById('page-proyecciones').style.display='none';
 
   if(tab==='lecap'){
     lecapWorkspace.style.display='flex';
@@ -1499,6 +1578,9 @@ function switchTab(tab){
   } else if(tab==='feriados'){
     ferPage.style.display='block';
     ferInit();
+  } else if(tab==='proyecciones'){
+    document.getElementById('page-proyecciones').style.display='block';
+    projInit();
   }
 }
 
@@ -2449,7 +2531,352 @@ function ferExportar(){
     w.document.write(`<pre style="font-family:monospace;font-size:12px;padding:1rem">${texto}</pre>`);
   });
 }
-// ══════════════════════════════════════════════════════════════ PERSISTENCIA
+// ══════════════════════════════════════════════════════════════ PROYECCIONES
+// Sendero de inflación → CER proyectado
+//
+// Mecánica:
+//   La inflación del mes M se publica el día 15 del mes M+1
+//   Ese coeficiente diario aplica desde el 15/M+1 hasta el 15/M+2
+//   Coef. diario = (1 + inf/100)^(1 / días_mes_M+1)
+//   donde días_mes_M+1 = cantidad de días del mes al que aplica el coeficiente
+
+const PROJ_LS_KEY='bonosAR_proyecciones_v1';
+const PROJ_HORIZONTE_AÑOS=10;
+
+// [{mes:'YYYY-MM', infla:number, tipo:'publicado'|'proyectado'}]
+let PROJ_INFLACION=[];
+
+// CER proyectado: Map<'YYYY-MM-DD', number> — extiende CER_INDEX hacia adelante
+let CER_PROJ=new Map();
+
+const MESES_ES=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+function projDiasMes(año, mes0){
+  // mes0 = 0-based
+  return new Date(año, mes0+1, 0).getDate();
+}
+
+function projFechaPublicacion(mesStr){
+  // inflación de YYYY-MM se publica el 15 del mes siguiente
+  const [y,m]=mesStr.split('-').map(Number);
+  const pub=new Date(y,m,15); // m ya es 1-based, new Date(y,m,...) = mes m (0-based = m)
+  return fmtDate(pub);
+}
+
+function projFechaInicioVigencia(mesStr){
+  // misma que la publicación
+  return projFechaPublicacion(mesStr);
+}
+function projFechaFinVigencia(mesStr){
+  // 15 del mes M+2
+  const [y,m]=mesStr.split('-').map(Number);
+  const fin=new Date(y,m+1,15);
+  return fmtDate(fin);
+}
+
+function projCoefDiario(infla_pct, mesAplica_str){
+  // mesAplica_str = YYYY-MM del mes al que aplica el coef (mes siguiente a la publicación)
+  const [y,m]=mesAplica_str.split('-').map(Number);
+  const dias=projDiasMes(y,m-1); // m es 1-based
+  return Math.pow(1+infla_pct/100, 1/dias);
+}
+
+function projMesAplica(mesInfla_str){
+  // la inflación de YYYY-MM aplica en el mes siguiente
+  const [y,m]=mesInfla_str.split('-').map(Number);
+  const d=new Date(y,m,1); // primer día del mes siguiente
+  return fmtDate(d).substring(0,7); // YYYY-MM
+}
+
+function projSaveLs(){
+  try{localStorage.setItem(PROJ_LS_KEY,JSON.stringify(PROJ_INFLACION));}catch(e){}
+}
+function projLoadLs(){
+  try{
+    const raw=localStorage.getItem(PROJ_LS_KEY);
+    if(raw){const p=JSON.parse(raw);if(Array.isArray(p)&&p.length){PROJ_INFLACION=p;return;}}
+  }catch(e){}
+  // inicializar con estructura vacía: últimos 3 meses + próximos 12
+  projInitDefault();
+}
+
+function projInitDefault(){
+  // Detectar hasta dónde llega el CER real para saber qué meses son "publicados"
+  // El último dato CER real corresponde al 15 del mes M+1 → inflación de M ya publicada
+  PROJ_INFLACION=[];
+  const hoy=TODAY;
+  // generar desde hace 3 meses hasta 10 años adelante
+  const start=new Date(hoy.getFullYear(), hoy.getMonth()-3, 1);
+  const end=new Date(hoy.getFullYear()+PROJ_HORIZONTE_AÑOS, hoy.getMonth(), 1);
+  let cur=new Date(start);
+  while(cur<=end){
+    const mesStr=fmtDate(cur).substring(0,7);
+    PROJ_INFLACION.push({mes:mesStr, infla:null, tipo:'proyectado'});
+    cur.setMonth(cur.getMonth()+1);
+  }
+}
+
+function projGetLastCerReal(){
+  // último dato de CER_INDEX
+  if(!CER_INDEX.length)return null;
+  return CER_INDEX[CER_INDEX.length-1]; // {fecha, valor}
+}
+
+function projDetectarPublicados(){
+  // Marcar como "publicado" los meses cuya inflación ya está reflejada en el CER real
+  // Si el CER real llega hasta fecha F, entonces la inflación de todos los meses M
+  // tal que el 15 del mes M+1 <= F ya está publicada
+  const last=projGetLastCerReal();
+  if(!last)return;
+  const fechaLimite=last.fecha; // YYYY-MM-DD
+  PROJ_INFLACION.forEach(r=>{
+    const pubFecha=projFechaPublicacion(r.mes);
+    if(pubFecha<=fechaLimite){
+      r.tipo='publicado';
+    }
+  });
+}
+
+// Calcular y guardar CER_PROJ: serie diaria desde el último CER real hasta 10 años
+function projCalcularCER(){
+  CER_PROJ=new Map();
+  const lastReal=projGetLastCerReal();
+  if(!lastReal||!PROJ_INFLACION.length)return;
+
+  // encontrar el último mes con inflación (usar última disponible para rellenar)
+  let ultimaInfla=null;
+  PROJ_INFLACION.forEach(r=>{if(r.infla!=null)ultimaInfla=r.infla;});
+  if(ultimaInfla===null)return;
+
+  // construir mapa de coeficientes diarios por rango de fechas
+  // cada mes de inflación M genera un coef que aplica desde 15/M+1 hasta 15/M+2
+  // si no tiene dato, usar ultimaInfla
+  const rangos=[]; // [{desde, hasta, coef}]
+  PROJ_INFLACION.forEach(r=>{
+    const infla=r.infla!=null?r.infla:ultimaInfla;
+    const mesAplica=projMesAplica(r.mes);
+    const coef=projCoefDiario(infla, mesAplica);
+    const desde=projFechaInicioVigencia(r.mes);
+    const hasta=projFechaFinVigencia(r.mes);
+    rangos.push({desde, hasta, coef});
+  });
+  rangos.sort((a,b)=>a.desde.localeCompare(b.desde));
+
+  // obtener coeficiente para una fecha
+  function coefPara(fechaStr){
+    for(const rango of rangos){
+      if(fechaStr>=rango.desde&&fechaStr<rango.hasta)return rango.coef;
+    }
+    // si está después de todos los rangos, usar el último
+    if(rangos.length)return rangos[rangos.length-1].coef;
+    return 1;
+  }
+
+  // encadenar desde el día siguiente al último CER real
+  let cerAnterior=lastReal.valor;
+  let fecha=new Date(lastReal.fecha+'T00:00:00');
+  const fechaFin=new Date(TODAY.getFullYear()+PROJ_HORIZONTE_AÑOS, TODAY.getMonth(), TODAY.getDate());
+
+  fecha.setDate(fecha.getDate()+1); // empezar desde el día siguiente al último real
+  while(fecha<=fechaFin){
+    const fs=fmtDate(fecha);
+    const coef=coefPara(fs);
+    cerAnterior=cerAnterior*coef;
+    CER_PROJ.set(fs, cerAnterior);
+    fecha.setDate(fecha.getDate()+1);
+  }
+}
+
+// Función unificada para obtener CER (real + proyectado)
+function cerGetProyectado(fechaStr){
+  // primero buscar en real
+  const real=cerIndexGet(fechaStr);
+  if(real!=null)return{valor:real, tipo:'real'};
+  // luego en proyectado
+  const proj=CER_PROJ.get(fechaStr);
+  if(proj!=null)return{valor:proj, tipo:'proyectado'};
+  // buscar el más cercano anterior en proyectado
+  if(CER_PROJ.size){
+    let best=null,bestFecha=null;
+    for(const [f,v] of CER_PROJ){
+      if(f<=fechaStr&&(!bestFecha||f>bestFecha)){bestFecha=f;best=v;}
+    }
+    if(best!=null)return{valor:best,tipo:'proyectado'};
+  }
+  return null;
+}
+
+// ── INIT / RENDER ─────────────────────────────────────────────────────────────
+function projInit(){
+  projLoadLs();
+  projDetectarPublicados();
+  projRecalc();
+}
+
+function projRecalc(){
+  // rellenar nulos con último valor disponible (para el cálculo)
+  let ultimaInfla=3; // default 3% si no hay nada
+  PROJ_INFLACION.forEach(r=>{if(r.infla!=null)ultimaInfla=r.infla;});
+
+  projCalcularCER();
+  projRenderTabla();
+  projRenderPreview();
+  projRenderSummary();
+
+  set('proj-status','');
+}
+
+function projRenderTabla(){
+  const tbody=document.getElementById('proj-tbody');
+  if(!tbody)return;
+
+  const lastReal=projGetLastCerReal();
+  const fechaLimite=lastReal?lastReal.fecha:'9999-12-31';
+
+  // calcular última inflación para rellenar
+  let ultimaInfla=null;
+  PROJ_INFLACION.forEach(r=>{if(r.infla!=null)ultimaInfla=r.infla;});
+
+  tbody.innerHTML=PROJ_INFLACION.map((r,i)=>{
+    const [y,m]=r.mes.split('-').map(Number);
+    const mesLabel=`${MESES_ES[m-1]} ${y}`;
+    const pubFecha=projFechaPublicacion(r.mes);
+    const pubDisp=pubFecha.split('-').reverse().join('/');
+    const mesAplica=projMesAplica(r.mes);
+    const inflaEfectiva=r.infla!=null?r.infla:ultimaInfla;
+    const coef=inflaEfectiva!=null?projCoefDiario(inflaEfectiva,mesAplica):null;
+
+    const esPublicado=r.tipo==='publicado';
+    const esRelleno=r.infla==null&&!esPublicado;
+
+    // colores
+    const rowBg=esPublicado?'':'';
+    const inflColor=esPublicado?'var(--text2)':esRelleno?'var(--text3)':'var(--warn)';
+    const tipoBadge=esPublicado
+      ?'<span style="font-size:10px;color:var(--accent2);background:var(--accent-dim);padding:1px 6px;border-radius:3px">pub</span>'
+      :esRelleno
+        ?'<span style="font-size:10px;color:var(--text3);background:var(--surface2);padding:1px 6px;border-radius:3px">auto</span>'
+        :'<span style="font-size:10px;color:var(--warn);background:rgba(212,169,106,.1);padding:1px 6px;border-radius:3px">proy</span>';
+
+    const inputVal=r.infla!=null?r.infla:'';
+    const inputDisabled=esPublicado?'disabled':'';
+    const inputStyle=`width:70px;text-align:right;background:${esPublicado?'transparent':'var(--surface2)'};border:1px solid ${esPublicado?'transparent':'var(--border2)'};border-radius:4px;padding:3px 6px;font-family:var(--mono);font-size:12px;color:${inflColor};outline:none;`;
+
+    return`<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:5px 8px;font-size:12px;color:${esPublicado?'var(--text2)':'var(--text)'}">
+        ${mesLabel} ${tipoBadge}
+      </td>
+      <td style="padding:5px 8px;font-size:11px;color:var(--text3);font-family:var(--mono)">${pubDisp}</td>
+      <td style="padding:5px 8px;text-align:right;">
+        <input type="number" step="0.01" min="0" max="200"
+          style="${inputStyle}" ${inputDisabled}
+          value="${inputVal}" placeholder="${esRelleno&&ultimaInfla!=null?ultimaInfla.toFixed(1):'%'}"
+          onchange="projSetInfla('${r.mes}',this.value)"
+          oninput="projSetInfla('${r.mes}',this.value)">
+      </td>
+      <td style="padding:5px 8px;text-align:right;font-size:11px;color:var(--text3);font-family:var(--mono)">
+        ${coef!=null?coef.toFixed(8):'—'}
+      </td>
+      <td style="padding:5px 8px;text-align:center;">
+        ${!esPublicado?`<button onclick="projDeleteMes('${r.mes}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;padding:1px 4px;">✕</button>`:''}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function projRenderPreview(){
+  const tbody=document.getElementById('proj-preview-tbody');
+  if(!tbody)return;
+  const lastReal=projGetLastCerReal();
+  if(!lastReal){tbody.innerHTML='<tr><td colspan="3" style="padding:1rem;color:var(--text3);font-size:12px">Cargá el CER primero (↻ CER)</td></tr>';return;}
+
+  // mostrar 5 días reales + 25 proyectados
+  const rows=[];
+  let fecha=new Date(lastReal.fecha+'T00:00:00');
+  fecha.setDate(fecha.getDate()-4);
+  for(let i=0;i<35;i++){
+    const fs=fmtDate(fecha);
+    const real=cerIndexGet(fs);
+    if(real!=null){
+      rows.push({fecha:fs,valor:real,tipo:'real'});
+    } else {
+      const proj=CER_PROJ.get(fs);
+      if(proj!=null)rows.push({fecha:fs,valor:proj,tipo:'proyectado'});
+    }
+    fecha.setDate(fecha.getDate()+1);
+    if(rows.filter(r=>r.tipo==='proyectado').length>=25)break;
+  }
+
+  tbody.innerHTML=rows.map((r,i)=>{
+    const esProj=r.tipo==='proyectado';
+    const prev=rows[i-1];
+    const varD=prev?(r.valor/prev.valor-1)*10000:null; // en bps
+    return`<tr style="border-bottom:1px solid var(--border)${r.fecha===fmtDate(lastReal.fecha)?' background:var(--accent-dim)':''}">
+      <td style="padding:4px 8px;font-size:12px;color:${esProj?'var(--warn)':'var(--text2)'};font-family:var(--mono)">${r.fecha.split('-').reverse().join('/')}</td>
+      <td style="padding:4px 8px;text-align:right;font-size:12px;color:${esProj?'var(--warn)':'var(--text)'};font-family:var(--mono)">${r.valor.toFixed(6)}</td>
+      <td style="padding:4px 8px;text-align:center;">
+        ${esProj
+          ?'<span style="font-size:10px;color:var(--warn);background:rgba(212,169,106,.1);padding:1px 5px;border-radius:3px">proy</span>'
+          :'<span style="font-size:10px;color:var(--text3);background:var(--surface2);padding:1px 5px;border-radius:3px">real</span>'}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function projRenderSummary(){
+  const last=projGetLastCerReal();
+  if(last){
+    set('proj-cer-last-val',last.valor.toFixed(6));
+    set('proj-cer-last-fecha',last.fecha.split('-').reverse().join('/'));
+  }
+  if(CER_PROJ.size){
+    const keys=[...CER_PROJ.keys()].sort();
+    const firstProj=keys[0];
+    set('proj-cer-first-proj',CER_PROJ.get(firstProj).toFixed(6));
+    set('proj-cer-first-fecha',firstProj.split('-').reverse().join('/'));
+  }
+  const nProy=PROJ_INFLACION.filter(r=>r.tipo==='proyectado').length;
+  set('proj-meses-count',nProy+' meses');
+  const lastMes=PROJ_INFLACION[PROJ_INFLACION.length-1];
+  if(lastMes){
+    const [y,m]=lastMes.mes.split('-').map(Number);
+    set('proj-horizonte',`hasta ${MESES_ES[m-1]} ${y}`);
+  }
+  const nPub=PROJ_INFLACION.filter(r=>r.tipo==='publicado').length;
+  if(nPub>0){
+    const lastPub=PROJ_INFLACION.filter(r=>r.tipo==='publicado').slice(-1)[0];
+    const [y,m]=lastPub.mes.split('-').map(Number);
+    set('proj-last-pub',`Último publicado: ${MESES_ES[m-1]} ${y}`);
+  }
+}
+
+function projSetInfla(mes, val){
+  const r=PROJ_INFLACION.find(r=>r.mes===mes);
+  if(!r)return;
+  const n=parseFloat(val);
+  r.infla=isNaN(n)||val===''?null:n;
+  projSaveLs();
+  projRecalc();
+}
+
+function projAddMes(){
+  // agregar el mes siguiente al último
+  const last=PROJ_INFLACION[PROJ_INFLACION.length-1];
+  if(!last)return;
+  const [y,m]=last.mes.split('-').map(Number);
+  const next=new Date(y,m,1);
+  const nextStr=fmtDate(next).substring(0,7);
+  if(PROJ_INFLACION.find(r=>r.mes===nextStr))return;
+  PROJ_INFLACION.push({mes:nextStr, infla:null, tipo:'proyectado'});
+  projSaveLs();
+  projRecalc();
+}
+
+function projDeleteMes(mes){
+  PROJ_INFLACION=PROJ_INFLACION.filter(r=>r.mes!==mes);
+  projSaveLs();
+  projRecalc();
+}
 const LS_LECAPS='bonosAR_lecaps_v1';
 const LS_CER='bonosAR_cer_bonds_v1';
 
