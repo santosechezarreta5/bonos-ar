@@ -2855,7 +2855,26 @@ function projSetInfla(mes, val){
   const n=parseFloat(val);
   r.infla=isNaN(n)||val===''?null:n;
   projSaveLs();
-  projRecalc();
+  // solo recalcular CER y actualizar summary/preview, NO re-renderizar la tabla
+  // (re-renderizar destruye el foco del input activo)
+  projCalcularCER();
+  projRenderPreview();
+  projRenderSummary();
+  // actualizar solo la celda del coeficiente de esta fila sin re-renderizar
+  const inflaEfectiva=r.infla!=null?r.infla:(()=>{
+    let u=3;PROJ_INFLACION.forEach(x=>{if(x.infla!=null)u=x.infla;});return u;
+  })();
+  const mesAplica=projMesAplica(mes);
+  const coef=projCoefDiario(inflaEfectiva,mesAplica);
+  // buscar la td del coeficiente en la fila correspondiente
+  const rows=document.getElementById('proj-tbody')?.querySelectorAll('tr');
+  if(rows){
+    const idx=PROJ_INFLACION.findIndex(x=>x.mes===mes);
+    if(idx>=0&&rows[idx]){
+      const tds=rows[idx].querySelectorAll('td');
+      if(tds[3])tds[3].textContent=coef.toFixed(8);
+    }
+  }
 }
 
 function projAddMes(){
@@ -2898,6 +2917,7 @@ function savePortfolio(){
     }));
     localStorage.setItem(LS_LECAPS,JSON.stringify(lecapsSave));
     localStorage.setItem(LS_CER,JSON.stringify(cerSave));
+    projSaveLs();
   }catch(e){console.warn('savePortfolio error:',e);}
 }
 
@@ -2928,6 +2948,14 @@ function loadPortfolio(){
       }
     }
   }catch(e){console.warn('loadPortfolio CER error:',e);}
+  // cargar proyecciones guardadas
+  try{
+    const rawP=localStorage.getItem(PROJ_LS_KEY);
+    if(rawP){
+      const parsed=JSON.parse(rawP);
+      if(Array.isArray(parsed)&&parsed.length)PROJ_INFLACION=parsed;
+    }
+  }catch(e){console.warn('loadPortfolio proj error:',e);}
 }
 
 // ── EXPORTAR JSON ─────────────────────────────────────────────────────────────
