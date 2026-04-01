@@ -1883,8 +1883,8 @@ function cerSaveModal(){
     cerRenderTable();
     try{cerOpenPanel(ticker);}catch(e){console.error('cerOpenPanel error:',e);}
   }catch(e){
-    console.error('cerSaveModal error:',e);
-    alert('Error al agregar: '+e.message);
+    console.error('cerSaveModal error:', e, e.stack);
+    alert('Error al agregar: '+e.message+'\n\nStack: '+e.stack);
   }
 }
 
