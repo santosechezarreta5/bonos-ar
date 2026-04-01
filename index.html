@@ -198,7 +198,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 }
 
 /* modal */
-.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;display:none;align-items:center;justify-content:center;}
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:600;display:none;align-items:center;justify-content:center;}
 .modal-backdrop.open{display:flex;}
 .modal{background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:1.5rem;width:460px;max-width:95vw;}
 .modal-title{font-family:var(--serif);font-size:17px;font-weight:300;font-style:italic;color:var(--accent);margin-bottom:1.1rem;}
@@ -1359,6 +1359,13 @@ function cerTemToTir(tem){ return (Math.pow(1+tem/100,12)-1)*100; }
 function cerTnaToTir(tna){ return cerTemToTir(tna/12); }
 
 // ── FACTOR DE AJUSTE CER ──────────────────────────────────────────────────────
+// restar n días hábiles hacia atrás desde una fecha
+function restarHabiles(desde, n){
+  let d=new Date(desde);d.setHours(0,0,0,0);
+  let c=0;
+  while(c<n){d.setDate(d.getDate()-1);if(esHabil(d))c++;}
+  return d;
+}
 // Para una fecha dada, busca el CER del día hábil -10
 function cerGetFechaCer(fecha){
   return restarHabiles(fecha, 10);
@@ -1368,7 +1375,7 @@ function cerGetValorCer(fecha){
   return cerIndexGet(fmtDate(fechaCer));
 }
 function cerFactor(emision){
-  // Factor = CER(hoy -10 háb) / CER(emisión -10 háb)
+  // Factor = CER(liq -10 háb) / CER(emisión -10 háb)
   const liq = G_LIQ||addHabiles(TODAY,1);
   const cerHoy = cerGetValorCer(liq);
   const cerIni = cerGetValorCer(parseDate(emision));
