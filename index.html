@@ -1852,7 +1852,7 @@ async function cerFetchIndex(force=false){
   if(stTab){stTab.textContent='CER: cargando…';stTab.className='api-status loading';}
 
   try{
-    const res=await fetch('https://api.estadisticasbcra.com/cer',{
+    const res=await fetch('https://royal-resonance-d470.santosechezarreta5.workers.dev/cer',{
       headers:{Authorization:'Bearer '+token},
       signal:AbortSignal.timeout(15000)
     });
