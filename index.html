@@ -2317,6 +2317,8 @@ async function cerFetchIndex(force=false){
     if(stTab){stTab.textContent=`CER · ${CER_INDEX.length} registros · ${now}`;stTab.className='api-status ok';}
 
     cerRenderIndexStrip();
+    // actualizar proyecciones si están cargadas
+    if(PROJ_INFLACION.length){projCalcularCER();projRenderSummary();projRenderPreview();}
     return true;
 
   }catch(e){
@@ -2737,6 +2739,13 @@ function projRenderTabla(){
   let ultimaInfla=null;
   PROJ_INFLACION.forEach(r=>{if(r.infla!=null)ultimaInfla=r.infla;});
 
+function projRenderTabla(){
+  const tbody=document.getElementById('proj-tbody');
+  if(!tbody)return;
+
+  let ultimaInfla=2.8; // default
+  PROJ_INFLACION.forEach(r=>{if(r.infla!=null)ultimaInfla=r.infla;});
+
   tbody.innerHTML=PROJ_INFLACION.map((r,i)=>{
     const [y,m]=r.mes.split('-').map(Number);
     const mesLabel=`${MESES_ES[m-1]} ${y}`;
@@ -2744,41 +2753,36 @@ function projRenderTabla(){
     const pubDisp=pubFecha.split('-').reverse().join('/');
     const mesAplica=projMesAplica(r.mes);
     const inflaEfectiva=r.infla!=null?r.infla:ultimaInfla;
-    const coef=inflaEfectiva!=null?projCoefDiario(inflaEfectiva,mesAplica):null;
+    const coef=projCoefDiario(inflaEfectiva,mesAplica);
 
     const esPublicado=r.tipo==='publicado';
     const esRelleno=r.infla==null&&!esPublicado;
 
-    // colores
-    const rowBg=esPublicado?'':'';
-    const inflColor=esPublicado?'var(--text2)':esRelleno?'var(--text3)':'var(--warn)';
     const tipoBadge=esPublicado
       ?'<span style="font-size:10px;color:var(--accent2);background:var(--accent-dim);padding:1px 6px;border-radius:3px">pub</span>'
       :esRelleno
         ?'<span style="font-size:10px;color:var(--text3);background:var(--surface2);padding:1px 6px;border-radius:3px">auto</span>'
         :'<span style="font-size:10px;color:var(--warn);background:rgba(212,169,106,.1);padding:1px 6px;border-radius:3px">proy</span>';
 
-    const inputVal=r.infla!=null?r.infla:'';
+    const inflColor=esPublicado?'var(--text2)':esRelleno?'var(--text3)':'var(--warn)';
+    // SIEMPRE poner el valor efectivo en value para que el input no quede vacío
+    const inputVal=inflaEfectiva.toFixed(2);
     const inputDisabled=esPublicado?'disabled':'';
-    const inputStyle=`width:70px;text-align:right;background:${esPublicado?'transparent':'var(--surface2)'};border:1px solid ${esPublicado?'transparent':'var(--border2)'};border-radius:4px;padding:3px 6px;font-family:var(--mono);font-size:12px;color:${inflColor};outline:none;`;
+    const inputBg=esPublicado?'transparent':esRelleno?'var(--surface)':'var(--surface2)';
+    const inputBorder=esPublicado?'transparent':'var(--border2)';
+    const inputStyle=`width:70px;text-align:right;background:${inputBg};border:1px solid ${inputBorder};border-radius:4px;padding:3px 6px;font-family:var(--mono);font-size:12px;color:${inflColor};outline:none;`;
 
     return`<tr style="border-bottom:1px solid var(--border)">
-      <td style="padding:5px 8px;font-size:12px;color:${esPublicado?'var(--text2)':'var(--text)'}">
-        ${mesLabel} ${tipoBadge}
-      </td>
+      <td style="padding:5px 8px;font-size:12px;color:${esPublicado?'var(--text2)':'var(--text)'}">${mesLabel} ${tipoBadge}</td>
       <td style="padding:5px 8px;font-size:11px;color:var(--text3);font-family:var(--mono)">${pubDisp}</td>
       <td style="padding:5px 8px;text-align:right;">
         <input type="number" step="0.01" min="0" max="200"
+          data-mes="${r.mes}"
           style="${inputStyle}" ${inputDisabled}
-          value="${inputVal}" placeholder="${esRelleno&&ultimaInfla!=null?ultimaInfla.toFixed(1):'%'}"
+          value="${inputVal}"
           onchange="projSetInfla('${r.mes}',this.value)">
       </td>
-      <td style="padding:5px 8px;text-align:right;font-size:11px;color:var(--text3);font-family:var(--mono)">
-        ${coef!=null?coef.toFixed(8):'—'}
-      </td>
-      <td style="padding:5px 8px;text-align:center;">
-        ${!esPublicado?`<button onclick="projDeleteMes('${r.mes}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;padding:1px 4px;">✕</button>`:''}
-      </td>
+      <td style="padding:5px 8px;text-align:right;font-size:11px;color:var(--text3);font-family:var(--mono)" id="proj-coef-${r.mes}">${coef.toFixed(8)}</td>
     </tr>`;
   }).join('');
 }
@@ -2851,30 +2855,42 @@ function projRenderSummary(){
 
 function projSetInfla(mes, val){
   const r=PROJ_INFLACION.find(r=>r.mes===mes);
-  if(!r)return;
+  if(!r||r.tipo==='publicado')return;
   const n=parseFloat(val);
+  const inflaAnterior=r.infla;
   r.infla=isNaN(n)||val===''?null:n;
+  // si cambió de null a valor o viceversa, actualizar el badge (tipo cambia a 'proy')
+  if(r.infla!=null&&r.tipo!=='publicado') r.tipo='proyectado'; // marcar como proy explícito
+  else if(r.infla==null&&r.tipo==='proyectado') r.tipo='proyectado'; // sigue siendo proyectado (auto)
   projSaveLs();
-  // solo recalcular CER y actualizar summary/preview, NO re-renderizar la tabla
-  // (re-renderizar destruye el foco del input activo)
+
+  // recalcular último valor efectivo para rellenar autos
+  let ultimaInfla=2.8;
+  PROJ_INFLACION.forEach(x=>{if(x.infla!=null)ultimaInfla=x.infla;});
+
+  // actualizar celda del coeficiente de este mes sin re-renderizar
+  const mesAplica=projMesAplica(mes);
+  const inflaEfectiva=r.infla!=null?r.infla:ultimaInfla;
+  const coef=projCoefDiario(inflaEfectiva,mesAplica);
+  const coefEl=document.getElementById('proj-coef-'+mes);
+  if(coefEl)coefEl.textContent=coef.toFixed(8);
+
+  // actualizar inputs de filas "auto" que dependen de este valor
+  PROJ_INFLACION.forEach(x=>{
+    if(x.infla==null&&x.tipo!=='publicado'){
+      const inp=document.querySelector(`input[data-mes="${x.mes}"]`);
+      if(inp)inp.value=ultimaInfla.toFixed(2);
+      const mA=projMesAplica(x.mes);
+      const c=projCoefDiario(ultimaInfla,mA);
+      const cEl=document.getElementById('proj-coef-'+x.mes);
+      if(cEl)cEl.textContent=c.toFixed(8);
+    }
+  });
+
+  // recalcular CER proyectado y preview
   projCalcularCER();
   projRenderPreview();
   projRenderSummary();
-  // actualizar solo la celda del coeficiente de esta fila sin re-renderizar
-  const inflaEfectiva=r.infla!=null?r.infla:(()=>{
-    let u=3;PROJ_INFLACION.forEach(x=>{if(x.infla!=null)u=x.infla;});return u;
-  })();
-  const mesAplica=projMesAplica(mes);
-  const coef=projCoefDiario(inflaEfectiva,mesAplica);
-  // buscar la td del coeficiente en la fila correspondiente
-  const rows=document.getElementById('proj-tbody')?.querySelectorAll('tr');
-  if(rows){
-    const idx=PROJ_INFLACION.findIndex(x=>x.mes===mes);
-    if(idx>=0&&rows[idx]){
-      const tds=rows[idx].querySelectorAll('td');
-      if(tds[3])tds[3].textContent=coef.toFixed(8);
-    }
-  }
 }
 
 function projAddMes(){
