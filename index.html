@@ -2130,7 +2130,7 @@ function cerSaveModal(){
 // Sin token. Cache localStorage 23hs.
 
 const WORKER_URL='https://royal-resonance-d470.santosechezarreta5.workers.dev/cer';
-const CER_CACHE_KEY='bonosAR_cer_bcra_v1';
+const CER_CACHE_KEY='bonosAR_cer_bcra_v2';
 const CER_CACHE_TTL=23*60*60*1000;
 let CER_INDEX=[];   // [{fecha:'YYYY-MM-DD', valor:number}] ordenado asc
 
@@ -2186,7 +2186,7 @@ async function cerFetchIndex(force=false){
   if(stTab){stTab.textContent='CER: cargando…';stTab.className='api-status loading';}
 
   try{
-    const DESDE='2023-01-01';
+    const DESDE='2002-01-01';
     const LIMIT=3000;
     let allResults=[];
     let offset=0;
@@ -2439,7 +2439,7 @@ function ferExportar(){
   });
 }
 // Limpiar datos viejos de versiones anteriores
-['bonosAR_cer_index_v1','bonosAR_cer_index_v2','cer_data_cache_v1','cer_data_v2'].forEach(k=>{
+['bonosAR_cer_index_v1','bonosAR_cer_index_v2','cer_data_cache_v1','cer_data_v2','bonosAR_cer_bcra_v1'].forEach(k=>{
   try{localStorage.removeItem(k);}catch(e){}
 });
 
