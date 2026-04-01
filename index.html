@@ -1881,6 +1881,8 @@ function cerSaveModal(){
     try{CER_DATA=CER_BONDS.map(cerEnrich);}catch(e){console.error('cerEnrich error:',e);CER_DATA=CER_BONDS.map(r=>({...r,dias:0,tir:NaN,tem:NaN,tna:NaN,factor:null,cc:0}));}
     cerCloseModal();
     cerRenderTable();
+    // fetch precio automáticamente
+    cerFetchPrices();
     try{cerOpenPanel(ticker);}catch(e){console.error('cerOpenPanel error:',e);}
   }catch(e){
     console.error('cerSaveModal error:', e, e.stack);
