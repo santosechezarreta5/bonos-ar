@@ -1352,30 +1352,11 @@ function switchTab(tab){
 let CER_BONDS=[];
 let cerSortCol='vcto', cerSortAsc=true, cerSelectedTicker=null, cerPanelMode='precio', cerEditingCell=null;
 
-// ── CER MATH ──────────────────────────────────────────────────────────────────
-// LECER: zero coupon ajustado CER — tratamos precio como % del VN ajustado
-// TIR real = (VF/precio)^(365/dias) - 1   (VF=100 para LECER normalizado)
-function cerTirLecer(precio, dias){ return dias>0&&precio>0?(Math.pow(100/precio,365/dias)-1)*100:NaN; }
+// ── CER MATH HELPERS ──────────────────────────────────────────────────────────
 function cerTemFromTir(tir){ return (Math.pow(1+tir/100,1/12)-1)*100; }
 function cerTnaFromTem(tem){ return tem*12; }
-function cerPriceFromTir_lecer(tir, dias){ return 100/Math.pow(1+tir/100,dias/365); }
-function cerPriceFromTem_lecer(tem, dias){ return cerPriceFromTir_lecer(cerTemToTir(tem),dias); }
 function cerTemToTir(tem){ return (Math.pow(1+tem/100,12)-1)*100; }
 function cerTnaToTir(tna){ return cerTemToTir(tna/12); }
-
-// Generar fechas de cupón para bono CER con cupón
-function cerCouponDates(emisionStr, vctoStr, freqMeses){
-  const vcto=parseDate(vctoStr);
-  const dates=[];
-  let d=new Date(vcto);
-  while(true){
-    dates.unshift(new Date(d));
-    d=new Date(d);
-    d.setMonth(d.getMonth()-freqMeses);
-    if(d<=parseDate(emisionStr))break;
-  }
-  return dates;
-}
 
 // ── FACTOR DE AJUSTE CER ──────────────────────────────────────────────────────
 // Para una fecha dada, busca el CER del día hábil -10
@@ -2048,10 +2029,13 @@ const _origUpdateSettlement=updateSettlement;
 // (called at end of file after updateSettlement is defined)
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
+// Limpiar datos viejos de versiones anteriores
+['bonosAR_cer_index_v1','bonosAR_cer_index_v2','cer_data_cache_v1','cer_data_v2'].forEach(k=>{
+  try{localStorage.removeItem(k);}catch(e){}
+});
+
 document.getElementById('g-fecha-op').value=fmtDate(TODAY);
 updateSettlement();
-
-// cargar CER automáticamente al arrancar (usa cache si está fresco)
 cerFetchIndex();
 
 // hook CER into settlement refresh
