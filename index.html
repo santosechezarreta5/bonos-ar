@@ -1798,9 +1798,9 @@ function cerRecalcPanel(){
   const cerIniVal=cerIndexGet(fmtDate(cerIniDate));
   const cerHoyVal=cerIndexGet(fmtDate(cerHoyDate));
 
-  set('cer-r-pl', fmtARSk(precio*scale)+' (mercado)');
-  set('cer-r-cc', fmtN(precioReal,6)+' (real, VN=100)');
-  set('cer-r-ps', fmtARSk(precioReal*scale)+' (real)');
+  set('cer-r-pl', fmtARS(precio)+' (mercado)');
+  set('cer-r-cc', precioReal.toFixed(6)+' (real, VN=100)');
+  set('cer-r-ps', fmtARS(precioReal)+' (real)');
   set('cer-r-dias', dias+' días');
   set('cer-r-tir',fmtPct(tir));
   set('cer-r-tem',fmtPct(tem));
@@ -1812,7 +1812,7 @@ function cerRecalcPanel(){
   if(cerPanelMode!=='tem')    document.getElementById('cer-p-tem-in').value=tem.toFixed(6);
   if(cerPanelMode!=='tna')    document.getElementById('cer-p-tna-in').value=tna.toFixed(6);
 
-  const cerIniStr=cerIniVal?`${fmtDisp?fmtDisp(fmtDate(cerIniDate)):fmtDate(cerIniDate)} = ${cerIniVal.toFixed(4)}`:'—';
+  const cerIniStr=cerIniVal?`${fmtDate(cerIniDate).split('-').reverse().join('/')} = ${cerIniVal.toFixed(4)}`:'—';
   const cerHoyStr=cerHoyVal?`${fmtDate(cerHoyDate).split('-').reverse().join('/')} = ${cerHoyVal.toFixed(4)}`:'—';
   set('cer-p-tip',
     `Factor CER: ${factor.toFixed(6)} · `+
