@@ -1851,23 +1851,31 @@ function cerModalTipoChange(){
   document.getElementById('cer-m-cupon-fields').style.display=isCupon?'block':'none';
 }
 function cerSaveModal(){
-  const ticker=(document.getElementById('cer-m-ticker').value||'').toUpperCase().trim();
-  const tipo=document.getElementById('cer-m-tipo').value;
-  const emision=document.getElementById('cer-m-emision').value;
-  const vcto=document.getElementById('cer-m-vcto').value;
-  const precioRaw=document.getElementById('cer-m-precio').value;
-  const precio=precioRaw?parseFloat(precioRaw):null;
-  if(!ticker||!vcto){alert('Completá ticker y fecha de vencimiento.');return;}
-  if(CER_BONDS.find(r=>r.ticker===ticker)){alert('Ya existe ese ticker.');return;}
-  const bond={ticker,tipo,emision,vcto,precio,pct_change:null,manualOverride:false};
-  if(tipo==='cupon'){
-    bond.cupon=parseFloat(document.getElementById('cer-m-cupon').value)||null;
-    bond.freq=parseInt(document.getElementById('cer-m-freq').value)||6;
-    bond.amort=document.getElementById('cer-m-amort').value;
+  try{
+    const ticker=(document.getElementById('cer-m-ticker').value||'').toUpperCase().trim();
+    const tipo=document.getElementById('cer-m-tipo').value;
+    const emision=document.getElementById('cer-m-emision').value;
+    const vcto=document.getElementById('cer-m-vcto').value;
+    const precioRaw=document.getElementById('cer-m-precio').value;
+    const precio=precioRaw?parseFloat(precioRaw):null;
+    if(!ticker){alert('Ingresá un ticker.');return;}
+    if(!vcto){alert('Ingresá fecha de vencimiento.');return;}
+    if(CER_BONDS.find(r=>r.ticker===ticker)){alert('Ya existe ese ticker.');return;}
+    const bond={ticker,tipo,emision:emision||'',vcto,precio,pct_change:null,manualOverride:false};
+    if(tipo==='cupon'){
+      bond.cupon=parseFloat(document.getElementById('cer-m-cupon').value)||null;
+      bond.freq=parseInt(document.getElementById('cer-m-freq').value)||6;
+      bond.amort=document.getElementById('cer-m-amort').value;
+    }
+    CER_BONDS.push(bond);
+    try{CER_DATA=CER_BONDS.map(cerEnrich);}catch(e){console.error('cerEnrich error:',e);CER_DATA=CER_BONDS.map(r=>({...r,dias:0,tir:NaN,tem:NaN,tna:NaN,factor:null,cc:0}));}
+    cerCloseModal();
+    cerRenderTable();
+    try{cerOpenPanel(ticker);}catch(e){console.error('cerOpenPanel error:',e);}
+  }catch(e){
+    console.error('cerSaveModal error:',e);
+    alert('Error al agregar: '+e.message);
   }
-  CER_BONDS.push(bond);
-  CER_DATA=CER_BONDS.map(cerEnrich);
-  cerCloseModal();cerRenderTable();cerOpenPanel(ticker);
 }
 
 // ── CER INDEX — BCRA vía Cloudflare Worker ────────────────────────────────────
