@@ -639,6 +639,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 </div>
 
 <!-- LECAP MODAL -->
+<div class="modal-backdrop" id="modal">
   <div class="modal">
     <div class="modal-title">Nueva LECAP</div>
     <div class="field-row cols2">
@@ -658,6 +659,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
       <button class="btn primary" onclick="saveModal()">Agregar</button>
     </div>
   </div>
+</div>
 </div>
 
 <div style="height:30px;"></div>
@@ -1707,7 +1709,8 @@ function cerOpenPanel(ticker){
     `<span>Emisión: ${r.emision?r.emision.split('-').reverse().join('/'):'—'}</span>`+
     `<span>Vto: ${r.vcto?r.vcto.split('-').reverse().join('/'):'—'}</span>`;
   const liq=G_LIQ||addHabiles(TODAY,1);
-  document.getElementById('cer-p-liq-ro').value=liq.toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'});
+  const liqStr=liq instanceof Date ? liq.toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'}) : '—';
+  document.getElementById('cer-p-liq-ro').value=liqStr;
   document.getElementById('cer-p-precio-in').value=r.precio!=null?r.precio.toFixed(2):'';
   document.getElementById('cer-p-tir-in').value=isNaN(r.tir)?'':r.tir.toFixed(6);
   document.getElementById('cer-p-tem-in').value=isNaN(r.tem)?'':r.tem.toFixed(6);
