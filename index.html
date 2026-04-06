@@ -2732,17 +2732,6 @@ function projRenderTabla(){
   const tbody=document.getElementById('proj-tbody');
   if(!tbody)return;
 
-  const lastReal=projGetLastCerReal();
-  const fechaLimite=lastReal?lastReal.fecha:'9999-12-31';
-
-  // calcular última inflación para rellenar
-  let ultimaInfla=null;
-  PROJ_INFLACION.forEach(r=>{if(r.infla!=null)ultimaInfla=r.infla;});
-
-function projRenderTabla(){
-  const tbody=document.getElementById('proj-tbody');
-  if(!tbody)return;
-
   let ultimaInfla=2.8; // default
   PROJ_INFLACION.forEach(r=>{if(r.infla!=null)ultimaInfla=r.infla;});
 
