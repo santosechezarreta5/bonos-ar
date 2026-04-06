@@ -2625,18 +2625,48 @@ function projGetLastCerReal(){
 }
 
 function projDetectarPublicados(){
-  // Marcar como "publicado" los meses cuya inflación ya está reflejada en el CER real
-  // Si el CER real llega hasta fecha F, entonces la inflación de todos los meses M
-  // tal que el 15 del mes M+1 <= F ya está publicada
+  // La inflación del mes M está publicada si el CER real llega hasta el 15 del mes M+1
+  // Es decir: pubFecha (15/M+1) <= fechaUltimoCerReal
   const last=projGetLastCerReal();
   if(!last)return;
-  const fechaLimite=last.fecha; // YYYY-MM-DD
+  const fechaLimite=last.fecha;
   PROJ_INFLACION.forEach(r=>{
-    const pubFecha=projFechaPublicacion(r.mes);
+    const pubFecha=projFechaPublicacion(r.mes); // 15 del mes M+1
+    // solo marcar como publicado si el CER real cubre esa fecha de publicación
     if(pubFecha<=fechaLimite){
       r.tipo='publicado';
+      // calcular inflación real del mes a partir del CER si no la tiene
+      if(r.infla==null){
+        r.infla=projInflaRealDeMes(r.mes);
+      }
+    } else {
+      // si ya no es publicado (por cambio de datos), no sobreescribir proyecciones manuales
+      if(r.tipo==='publicado') r.tipo='proyectado';
     }
   });
+}
+
+function projInflaRealDeMes(mesStr){
+  // Calcular la inflación mensual real a partir de los valores del CER
+  // La inflación de mes M aplica desde 15/M+1 hasta 15/M+2
+  // Coef acumulado del período = CER(15/M+2) / CER(15/M+1)
+  // Inflación mensual = coef acumulado ^ (días_mes_M+1 / días_período) - 1
+  // Simplificado: inf = (CER_fin / CER_ini)^(dias_mes / dias_periodo) - 1
+  const ini=projFechaInicioVigencia(mesStr); // 15/M+1
+  const fin=projFechaFinVigencia(mesStr);     // 15/M+2
+  const cerIni=cerIndexGet(ini);
+  const cerFin=cerIndexGet(fin);
+  if(!cerIni||!cerFin)return null;
+  // días del mes que aplica (mes M+1)
+  const mesAplica=projMesAplica(mesStr);
+  const [y,m]=mesAplica.split('-').map(Number);
+  const diasMes=projDiasMes(y,m-1);
+  // días reales del período
+  const diasPeriodo=Math.round((parseDate(fin)-parseDate(ini))/86400000);
+  // inflación mensual equivalente
+  const ratio=cerFin/cerIni;
+  const infla=(Math.pow(ratio, diasMes/diasPeriodo)-1)*100;
+  return Math.round(infla*1000)/1000; // redondear a 3 decimales
 }
 
 // Calcular y guardar CER_PROJ: serie diaria desde el último CER real hasta 10 años
@@ -2803,7 +2833,7 @@ function projRenderPreview(){
     const esProj=r.tipo==='proyectado';
     const prev=rows[i-1];
     const varD=prev?(r.valor/prev.valor-1)*10000:null; // en bps
-    return`<tr style="border-bottom:1px solid var(--border)${r.fecha===fmtDate(lastReal.fecha)?' background:var(--accent-dim)':''}">
+    return`<tr style="border-bottom:1px solid var(--border)${r.fecha===lastReal.fecha?' background:var(--accent-dim)':''}">
       <td style="padding:4px 8px;font-size:12px;color:${esProj?'var(--warn)':'var(--text2)'};font-family:var(--mono)">${r.fecha.split('-').reverse().join('/')}</td>
       <td style="padding:4px 8px;text-align:right;font-size:12px;color:${esProj?'var(--warn)':'var(--text)'};font-family:var(--mono)">${r.valor.toFixed(6)}</td>
       <td style="padding:4px 8px;text-align:center;">
