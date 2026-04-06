@@ -2244,9 +2244,19 @@ function cerRecalcPanel(){
 
   const cerIniStr=cerIniVal?`${fmtDate(cerIniDate).split('-').reverse().join('/')} = ${cerIniVal.toFixed(4)}`:'—';
   const cerHoyStr=cerHoyVal?`${fmtDate(cerHoyDate).split('-').reverse().join('/')} = ${cerHoyVal.toFixed(4)}`:'—';
+
+  // CER fixing del vencimiento (para verificar TIR c/proy)
+  let cerVtoStr='—';
+  if(r.vcto){
+    const cerVtoDate=cerGetFechaCer(parseDate(r.vcto));
+    const cerVtoVal=cerGetValorCerProyectado(parseDate(r.vcto));
+    cerVtoStr=`${fmtDate(cerVtoDate).split('-').reverse().join('/')} = ${cerVtoVal!=null?cerVtoVal.toFixed(4):'sin dato'}`;
+  }
+
   set('cer-p-tip',
     `Factor CER: ${factor.toFixed(6)} · `+
     `CER emisión (${cerIniStr}) · CER hoy (${cerHoyStr}) · `+
+    `CER fixing vto (${cerVtoStr}) · `+
     `Precio real: ${precioReal.toFixed(4)} · `+
     `TIR real ${fmtP2(tir)} · TEM ${fmtP2(tem)}`);
 }
