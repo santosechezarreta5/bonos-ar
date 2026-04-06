@@ -1740,7 +1740,7 @@ function cerBuildFlujos(r, precio, factor){
     const dates=cerCouponDates(r.emision,r.vcto,freq,r.primerCupon||null);
     const n=dates.length;
 
-    // tabla de amortización: [{fecha:'YYYY-MM-DD', pct:number}]
+    // tabla de amortización completa
     let amortTable;
     if(r.amort==='custom'&&r.amortSchedule?.length){
       amortTable=r.amortSchedule.map(s=>({fecha:s.fecha,pct:s.pct}));
@@ -1751,16 +1751,18 @@ function cerBuildFlujos(r, precio, factor){
     }
     const amortMap=new Map(amortTable.map(a=>[a.fecha,a.pct]));
 
-    // VN residual antes de cada fecha de cupón
+    // PASO 1: calcular vnResidual al momento de liquidación
+    // descontar TODAS las amortizaciones (de cualquier fuente) con fecha <= liq
     let vnResidual=100;
-    // Pre-calcular amortizaciones acumuladas por fecha de cupón
-    dates.forEach(d=>{
-      if(d<=liq){
-        // actualizar vnResidual por amortizaciones ya ocurridas
-        const a=amortMap.get(fmtDate(d))||0;
-        vnResidual=Math.max(0,vnResidual-a);
-        return;
+    amortTable.forEach(a=>{
+      if(parseDate(a.fecha)<=liq){
+        vnResidual=Math.max(0,vnResidual-a.pct);
       }
+    });
+
+    // PASO 2: construir flujos futuros recorriendo fechas de cupón
+    dates.forEach(d=>{
+      if(d<=liq)return; // ya pagado
       const fechaStr=fmtDate(d);
       const amortMonto=amortMap.get(fechaStr)||0;
       const baseCalculo=cuponBase==='residual'?vnResidual:100;
@@ -1769,7 +1771,7 @@ function cerBuildFlujos(r, precio, factor){
       vnResidual=Math.max(0,vnResidual-amortMonto);
     });
 
-    // amortizaciones custom que no coinciden con fechas de cupón
+    // PASO 3: amortizaciones custom que no coinciden con fechas de cupón
     amortTable.forEach(a=>{
       const dA=parseDate(a.fecha);
       if(dA<=liq)return;
@@ -1885,13 +1887,15 @@ function cerBuildFlujosProy(r, precio, factor){
     }
     const amortMap=new Map(amortTable.map(a=>[a.fecha,a.pct]));
 
+    // PASO 1: vnResidual al momento de liquidación (descontar todas las amort pasadas)
     let vnResidual=100;
+    amortTable.forEach(a=>{
+      if(parseDate(a.fecha)<=liq) vnResidual=Math.max(0,vnResidual-a.pct);
+    });
+
+    // PASO 2: flujos futuros
     dates.forEach(d=>{
-      if(d<=liq){
-        const a=amortMap.get(fmtDate(d))||0;
-        vnResidual=Math.max(0,vnResidual-a);
-        return;
-      }
+      if(d<=liq)return;
       const fechaStr=fmtDate(d);
       const amortMonto=amortMap.get(fechaStr)||0;
       const baseCalculo=cuponBase==='residual'?vnResidual:100;
