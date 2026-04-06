@@ -287,6 +287,8 @@ tbody tr.selected .c-ticker{color:var(--accent);}
           <th onclick="sortBy('ticker')" id="th-ticker" style="text-align:left">Ticker</th>
           <th onclick="sortBy('vcto')"   id="th-vcto"   class="sorted">Vto ↑</th>
           <th onclick="sortBy('dias')"   id="th-dias">Días</th>
+          <th onclick="sortBy('duration')" id="th-duration">Dur.</th>
+          <th onclick="sortBy('modDuration')" id="th-modDuration">MD</th>
           <th onclick="sortBy('precio')" id="th-precio">Precio $</th>
           <th onclick="sortBy('pct_change')" id="th-pct_change">Var%</th>
           <th onclick="sortBy('tna')"    id="th-tna">TNA</th>
@@ -462,6 +464,8 @@ tbody tr.selected .c-ticker{color:var(--accent);}
             <th onclick="cerSortBy('tipo')"   id="cer-th-tipo">Tipo</th>
             <th onclick="cerSortBy('vcto')"   id="cer-th-vcto" class="sorted">Vto ↑</th>
             <th onclick="cerSortBy('dias')"   id="cer-th-dias">Días</th>
+            <th onclick="cerSortBy('duration')" id="cer-th-duration">Dur.</th>
+            <th onclick="cerSortBy('modDuration')" id="cer-th-modDuration">MD</th>
             <th onclick="cerSortBy('precio')" id="cer-th-precio">Precio $</th>
             <th onclick="cerSortBy('pct_change')" id="cer-th-pct_change">Var%</th>
             <th onclick="cerSortBy('tir')"    id="cer-th-tir">TIR real</th>
@@ -561,6 +565,8 @@ tbody tr.selected .c-ticker{color:var(--accent);}
           <tr><td>Cupón corrido</td><td id="cer-r-cc">—</td></tr>
           <tr class="hi"><td>Precio sucio (invertido)</td><td id="cer-r-ps">—</td></tr>
           <tr><td>Días residuales</td><td id="cer-r-dias">—</td></tr>
+          <tr><td>Duration (años)</td><td id="cer-r-dur">—</td></tr>
+          <tr><td>Modified Duration</td><td id="cer-r-moddur">—</td></tr>
         </table>
 
         <!-- TASAS -->
@@ -1029,7 +1035,11 @@ function enrich(r){
   const tna=precio!=null&&dias>0?calcTNA(precio,vf,dias):NaN;
   const tir=calcTIR(tna,dias);
   const tem=calcTEM(tir);
-  return{...r,emisionDate:em,vctoDate:vc,vf,dias,tna,tir,tem};
+  // Duration: LECAP es zero coupon → D = t_vto exactamente
+  const t=dias/365;
+  const duration=dias>0?t:NaN;
+  const modDuration=(!isNaN(tir)&&dias>0)?duration/(1+tir/100):NaN;
+  return{...r,emisionDate:em,vctoDate:vc,vf,dias,tna,tir,tem,duration,modDuration};
 }
 let DATA=LECAPS.map(enrich);
 
@@ -1077,7 +1087,7 @@ async function fetchPrices(){
 // ── TABLA ─────────────────────────────────────────────────────────────────────
 let sortCol='vcto',sortAsc=true,selectedTicker=null,panelMode='precio',editingCell=null;
 
-const TH_COLS=['ticker','vcto','dias','precio','pct_change','tna','tir','tem','vf'];
+const TH_COLS=['ticker','vcto','dias','duration','modDuration','precio','pct_change','tna','tir','tem','vf'];
 function sortBy(col){
   sortAsc=sortCol===col?!sortAsc:(col==='vcto'||col==='ticker');
   sortCol=col;renderTable();
@@ -1166,6 +1176,8 @@ function buildRow(r){
     <td class="ticker-cell"><div class="cv left no-edit"><span class="c-ticker">${r.ticker}</span></div></td>
     <td><div class="cv no-edit c-date">${vctoStr}</div></td>
     <td><div class="cv no-edit c-muted">${v?'<span style="color:var(--text3)">vencida</span>':r.dias}</div></td>
+    <td><div class="cv no-edit c-muted">${isNaN(r.duration)?'—':r.duration.toFixed(2)}</div></td>
+    <td><div class="cv no-edit c-muted">${isNaN(r.modDuration)?'—':r.modDuration.toFixed(2)}</div></td>
     <td>${cellContent('precio')}</td>
     <td><div class="cv no-edit" style="justify-content:flex-end">${chgStr}</div></td>
     <td>${cellContent('tna')}</td>
@@ -1969,7 +1981,32 @@ function cerEnrich(r){
       }catch(e){}
     }
   }
-  return{...r,vctoDate,dias,factor,tir,tem,tna,cc,tirProy,temProy,tnaProy};
+  // Duration de Macaulay sobre flujos reales
+  let duration=NaN,modDuration=NaN;
+  if(!isNaN(tir)&&dias>0&&r.precio!=null&&factor){
+    let flujosDur=[];
+    if(r.tipo==='lecer'){
+      flujosDur=[{fecha:parseDate(r.vcto),monto:100}];
+    } else {
+      const fd=cerBuildFlujos(r,r.precio,factor);
+      flujosDur=fd.slice(1); // sin CF0
+    }
+    if(flujosDur.length){
+      let sumPVxT=0,sumPV=0;
+      flujosDur.forEach(f=>{
+        const t=diasACT(liq,f.fecha)/365;
+        const pv=f.monto/Math.pow(1+tir/100,t);
+        sumPVxT+=t*pv;
+        sumPV+=pv;
+      });
+      if(sumPV>0){
+        duration=sumPVxT/sumPV;
+        modDuration=duration/(1+tir/100);
+      }
+    }
+  }
+
+  return{...r,vctoDate,dias,factor,tir,tem,tna,cc,tirProy,temProy,tnaProy,duration,modDuration};
 }
 let CER_DATA=[];
 
@@ -2006,7 +2043,7 @@ async function cerFetchPrices(){
 }
 
 // ── CER TABLE ─────────────────────────────────────────────────────────────────
-const CER_TH=['ticker','tipo','vcto','dias','precio','pct_change','tir','tirProy','tnaProy','temProy'];
+const CER_TH=['ticker','tipo','vcto','dias','duration','modDuration','precio','pct_change','tir','tirProy','tnaProy','temProy'];
 function cerSortBy(col){
   cerSortAsc=cerSortCol===col?!cerSortAsc:(col==='vcto'||col==='ticker');
   cerSortCol=col;cerRenderTable();
@@ -2083,6 +2120,8 @@ function cerRenderTable(){
       <td><div class="cv no-edit" style="justify-content:center">${tipoBadge}</div></td>
       <td><div class="cv no-edit c-date">${vctoStr}</div></td>
       <td><div class="cv no-edit c-muted">${v?'<span style="color:var(--text3)">vencida</span>':r.dias}</div></td>
+      <td><div class="cv no-edit c-muted">${isNaN(r.duration)?'—':r.duration.toFixed(2)}</div></td>
+      <td><div class="cv no-edit c-muted">${isNaN(r.modDuration)?'—':r.modDuration.toFixed(2)}</div></td>
       <td>${cerc('precio')}</td>
       <td><div class="cv no-edit">${chgStr}</div></td>
       <td>${cerc('tir')}</td>
@@ -2244,6 +2283,8 @@ function cerRecalcPanel(){
   set('cer-r-cc', precioReal.toFixed(6)+' (real, VN=100)');
   set('cer-r-ps', fmtARS(precioReal)+' (real)');
   set('cer-r-dias', dias+' días');
+  set('cer-r-dur', isNaN(r.duration)?'—':r.duration.toFixed(4)+' años');
+  set('cer-r-moddur', isNaN(r.modDuration)?'—':r.modDuration.toFixed(4));
   set('cer-r-tir',fmtPct(tir));
   set('cer-r-tem',fmtPct(tem));
   set('cer-r-tna',fmtPct(tna));
