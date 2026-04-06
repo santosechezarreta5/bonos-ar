@@ -1780,8 +1780,7 @@ function cerBuildFlujos(r, precio, factor){
       if(d<=liq)return; // ya pagado
       const fechaStr=fmtDate(d);
       const amortMonto=amortMap.get(fechaStr)||0;
-      const baseCalculo=cuponBase==='residual'?vnResidual:100;
-      const cuponMonto=baseCalculo*(cuponAnual*(freq/12));
+      const cuponMonto=vnResidual*(cuponAnual*(freq/12));
       flujos.push({fecha:new Date(d), monto:cuponMonto+amortMonto});
       vnResidual=Math.max(0,vnResidual-amortMonto);
     });
@@ -1814,25 +1813,20 @@ function cerPrecioFromTir(tir, r, factor){
   const liq=G_LIQ||addHabiles(TODAY,1);
   if(r.tipo==='lecer'){
     const dias=diasACT(liq,parseDate(r.vcto));
-    // precio real = 100 / (1+tir/100)^(dias/365)
-    // precio mercado = precio_real × factor
     const precioReal=100/Math.pow(1+tir/100,dias/365);
     return precioReal*factor;
   }
-  // Para bonos: buscar precio via Newton-Raphson sobre XIRR
-  // precio_real = suma(CF_i / (1+tir/100)^t_i) → precio_mercado = precio_real × factor
-  const freq=r.freq||6;
-  const cuponPer=(r.cupon/100)*(freq/12)*100;
-  const dates=cerCouponDates(r.emision,r.vcto,freq,r.primerCupon||null);
-  const n=dates.length;
-  let pv=0;
-  dates.forEach((d,i)=>{
-    if(d<=liq)return;
-    const dias=diasACT(liq,d);
-    let amort=r.amort==='bullet'?(i===n-1?100:0):100/n;
-    pv+=(cuponPer+amort)/Math.pow(1+tir/100,dias/365);
-  });
-  return pv*factor; // precio de mercado
+  // Para bonos: descontar los flujos reales a la TIR dada y convertir a precio mercado
+  // Usamos cerBuildFlujos con un precio dummy — solo nos interesan los flujos futuros
+  const flujosDummy=cerBuildFlujos(r, 0, factor);
+  // flujosDummy[0] es CF0 = 0, los demás son los flujos futuros correctos
+  let pvReal=0;
+  for(let i=1;i<flujosDummy.length;i++){
+    const f=flujosDummy[i];
+    const dias=diasACT(liq,f.fecha);
+    pvReal+=f.monto/Math.pow(1+tir/100,dias/365);
+  }
+  return pvReal*factor; // precio de mercado
 }
 
 // ── CER ENRICH ────────────────────────────────────────────────────────────────
@@ -1913,8 +1907,7 @@ function cerBuildFlujosProy(r, precio, factor){
       if(d<=liq)return;
       const fechaStr=fmtDate(d);
       const amortMonto=amortMap.get(fechaStr)||0;
-      const baseCalculo=cuponBase==='residual'?vnResidual:100;
-      const cuponMonto=baseCalculo*(cuponAnual*(freq/12));
+      const cuponMonto=vnResidual*(cuponAnual*(freq/12));
       const cfReal=cuponMonto+amortMonto; // en VN=100 constantes
 
       // ajustar a nominal: flujo_real × factor × (CER_fixing_fecha / CER_hoy)
