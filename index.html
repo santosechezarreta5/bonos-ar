@@ -1823,25 +1823,25 @@ function cerPrecioFromTir(tir, r, factor){
 // CF₀ = −Precio (pesos de hoy, sin deflactar)
 // CF_i = (Amort_i + Cupón_i) × CER_proj(fecha_i − 10 háb) / CER_hoy
 function cerGetValorCerProyectado(fecha){
-  // busca CER real o proyectado para la fecha de fixing (−10 háb)
   const fechaCer=cerGetFechaCer(fecha);
   const fechaStr=fmtDate(fechaCer);
 
-  // determinar hasta dónde llega el CER real
   const lastReal=CER_INDEX.length?CER_INDEX[CER_INDEX.length-1]:null;
   const fechaLimiteReal=lastReal?lastReal.fecha:'0000-00-00';
 
-  // si el fixing cae dentro del rango real → usar CER real
   if(fechaStr<=fechaLimiteReal){
     const real=cerIndexGet(fechaStr);
     if(real!=null)return real;
   }
 
-  // si el fixing es posterior al último real → usar CER proyectado
+  // si CER_PROJ está vacío pero hay proyecciones, recalcular
+  if(!CER_PROJ.size&&PROJ_INFLACION.length){
+    projCalcularCER();
+  }
+
   const proj=CER_PROJ.get(fechaStr);
   if(proj!=null)return proj;
 
-  // anterior más cercano en proyectado
   let best=null,bestF=null;
   for(const [f,v] of CER_PROJ){
     if(f<=fechaStr&&(!bestF||f>bestF)){bestF=f;best=v;}
@@ -2490,8 +2490,13 @@ async function cerFetchIndex(force=false){
     if(stTab){stTab.textContent=`CER · ${CER_INDEX.length} registros · ${now}`;stTab.className='api-status ok';}
 
     cerRenderIndexStrip();
-    // actualizar proyecciones si están cargadas
-    if(PROJ_INFLACION.length){projCalcularCER();projRenderSummary();projRenderPreview();}
+    // actualizar proyecciones y tabla CER si están cargadas
+    if(PROJ_INFLACION.length){
+      projCalcularCER();
+      projRenderSummary();
+      projRenderPreview();
+    }
+    if(CER_BONDS.length) cerRenderTable();
     return true;
 
   }catch(e){
