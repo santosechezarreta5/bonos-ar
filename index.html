@@ -577,6 +577,21 @@ tbody tr.selected .c-ticker{color:var(--accent);}
           <tr><td style="color:var(--warn)">TEM c/proy</td><td id="cer-r-temproy" style="color:var(--warn)">—</td></tr>
         </table>
 
+        <!-- FLUJO DE FONDOS DETALLADO -->
+        <div class="section-label" style="margin-top:8px">Flujo de fondos detallado</div>
+        <div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:11px;" id="cer-ff-table">
+            <thead>
+              <tr style="border-bottom:1px solid var(--border2)">
+                <th style="text-align:left;padding:4px 6px;color:var(--text3);font-weight:400">Fecha</th>
+                <th style="text-align:right;padding:4px 6px;color:var(--text3);font-weight:400">CF Real</th>
+                <th style="text-align:right;padding:4px 6px;color:var(--warn);font-weight:400">CF Nominal</th>
+              </tr>
+            </thead>
+            <tbody id="cer-ff-tbody"></tbody>
+          </table>
+        </div>
+
         <!-- DATOS EMISIÓN -->
         <div class="section-toggle" id="cer-emision-toggle" onclick="cerToggleEmision()">
           <span>Datos del bono</span>
@@ -2248,6 +2263,38 @@ function cerRecalcPanel(){
   set('cer-r-tirproy',fmtPct(tirP));
   set('cer-r-tnaproy',fmtPct(tnaP));
   set('cer-r-temproy',fmtPct(temP));
+
+  // flujo de fondos detallado
+  const tbody=document.getElementById('cer-ff-tbody');
+  if(tbody){
+    // obtener flujos reales y nominales
+    let flujosReal=[], flujosProy=[];
+    if(r.tipo==='lecer'){
+      flujosReal=[
+        {fecha:new Date(liq), monto:-(precio/factor)},
+        {fecha:parseDate(r.vcto), monto:100}
+      ];
+    } else {
+      flujosReal=cerBuildFlujos(r,precio,factor);
+    }
+    if(CER_PROJ.size||CER_INDEX.length){
+      flujosProy=cerBuildFlujosProy(r,precio,factor)||[];
+    }
+    const proMap=new Map(flujosProy.map(f=>[fmtDate(f.fecha),f.monto]));
+
+    tbody.innerHTML=flujosReal.map((f,i)=>{
+      const fs=fmtDate(f.fecha);
+      const proy=proMap.get(fs);
+      const isNeg=f.monto<0;
+      const color=isNeg?'color:var(--danger)':'color:var(--accent)';
+      const colorP=isNeg?'color:var(--danger)':'color:var(--warn)';
+      return`<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:4px 6px;color:var(--text2);font-family:var(--mono)">${fs.split('-').reverse().join('/')}</td>
+        <td style="padding:4px 6px;text-align:right;font-family:var(--mono);${color}">${f.monto>=0?'+':''}${f.monto.toFixed(6)}</td>
+        <td style="padding:4px 6px;text-align:right;font-family:var(--mono);${colorP}">${proy!=null?(proy>=0?'+':'')+proy.toFixed(6):'—'}</td>
+      </tr>`;
+    }).join('');
+  }
 
   // sync inputs
   if(cerPanelMode!=='precio') document.getElementById('cer-p-precio-in').value=precio.toFixed(4);
