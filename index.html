@@ -1840,22 +1840,24 @@ function cerGetValorCerProyectado(fecha){
   return best;
 }
 
-function cerBuildFlujosProy(r, precio){
+function cerBuildFlujosProy(r, precio, factor){
   // Solo construir si hay proyecciones cargadas
   if(!CER_PROJ.size)return null;
+  if(!factor||factor<=0)return null;
   const liq=G_LIQ||addHabiles(TODAY,1);
   const cerHoy=cerGetValorCerProyectado(liq);
   if(!cerHoy)return null;
 
   const flujos=[];
-  // CF₀: inversión al precio de mercado
+  // CF₀: inversión al precio de mercado (pesos de hoy)
   flujos.push({fecha:new Date(liq), monto:-precio});
 
   if(r.tipo==='lecer'){
     const cerVto=cerGetValorCerProyectado(parseDate(r.vcto));
     if(!cerVto)return null;
-    // CF_vto = VN × (CER_vto / CER_hoy)
-    flujos.push({fecha:parseDate(r.vcto), monto:100*(cerVto/cerHoy)});
+    // CF_vto = 100 × factor × (CER_fixing_vto / CER_hoy)
+    // = 100 × (CER_fixing_vto / CER_fixing_emision)
+    flujos.push({fecha:parseDate(r.vcto), monto:100*factor*(cerVto/cerHoy)});
 
   } else if(r.tipo==='cupon'){
     const freq=r.freq||6;
@@ -1885,12 +1887,13 @@ function cerBuildFlujosProy(r, precio){
       const amortMonto=amortMap.get(fechaStr)||0;
       const baseCalculo=cuponBase==='residual'?vnResidual:100;
       const cuponMonto=baseCalculo*(cuponAnual*(freq/12));
-      const cfReal=cuponMonto+amortMonto; // en pesos constantes
+      const cfReal=cuponMonto+amortMonto; // en VN=100 constantes
 
-      // ajustar por CER proyectado
+      // ajustar a nominal: flujo_real × factor × (CER_fixing_fecha / CER_hoy)
+      // = flujo_real × (CER_fixing_fecha / CER_fixing_emision)
       const cerFlujo=cerGetValorCerProyectado(d);
       if(!cerFlujo)return;
-      flujos.push({fecha:new Date(d), monto:cfReal*(cerFlujo/cerHoy)});
+      flujos.push({fecha:new Date(d), monto:cfReal*factor*(cerFlujo/cerHoy)});
       vnResidual=Math.max(0,vnResidual-amortMonto);
     });
 
@@ -1901,7 +1904,7 @@ function cerBuildFlujosProy(r, precio){
       const yaIncluida=dates.some(d=>fmtDate(d)===a.fecha);
       if(!yaIncluida&&a.pct>0){
         const cerFlujo=cerGetValorCerProyectado(dA);
-        if(cerFlujo)flujos.push({fecha:dA,monto:a.pct*(cerFlujo/cerHoy)});
+        if(cerFlujo)flujos.push({fecha:dA,monto:a.pct*factor*(cerFlujo/cerHoy)});
       }
     });
     flujos.sort((a,b)=>a.fecha-b.fecha);
@@ -1934,7 +1937,7 @@ function cerEnrich(r){
     // TIR con proyección CER
     if(CER_PROJ.size){
       try{
-        const flujosProy=cerBuildFlujosProy(r,r.precio);
+        const flujosProy=cerBuildFlujosProy(r,r.precio,factor);
         if(flujosProy){
           tirProy=xirr(flujosProy,isNaN(tir)?0.1:tir/100+0.05);
           if(!isNaN(tirProy)){
