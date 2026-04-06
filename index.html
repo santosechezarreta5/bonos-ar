@@ -664,19 +664,24 @@ tbody tr.selected .c-ticker{color:var(--accent);}
         <button class="btn" style="width:100%;margin-top:8px;padding:6px;font-size:12px" onclick="projAddMes()">+ Agregar mes</button>
       </div>
 
-      <!-- RIGHT: PREVIEW CER PROYECTADO -->
+      <!-- RIGHT: CER PROYECTADO COMPLETO -->
       <div>
-        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:.75rem">CER proyectado · próximos 30 días</div>
-        <table style="width:100%;border-collapse:collapse;">
-          <thead>
-            <tr style="border-bottom:1px solid var(--border2)">
-              <th style="text-align:left;padding:5px 8px;font-size:10px;color:var(--text3);font-weight:400;text-transform:uppercase;letter-spacing:.06em">Fecha</th>
-              <th style="text-align:right;padding:5px 8px;font-size:10px;color:var(--text3);font-weight:400;text-transform:uppercase;letter-spacing:.06em">CER</th>
-              <th style="text-align:center;padding:5px 8px;font-size:10px;color:var(--text3);font-weight:400;text-transform:uppercase;letter-spacing:.06em">Tipo</th>
-            </tr>
-          </thead>
-          <tbody id="proj-preview-tbody"></tbody>
-        </table>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">CER proyectado · serie completa</div>
+          <div style="font-size:11px;color:var(--text3)" id="proj-preview-count"></div>
+        </div>
+        <div style="max-height:520px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;">
+          <table style="width:100%;border-collapse:collapse;">
+            <thead style="position:sticky;top:0;background:var(--surface2);z-index:1;">
+              <tr style="border-bottom:1px solid var(--border2)">
+                <th style="text-align:left;padding:5px 8px;font-size:10px;color:var(--text3);font-weight:400;text-transform:uppercase;letter-spacing:.06em">Fecha</th>
+                <th style="text-align:right;padding:5px 8px;font-size:10px;color:var(--text3);font-weight:400;text-transform:uppercase;letter-spacing:.06em">CER</th>
+                <th style="text-align:right;padding:5px 8px;font-size:10px;color:var(--text3);font-weight:400;text-transform:uppercase;letter-spacing:.06em">Var. diaria</th>
+              </tr>
+            </thead>
+            <tbody id="proj-preview-tbody"></tbody>
+          </table>
+        </div>
       </div>
 
     </div>
@@ -2633,7 +2638,7 @@ function projDetectarPublicados(){
   PROJ_INFLACION.forEach(r=>{
     const pubFecha=projFechaPublicacion(r.mes); // 15 del mes M+1
     // solo marcar como publicado si el CER real cubre esa fecha de publicación
-    if(pubFecha<=fechaLimite){
+    if(pubFecha<fechaLimite){
       r.tipo='publicado';
       // calcular inflación real del mes a partir del CER si no la tiene
       if(r.infla==null){
@@ -2810,39 +2815,45 @@ function projRenderPreview(){
   const tbody=document.getElementById('proj-preview-tbody');
   if(!tbody)return;
   const lastReal=projGetLastCerReal();
-  if(!lastReal){tbody.innerHTML='<tr><td colspan="3" style="padding:1rem;color:var(--text3);font-size:12px">Cargá el CER primero (↻ CER)</td></tr>';return;}
-
-  // mostrar 5 días reales + 25 proyectados
-  const rows=[];
-  let fecha=new Date(lastReal.fecha+'T00:00:00');
-  fecha.setDate(fecha.getDate()-4);
-  for(let i=0;i<35;i++){
-    const fs=fmtDate(fecha);
-    const real=cerIndexGet(fs);
-    if(real!=null){
-      rows.push({fecha:fs,valor:real,tipo:'real'});
-    } else {
-      const proj=CER_PROJ.get(fs);
-      if(proj!=null)rows.push({fecha:fs,valor:proj,tipo:'proyectado'});
-    }
-    fecha.setDate(fecha.getDate()+1);
-    if(rows.filter(r=>r.tipo==='proyectado').length>=25)break;
+  if(!lastReal){
+    tbody.innerHTML='<tr><td colspan="3" style="padding:1rem;color:var(--text3);font-size:12px">Cargá el CER primero (↻ CER)</td></tr>';
+    return;
   }
 
-  tbody.innerHTML=rows.map((r,i)=>{
-    const esProj=r.tipo==='proyectado';
+  // construir lista: últimos 5 días reales + todos los proyectados
+  const rows=[];
+
+  // 5 días reales anteriores al último
+  const sorted=[...CER_INDEX].sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  const lastIdx=sorted.length-1;
+  for(let i=Math.max(0,lastIdx-4);i<=lastIdx;i++){
+    rows.push({fecha:sorted[i].fecha, valor:sorted[i].valor, tipo:'real'});
+  }
+
+  // todos los proyectados
+  const projEntries=[...CER_PROJ.entries()].sort((a,b)=>a[0].localeCompare(b[0]));
+  projEntries.forEach(([f,v])=>rows.push({fecha:f, valor:v, tipo:'proyectado'}));
+
+  set('proj-preview-count', projEntries.length.toLocaleString('es-AR')+' días proyectados');
+
+  // renderizar en chunks para no bloquear el browser
+  const CHUNK=200;
+  let html='';
+  rows.forEach((r,i)=>{
     const prev=rows[i-1];
-    const varD=prev?(r.valor/prev.valor-1)*10000:null; // en bps
-    return`<tr style="border-bottom:1px solid var(--border)${r.fecha===lastReal.fecha?' background:var(--accent-dim)':''}">
+    const varD=prev?(r.valor/prev.valor-1)*100:null;
+    const esProj=r.tipo==='proyectado';
+    const esUltimoReal=r.fecha===lastReal.fecha;
+    const varStr=varD!=null
+      ?`<span style="color:var(--text3);font-size:11px">${varD>=0?'+':''}${varD.toFixed(6)}%</span>`
+      :'—';
+    html+=`<tr style="border-bottom:1px solid var(--border)${esUltimoReal?';background:var(--accent-dim)':''}">
       <td style="padding:4px 8px;font-size:12px;color:${esProj?'var(--warn)':'var(--text2)'};font-family:var(--mono)">${r.fecha.split('-').reverse().join('/')}</td>
       <td style="padding:4px 8px;text-align:right;font-size:12px;color:${esProj?'var(--warn)':'var(--text)'};font-family:var(--mono)">${r.valor.toFixed(6)}</td>
-      <td style="padding:4px 8px;text-align:center;">
-        ${esProj
-          ?'<span style="font-size:10px;color:var(--warn);background:rgba(212,169,106,.1);padding:1px 5px;border-radius:3px">proy</span>'
-          :'<span style="font-size:10px;color:var(--text3);background:var(--surface2);padding:1px 5px;border-radius:3px">real</span>'}
-      </td>
+      <td style="padding:4px 8px;text-align:right;">${varStr}</td>
     </tr>`;
-  }).join('');
+  });
+  tbody.innerHTML=html;
 }
 
 function projRenderSummary(){
