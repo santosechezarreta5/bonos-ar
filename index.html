@@ -465,8 +465,9 @@ tbody tr.selected .c-ticker{color:var(--accent);}
             <th onclick="cerSortBy('precio')" id="cer-th-precio">Precio $</th>
             <th onclick="cerSortBy('pct_change')" id="cer-th-pct_change">Var%</th>
             <th onclick="cerSortBy('tir')"    id="cer-th-tir">TIR real</th>
-            <th onclick="cerSortBy('tem')"    id="cer-th-tem">TEM real</th>
-            <th onclick="cerSortBy('tna')"    id="cer-th-tna">TNA real</th>
+            <th onclick="cerSortBy('tirProy')" id="cer-th-tirProy" style="color:var(--warn)">TIR c/proy</th>
+            <th onclick="cerSortBy('tnaProy')" id="cer-th-tnaProy" style="color:var(--warn)">TNA c/proy</th>
+            <th onclick="cerSortBy('temProy')" id="cer-th-temProy" style="color:var(--warn)">TEM c/proy</th>
             <th style="cursor:default;width:40px;"></th>
           </tr></thead>
           <tbody id="cer-table-body"></tbody>
@@ -498,7 +499,22 @@ tbody tr.selected .c-ticker{color:var(--accent);}
           <div class="metric"><div class="metric-label">TEM real</div><div class="metric-value amber" id="cer-pm-tem">—</div></div>
           <div class="metric"><div class="metric-label">TNA real</div><div class="metric-value blue" id="cer-pm-tna">—</div></div>
           <div class="metric"><div class="metric-label">Precio $</div><div class="metric-value green" id="cer-pm-precio">—</div></div>
-          <div class="metric"><div class="metric-label">Cup. corrido</div><div class="metric-value" id="cer-pm-cc">—</div></div>
+          <div class="metric"><div class="metric-label">Factor CER</div><div class="metric-value" id="cer-pm-cc">—</div></div>
+        </div>
+        <!-- Tasas c/proyección -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:5px;overflow:hidden;margin-top:6px;">
+          <div style="background:var(--surface);padding:6px 8px;">
+            <div style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--warn);margin-bottom:2px">TIR c/proy</div>
+            <div style="font-size:15px;color:var(--warn)" id="cer-pm-tirproy">—</div>
+          </div>
+          <div style="background:var(--surface);padding:6px 8px;">
+            <div style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--warn);margin-bottom:2px">TNA c/proy</div>
+            <div style="font-size:15px;color:var(--warn)" id="cer-pm-tnaproy">—</div>
+          </div>
+          <div style="background:var(--surface);padding:6px 8px;">
+            <div style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--warn);margin-bottom:2px">TEM c/proy</div>
+            <div style="font-size:15px;color:var(--warn)" id="cer-pm-temproy">—</div>
+          </div>
         </div>
 
         <!-- MODE -->
@@ -553,6 +569,12 @@ tbody tr.selected .c-ticker{color:var(--accent);}
           <tr class="bl"><td>TIR real (ACT/365)</td><td id="cer-r-tir">—</td></tr>
           <tr class="wa"><td>TEM real = (1+TIR)^(1/12)−1</td><td id="cer-r-tem">—</td></tr>
           <tr class="wa"><td>TNA real = TEM×12</td><td id="cer-r-tna">—</td></tr>
+        </table>
+        <div class="section-label" style="margin-top:8px;color:var(--warn)">Tasas nominales c/proyección CER</div>
+        <table class="res-table">
+          <tr><td style="color:var(--warn)">TIR c/proy (ACT/365)</td><td id="cer-r-tirproy" style="color:var(--warn)">—</td></tr>
+          <tr><td style="color:var(--warn)">TNA c/proy</td><td id="cer-r-tnaproy" style="color:var(--warn)">—</td></tr>
+          <tr><td style="color:var(--warn)">TEM c/proy</td><td id="cer-r-temproy" style="color:var(--warn)">—</td></tr>
         </table>
 
         <!-- DATOS EMISIÓN -->
@@ -1797,12 +1819,104 @@ function cerPrecioFromTir(tir, r, factor){
 }
 
 // ── CER ENRICH ────────────────────────────────────────────────────────────────
+// ── FLUJOS NOMINALES CON PROYECCIÓN CER ───────────────────────────────────────
+// CF₀ = −Precio (pesos de hoy, sin deflactar)
+// CF_i = (Amort_i + Cupón_i) × CER_proj(fecha_i − 10 háb) / CER_hoy
+function cerGetValorCerProyectado(fecha){
+  // busca CER real o proyectado para la fecha de fixing (−10 háb)
+  const fechaCer=cerGetFechaCer(fecha);
+  const fechaStr=fmtDate(fechaCer);
+  // primero real
+  const real=cerIndexGet(fechaStr);
+  if(real!=null)return real;
+  // luego proyectado — buscar exacto o anterior más cercano
+  const proj=CER_PROJ.get(fechaStr);
+  if(proj!=null)return proj;
+  // anterior más cercano en CER_PROJ
+  let best=null,bestF=null;
+  for(const [f,v] of CER_PROJ){
+    if(f<=fechaStr&&(!bestF||f>bestF)){bestF=f;best=v;}
+  }
+  return best;
+}
+
+function cerBuildFlujosProy(r, precio){
+  // Solo construir si hay proyecciones cargadas
+  if(!CER_PROJ.size)return null;
+  const liq=G_LIQ||addHabiles(TODAY,1);
+  const cerHoy=cerGetValorCerProyectado(liq);
+  if(!cerHoy)return null;
+
+  const flujos=[];
+  // CF₀: inversión al precio de mercado
+  flujos.push({fecha:new Date(liq), monto:-precio});
+
+  if(r.tipo==='lecer'){
+    const cerVto=cerGetValorCerProyectado(parseDate(r.vcto));
+    if(!cerVto)return null;
+    // CF_vto = VN × (CER_vto / CER_hoy)
+    flujos.push({fecha:parseDate(r.vcto), monto:100*(cerVto/cerHoy)});
+
+  } else if(r.tipo==='cupon'){
+    const freq=r.freq||6;
+    const cuponAnual=(r.cupon||0)/100;
+    const cuponBase=r.cuponBase||'original';
+    const dates=cerCouponDates(r.emision,r.vcto,freq,r.primerCupon||null);
+    const n=dates.length;
+
+    let amortTable;
+    if(r.amort==='custom'&&r.amortSchedule?.length){
+      amortTable=r.amortSchedule.map(s=>({fecha:s.fecha,pct:s.pct}));
+    } else if(r.amort==='bullet'){
+      amortTable=[{fecha:r.vcto,pct:100}];
+    } else {
+      amortTable=dates.map(d=>({fecha:fmtDate(d),pct:100/n}));
+    }
+    const amortMap=new Map(amortTable.map(a=>[a.fecha,a.pct]));
+
+    let vnResidual=100;
+    dates.forEach(d=>{
+      if(d<=liq){
+        const a=amortMap.get(fmtDate(d))||0;
+        vnResidual=Math.max(0,vnResidual-a);
+        return;
+      }
+      const fechaStr=fmtDate(d);
+      const amortMonto=amortMap.get(fechaStr)||0;
+      const baseCalculo=cuponBase==='residual'?vnResidual:100;
+      const cuponMonto=baseCalculo*(cuponAnual*(freq/12));
+      const cfReal=cuponMonto+amortMonto; // en pesos constantes
+
+      // ajustar por CER proyectado
+      const cerFlujo=cerGetValorCerProyectado(d);
+      if(!cerFlujo)return;
+      flujos.push({fecha:new Date(d), monto:cfReal*(cerFlujo/cerHoy)});
+      vnResidual=Math.max(0,vnResidual-amortMonto);
+    });
+
+    // amortizaciones custom fuera de fechas de cupón
+    amortTable.forEach(a=>{
+      const dA=parseDate(a.fecha);
+      if(dA<=liq)return;
+      const yaIncluida=dates.some(d=>fmtDate(d)===a.fecha);
+      if(!yaIncluida&&a.pct>0){
+        const cerFlujo=cerGetValorCerProyectado(dA);
+        if(cerFlujo)flujos.push({fecha:dA,monto:a.pct*(cerFlujo/cerHoy)});
+      }
+    });
+    flujos.sort((a,b)=>a.fecha-b.fecha);
+  }
+
+  return flujos.length>1?flujos:null;
+}
+
 function cerEnrich(r){
   const liq=G_LIQ||addHabiles(TODAY,1);
   const vctoDate=r.vcto?parseDate(r.vcto):null;
   const dias=vctoDate?Math.max(0,diasACT(liq,vctoDate)):0;
   const factor=r.emision?cerFactor(r.emision):null;
   let tir=NaN,tem=NaN,tna=NaN,cc=0;
+  let tirProy=NaN,temProy=NaN,tnaProy=NaN;
 
   if(r.precio!=null&&dias>0&&factor){
     if(r.tipo==='lecer'){
@@ -1816,8 +1930,22 @@ function cerEnrich(r){
       tem=cerTemFromTir(tir);
       tna=cerTnaFromTem(tem);
     }
+
+    // TIR con proyección CER
+    if(CER_PROJ.size){
+      try{
+        const flujosProy=cerBuildFlujosProy(r,r.precio);
+        if(flujosProy){
+          tirProy=xirr(flujosProy,isNaN(tir)?0.1:tir/100+0.05);
+          if(!isNaN(tirProy)){
+            temProy=cerTemFromTir(tirProy);
+            tnaProy=cerTnaFromTem(temProy);
+          }
+        }
+      }catch(e){}
+    }
   }
-  return{...r,vctoDate,dias,factor,tir,tem,tna,cc};
+  return{...r,vctoDate,dias,factor,tir,tem,tna,cc,tirProy,temProy,tnaProy};
 }
 let CER_DATA=[];
 
@@ -1854,7 +1982,7 @@ async function cerFetchPrices(){
 }
 
 // ── CER TABLE ─────────────────────────────────────────────────────────────────
-const CER_TH=['ticker','tipo','vcto','dias','precio','pct_change','tir','tem','tna'];
+const CER_TH=['ticker','tipo','vcto','dias','precio','pct_change','tir','tirProy','tnaProy','temProy'];
 function cerSortBy(col){
   cerSortAsc=cerSortCol===col?!cerSortAsc:(col==='vcto'||col==='ticker');
   cerSortCol=col;cerRenderTable();
@@ -1891,7 +2019,8 @@ function cerRenderTable(){
     th.classList.toggle('sorted',c===cerSortCol);
   });
   const tbody=document.getElementById('cer-table-body');
-  if(!rows.length){tbody.innerHTML='<tr><td colspan="10" class="no-rows">Agregá bonos CER con + Nueva y actualizá precios.</td></tr>';set('st-count','0 bonos');return;}
+  const hasProy=CER_PROJ.size>0;
+  if(!rows.length){tbody.innerHTML=`<tr><td colspan="${hasProy?11:11}" class="no-rows">Agregá bonos CER con + Nueva y actualizá precios.</td></tr>`;set('st-count','0 bonos');return;}
 
   tbody.innerHTML=rows.map(r=>{
     const v=r.dias<=0;
@@ -1918,6 +2047,13 @@ function cerRenderTable(){
       return`<div class="cv editable ${cc} ${oc}" style="${hs}" onclick="cerStartCell(event,'${r.ticker}','${col}')">${r.precio==null&&col!=='precio'?'—':disp}</div>`;
     }
 
+    // columnas proyectadas: no editables, color ámbar
+    function cercProy(val){
+      if(v||val==null||isNaN(val))return`<div class="cv no-edit c-muted">—</div>`;
+      const hs=cerHeatStyle(val,cerSortCol.includes('Proy')?cerSortCol:'tirProy');
+      return`<div class="cv no-edit" style="color:var(--warn);${hs}">${fmtP2(val)}</div>`;
+    }
+
     return`<tr class="${sel}" onclick="cerHandleRowClick(event,'${r.ticker}')">
       <td class="ticker-cell"><div class="cv left no-edit"><span class="c-ticker">${r.ticker}</span></div></td>
       <td><div class="cv no-edit" style="justify-content:center">${tipoBadge}</div></td>
@@ -1926,8 +2062,9 @@ function cerRenderTable(){
       <td>${cerc('precio')}</td>
       <td><div class="cv no-edit">${chgStr}</div></td>
       <td>${cerc('tir')}</td>
-      <td>${cerc('tem')}</td>
-      <td>${cerc('tna')}</td>
+      <td>${cercProy(r.tirProy)}</td>
+      <td>${cercProy(r.tnaProy)}</td>
+      <td>${cercProy(r.temProy)}</td>
       <td onclick="event.stopPropagation()"><div class="row-act">
         <button class="rbtn del" onclick="cerDeleteRow('${r.ticker}')">✕</button>
       </div></td>
@@ -2086,6 +2223,15 @@ function cerRecalcPanel(){
   set('cer-r-tir',fmtPct(tir));
   set('cer-r-tem',fmtPct(tem));
   set('cer-r-tna',fmtPct(tna));
+
+  // tasas con proyección
+  const tirP=r.tirProy,temP=r.temProy,tnaP=r.tnaProy;
+  document.getElementById('cer-pm-tirproy').textContent=isNaN(tirP)?'—':fmtP2(tirP)+'%';
+  document.getElementById('cer-pm-tnaproy').textContent=isNaN(tnaP)?'—':fmtP2(tnaP)+'%';
+  document.getElementById('cer-pm-temproy').textContent=isNaN(temP)?'—':fmtP2(temP)+'%';
+  set('cer-r-tirproy',fmtPct(tirP));
+  set('cer-r-tnaproy',fmtPct(tnaP));
+  set('cer-r-temproy',fmtPct(temP));
 
   // sync inputs
   if(cerPanelMode!=='precio') document.getElementById('cer-p-precio-in').value=precio.toFixed(4);
