@@ -2964,14 +2964,15 @@ function projInitDefault(){
   // El último dato CER real corresponde al 15 del mes M+1 → inflación de M ya publicada
   PROJ_INFLACION=[];
   const hoy=TODAY;
-  // generar desde hace 3 meses hasta 10 años adelante
-  const start=new Date(hoy.getFullYear(), hoy.getMonth()-3, 1);
-  const end=new Date(hoy.getFullYear()+PROJ_HORIZONTE_AÑOS, hoy.getMonth(), 1);
-  let cur=new Date(start);
-  while(cur<=end){
-    const mesStr=fmtDate(cur).substring(0,7);
+  let año=hoy.getFullYear(), mes=hoy.getMonth()-3; // 0-based, puede ser negativo
+  // normalizar
+  while(mes<0){mes+=12;año--;}
+  const endAño=hoy.getFullYear()+PROJ_HORIZONTE_AÑOS, endMes=hoy.getMonth();
+  while(año<endAño||(año===endAño&&mes<=endMes)){
+    const mesStr=`${año}-${String(mes+1).padStart(2,'0')}`;
     PROJ_INFLACION.push({mes:mesStr, infla:null, tipo:'proyectado'});
-    cur.setMonth(cur.getMonth()+1);
+    mes++;
+    if(mes>11){mes=0;año++;}
   }
 }
 
@@ -3276,12 +3277,11 @@ function projSetInfla(mes, val){
 }
 
 function projAddMes(){
-  // agregar el mes siguiente al último
   const last=PROJ_INFLACION[PROJ_INFLACION.length-1];
   if(!last)return;
-  const [y,m]=last.mes.split('-').map(Number);
-  const next=new Date(y,m,1);
-  const nextStr=fmtDate(next).substring(0,7);
+  let [y,m]=last.mes.split('-').map(Number); // m es 1-based
+  m++; if(m>12){m=1;y++;}
+  const nextStr=`${y}-${String(m).padStart(2,'0')}`;
   if(PROJ_INFLACION.find(r=>r.mes===nextStr))return;
   PROJ_INFLACION.push({mes:nextStr, infla:null, tipo:'proyectado'});
   projSaveLs();
