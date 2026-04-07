@@ -3099,8 +3099,35 @@ function cerGetProyectado(fechaStr){
 // ── INIT / RENDER ─────────────────────────────────────────────────────────────
 function projInit(){
   projLoadLs();
+  // rellenar meses faltantes en el sendero (gaps o extensión hasta horizonte)
+  projRellenarMeses();
   projDetectarPublicados();
   projRecalc();
+}
+
+function projRellenarMeses(){
+  if(!PROJ_INFLACION.length){projInitDefault();return;}
+  // construir set de meses existentes
+  const existentes=new Set(PROJ_INFLACION.map(r=>r.mes));
+  // rango esperado: desde el primer mes hasta 10 años desde hoy
+  const first=PROJ_INFLACION[0].mes;
+  const [fy,fm]=first.split('-').map(Number);
+  const endAño=TODAY.getFullYear()+PROJ_HORIZONTE_AÑOS;
+  const endMes=TODAY.getMonth(); // 0-based
+  // iterar todos los meses del rango e insertar los que falten
+  let año=fy, mes=fm; // mes 1-based
+  const nuevos=[];
+  while(año<endAño||(año===endAño&&mes<=endMes+1)){
+    const mesStr=`${año}-${String(mes).padStart(2,'0')}`;
+    if(!existentes.has(mesStr)){
+      nuevos.push({mes:mesStr, infla:null, tipo:'proyectado'});
+    }
+    mes++; if(mes>12){mes=1;año++;}
+  }
+  if(nuevos.length){
+    PROJ_INFLACION=[...PROJ_INFLACION,...nuevos].sort((a,b)=>a.mes.localeCompare(b.mes));
+    projSaveLs();
+  }
 }
 
 function projRecalc(){
