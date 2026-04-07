@@ -673,6 +673,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
             <th style="text-align:center;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Hasta mes</th>
             <th style="text-align:center;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400" id="be-header-body"></th>
             <th style="text-align:center;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Diferencia</th>
+            <th style="text-align:center;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--info);font-weight:400">Tasa Fwd</th>
             <th style="width:32px"></th>
           </tr>
           <tr style="border-bottom:1px solid var(--border)" id="be-subheader">
@@ -3417,6 +3418,15 @@ function beCalcular(cerTicker){
   const inflaBE=(Math.pow(varDiaria,30.4)-1)*100;
   const hm=beHastaMes(cerBond.vcto);
   const promInfla=bePromedioInfla(hm.año,hm.mes);
+
+  // meses restantes = diferencia entre "hasta mes" y último mes publicado
+  const lastPub=[...PROJ_INFLACION].filter(r=>r.tipo==='publicado').slice(-1)[0];
+  let mesesRestantes=null;
+  if(lastPub){
+    const [py,pm]=lastPub.mes.split('-').map(Number);
+    mesesRestantes=(hm.año-py)*12+(hm.mes+1-pm); // hm.mes es 0-based
+  }
+
   return{cerTicker,tfTicker:tfBond.ticker,diasCER,diasTF,psCER,psTF,
     vfTF:tfBond.vf,
     tasaDirecta,pfBE,
@@ -3424,11 +3434,50 @@ function beCalcular(cerTicker){
     cerIni,cerFinalBE,
     lastReal:lastReal.valor,lastRealFecha:lastReal.fecha.split('-').reverse().join('/'),
     fixingVto:fmtDate(fixingVto).split('-').reverse().join('/'),
-    diasRestantes,varDiaria,inflaBE,hastaMes:hm,promInfla};
+    diasRestantes,varDiaria,inflaBE,hastaMes:hm,promInfla,mesesRestantes};
 }
 
 function beRecalc(){
   const resultados=BE_BONOS.map(t=>({ticker:t,res:beCalcular(t)}));
+
+  // ordenar por vencimiento para calcular Fwd correctamente
+  resultados.sort((a,b)=>{
+    const va=CER_BONDS.find(r=>r.ticker===a.ticker)?.vcto||'9999';
+    const vb=CER_BONDS.find(r=>r.ticker===b.ticker)?.vcto||'9999';
+    return va.localeCompare(vb);
+  });
+
+  // calcular tasa forward para cada bono
+  // para cada bono i, buscar el bono j con "hasta mes" inmediatamente anterior (distinto y menor)
+  resultados.forEach((item,i)=>{
+    if(!item.res||item.res.error){item.fwd=null;return;}
+    const hmI=item.res.hastaMes;
+    const hmIStr=`${hmI.año}-${String(hmI.mes).padStart(2,'0')}`;
+    const nI=item.res.mesesRestantes;
+    if(!nI||nI<=0){item.fwd=null;return;}
+
+    // buscar bono anterior: último bono con hastaMes estrictamente menor
+    let bonoPrev=null;
+    for(let j=i-1;j>=0;j--){
+      const prev=resultados[j];
+      if(!prev.res||prev.res.error)continue;
+      const hmJ=prev.res.hastaMes;
+      const hmJStr=`${hmJ.año}-${String(hmJ.mes).padStart(2,'0')}`;
+      if(hmJStr<hmIStr){bonoPrev=prev;break;}
+    }
+
+    if(!bonoPrev){item.fwd=null;return;}
+
+    const nJ=bonoPrev.res.mesesRestantes;
+    if(!nJ||nJ<=0||nJ>=nI){item.fwd=null;return;}
+
+    const beI=item.res.inflaBE/100;   // mensual decimal
+    const beJ=bonoPrev.res.inflaBE/100;
+    const exp=1/(nI-nJ);
+    const fwd=(Math.pow(Math.pow(1+beI,nI)/Math.pow(1+beJ,nJ),exp)-1)*100;
+    item.fwd=fwd;
+  });
+
   beRenderTabla(resultados);
   beRenderDetalle(resultados);
 }
@@ -3444,39 +3493,35 @@ function beRenderTabla(resultados){
   if(!resultados.length){
     if(headerBody)headerBody.textContent='Breakeven';
     if(subTickers)subTickers.textContent='';
-    tbody.innerHTML=`<tr><td colspan="5" style="padding:2rem;text-align:center;color:var(--text3);font-size:12px">Agregá bonos CER con + Agregar bono CER</td></tr>`;
+    tbody.innerHTML=`<tr><td colspan="6" style="padding:2rem;text-align:center;color:var(--text3);font-size:12px">Agregá bonos CER con + Agregar bono CER</td></tr>`;
     return;
   }
 
   if(headerBody)headerBody.textContent='Breakeven';
   if(subTickers)subTickers.textContent='Prom. mensual';
 
-  // ordenar por vencimiento del bono CER (menor a mayor)
-  const ordenados=[...resultados].sort((a,b)=>{
-    const va=CER_BONDS.find(r=>r.ticker===a.ticker)?.vcto||'9999';
-    const vb=CER_BONDS.find(r=>r.ticker===b.ticker)?.vcto||'9999';
-    return va.localeCompare(vb);
-  });
-
-  tbody.innerHTML=ordenados.map(({ticker,res})=>{
-    if(!res)return`<tr><td colspan="5" style="padding:6px 10px;color:var(--danger);font-size:12px">${ticker}: sin datos</td></tr>`;
+  tbody.innerHTML=resultados.map(({ticker,res,fwd})=>{
+    if(!res)return`<tr><td colspan="6" style="padding:6px 10px;color:var(--danger);font-size:12px">${ticker}: sin datos</td></tr>`;
     if(res.error)return`<tr>
       <td style="padding:6px 10px;font-family:var(--mono);font-size:12px;color:var(--accent)">${ticker}</td>
-      <td colspan="3" style="padding:6px 10px;color:var(--danger);font-size:12px">${res.error}</td>
+      <td colspan="4" style="padding:6px 10px;color:var(--danger);font-size:12px">${res.error}</td>
       <td><button onclick="beRemove('${ticker}')" style="background:none;border:none;color:var(--text3);cursor:pointer">✕</button></td>
     </tr>`;
     const hm=res.hastaMes;
     const hmLabel=`${MESES_ES_BE[hm.mes]}-${String(hm.año).slice(2)}`;
+    const nStr=res.mesesRestantes!=null?`<span style="color:var(--text3);font-size:10px;margin-left:4px">(${res.mesesRestantes}m)</span>`:'';
     const promStr=res.promInfla!=null?fmtP2(res.promInfla)+'%':'—';
     const dif=res.promInfla!=null?res.inflaBE-res.promInfla:null;
     const difStr=dif!=null?`<span style="color:${dif>=0?'var(--accent2)':'var(--danger)'}">${dif>=0?'+':''}${fmtP2(dif)}%</span>`:'—';
+    const fwdStr=fwd!=null?`<span style="color:var(--info);font-family:var(--mono);font-size:13px">${fmtP2(fwd)}%</span>`:'<span style="color:var(--text3)">—</span>';
     return`<tr style="border-bottom:1px solid var(--border)">
       <td style="padding:6px 10px;font-family:var(--mono);font-size:12px;color:var(--text2)">${promStr}</td>
-      <td style="padding:6px 10px;text-align:center;font-size:12px;color:var(--text2);font-family:var(--mono)">${hmLabel}</td>
+      <td style="padding:6px 10px;text-align:center;font-size:12px;color:var(--text2);font-family:var(--mono)">${hmLabel}${nStr}</td>
       <td style="padding:6px 10px;text-align:center;font-family:var(--mono);font-size:13px;color:var(--accent);font-weight:500">
         <span style="color:var(--text3);font-size:13px;margin-right:6px">${ticker}:</span>${fmtP2(res.inflaBE)}%
       </td>
       <td style="padding:6px 10px;text-align:center;font-family:var(--mono);font-size:12px">${difStr}</td>
+      <td style="padding:6px 10px;text-align:center">${fwdStr}</td>
       <td style="padding:6px 10px;text-align:center"><button onclick="beRemove('${ticker}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px">✕</button></td>
     </tr>`;
   }).join('');
