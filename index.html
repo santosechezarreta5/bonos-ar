@@ -259,6 +259,11 @@ tbody tr.selected .c-ticker{color:var(--accent);}
     <span class="api-status" id="g-cer-status">sin datos</span>
   </div>
   <div class="sbar-sep"></div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <button class="btn" style="padding:3px 9px;font-size:11px;margin:0;" onclick="tamarFetchIndex(true)">↻ TAMAR</button>
+    <span class="api-status" id="g-tamar-status">sin datos</span>
+  </div>
+  <div class="sbar-sep"></div>
   <div style="display:flex;align-items:center;gap:6px;">
     <button class="btn" style="padding:3px 9px;font-size:11px;margin:0;" onclick="exportarPortfolio()" title="Exportar bonos a JSON">⬇ Export</button>
     <label class="btn" style="padding:3px 9px;font-size:11px;margin:0;cursor:pointer;" title="Importar bonos desde JSON">⬆ Import<input type="file" accept=".json" style="display:none" onchange="importarPortfolio(event)"></label>
@@ -2572,13 +2577,97 @@ function cerSaveModal(){
 
 // ── CER INDEX — BCRA vía Cloudflare Worker ────────────────────────────────────
 // Worker: royal-resonance-d470.santosechezarreta5.workers.dev/cer
-// Proxea api.bcra.gob.ar/estadisticas/v4.0/Monetarias/30
+// Proxea api.bcra.gob.ar/estadisticas/v4.0/Monetarias/{id}
 // Sin token. Cache localStorage 23hs.
 
 const WORKER_URL='https://royal-resonance-d470.santosechezarreta5.workers.dev/cer';
 const CER_CACHE_KEY='bonosAR_cer_bcra_v2';
 const CER_CACHE_TTL=23*60*60*1000;
 let CER_INDEX=[];   // [{fecha:'YYYY-MM-DD', valor:number}] ordenado asc
+
+// ── TAMAR ─────────────────────────────────────────────────────────────────────
+const TAMAR_ID=38; // idVariable en la API del BCRA
+const TAMAR_CACHE_KEY='bonosAR_tamar_v1';
+const TAMAR_CACHE_TTL=23*60*60*1000;
+let TAMAR_INDEX=[];  // [{fecha:'YYYY-MM-DD', valor:number}] — TNA % diaria
+
+function tamarIndexGet(dateStr){
+  // busca el valor exacto o el último anterior
+  if(!dateStr||!TAMAR_INDEX.length)return null;
+  const exact=TAMAR_INDEX.find(r=>r.fecha===dateStr);
+  if(exact)return exact.valor;
+  for(let i=TAMAR_INDEX.length-1;i>=0;i--){
+    if(TAMAR_INDEX[i].fecha<=dateStr)return TAMAR_INDEX[i].valor;
+  }
+  return null;
+}
+
+async function tamarFetchPage(desde,limit,offset){
+  const url=`${WORKER_URL}?id=${TAMAR_ID}&desde=${desde}&limit=${limit}&offset=${offset}`;
+  const res=await fetch(url,{signal:AbortSignal.timeout(15000)});
+  if(!res.ok)return null;
+  const json=await res.json();
+  if(json.results&&json.results[0]&&json.results[0].detalle){
+    return{results:json.results[0].detalle, metadata:json.metadata};
+  }
+  return json;
+}
+
+async function tamarFetchIndex(force=false){
+  const st=document.getElementById('g-tamar-status');
+
+  if(!force){
+    try{
+      const cached=localStorage.getItem(TAMAR_CACHE_KEY);
+      if(cached){
+        const{ts,data}=JSON.parse(cached);
+        if(Date.now()-ts<TAMAR_CACHE_TTL&&data?.length){
+          TAMAR_INDEX=data;
+          if(st){st.textContent=`TAMAR · ${TAMAR_INDEX.length} registros (cache)`;st.className='api-status ok';}
+          return true;
+        }
+      }
+    }catch(e){}
+  }
+
+  if(st){st.textContent='TAMAR: cargando…';st.className='api-status loading';}
+  try{
+    const DESDE='2018-01-01'; // TAMAR existe desde ~2018
+    const allResults=[];
+    let offset=0;
+    const LIMIT=3000;
+    while(true){
+      const page=await tamarFetchPage(DESDE,LIMIT,offset);
+      if(!page)break;
+      const items=page.results||[];
+      allResults.push(...items);
+      const total=page.metadata?.resultset?.count||0;
+      if(!items.length||allResults.length>=total)break;
+      offset+=LIMIT;
+    }
+
+    if(!allResults.length){
+      if(st){st.textContent='TAMAR: sin datos';st.className='api-status err';}
+      return false;
+    }
+
+    TAMAR_INDEX=allResults
+      .filter(r=>r.fecha&&r.valor!=null)
+      .map(r=>({fecha:(r.fecha||'').split('T')[0],valor:parseFloat(r.valor)}))
+      .filter(r=>r.fecha&&!isNaN(r.valor))
+      .sort((a,b)=>a.fecha.localeCompare(b.fecha));
+
+    try{localStorage.setItem(TAMAR_CACHE_KEY,JSON.stringify({ts:Date.now(),data:TAMAR_INDEX}));}catch(e){}
+
+    const last=TAMAR_INDEX[TAMAR_INDEX.length-1];
+    const now=new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+    if(st){st.textContent=`TAMAR ${last.fecha.split('-').reverse().join('/')} = ${last.valor.toFixed(4)}% · ${now}`;st.className='api-status ok';}
+    return true;
+  }catch(e){
+    if(st){st.textContent='TAMAR: error: '+e.message;st.className='api-status err';}
+    return false;
+  }
+}
 
 function cerIndexGet(dateStr){
   if(!dateStr||!CER_INDEX.length)return null;
@@ -2591,7 +2680,7 @@ function cerIndexGet(dateStr){
 }
 
 async function cerFetchPage(desde,limit,offset){
-  const url=`${WORKER_URL}?desde=${desde}&limit=${limit}&offset=${offset}`;
+  const url=`${WORKER_URL}?id=30&desde=${desde}&limit=${limit}&offset=${offset}`;
   const res=await fetch(url,{signal:AbortSignal.timeout(15000)});
   if(!res.ok)return null;
   const json=await res.json();
@@ -3697,6 +3786,7 @@ document.getElementById('g-fecha-op').value=fmtDate(TODAY);
 updateSettlement();
 loadPortfolio();
 cerFetchIndex();
+tamarFetchIndex();
 
 // hook CER into settlement refresh
 const _origUS=updateSettlement;
