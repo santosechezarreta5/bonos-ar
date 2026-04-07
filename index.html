@@ -1104,6 +1104,17 @@ function enrich(r){
 let DATA=LECAPS.map(enrich);
 
 // ── API FETCH ─────────────────────────────────────────────────────────────────
+// Mejor precio disponible de la API: cierre > 0, sino mid bid/ask, sino ask, sino bid
+function apiBestPrice(api){
+  if(!api)return null;
+  if(api.c>0)return api.c;
+  const bid=api.px_bid||0, ask=api.px_ask||0;
+  if(bid>0&&ask>0)return(bid+ask)/2;
+  if(ask>0)return ask;
+  if(bid>0)return bid;
+  return null;
+}
+
 async function fetchPrices(){
   if(!LECAPS.length){
     document.getElementById('api-status').textContent='agregá letras primero';
@@ -1121,9 +1132,10 @@ async function fetchPrices(){
     let updated=0, notFound=[];
     LECAPS=LECAPS.map(r=>{
       const api=apiMap.get(r.ticker);
-      if(api&&api.c>0){
+      const px=apiBestPrice(api);
+      if(px){
         updated++;
-        return{...r,precio:api.c,pct_change:api.pct_change??null,manualOverride:false};
+        return{...r,precio:px,pct_change:api.pct_change??null,manualOverride:false};
       }
       notFound.push(r.ticker);
       return r;
@@ -2105,7 +2117,7 @@ async function cerFetchPrices(){
     let updated=0,notFound=[];
     CER_BONDS=CER_BONDS.map(r=>{
       const api=map.get(r.ticker);
-      if(api&&api.c>0){updated++;return{...r,precio:api.c,pct_change:api.pct_change??null,manualOverride:false};}
+      if(api){const px=apiBestPrice(api);if(px>0){updated++;return{...r,precio:px,pct_change:api.pct_change??null,manualOverride:false};}}
       notFound.push(r.ticker);return r;
     });
     CER_DATA=CER_BONDS.map(cerEnrich);
