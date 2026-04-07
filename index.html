@@ -232,7 +232,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
   <button class="nav-tab disabled">TAMAR <span class="soon">pronto</span></button>
   <button class="nav-tab disabled">DLK <span class="soon">pronto</span></button>
   <button class="nav-tab disabled">Sintéticos <span class="soon">pronto</span></button>
-  <button class="nav-tab disabled">Breakeven <span class="soon">pronto</span></button>
+  <button class="nav-tab" id="nav-breakeven" onclick="switchTab('breakeven')">Breakeven</button>
   <button class="nav-tab" id="nav-proyecciones" onclick="switchTab('proyecciones')">Proyecciones</button>
   <button class="nav-tab" id="nav-feriados" onclick="switchTab('feriados')" style="margin-left:auto">Feriados</button>
 </nav>
@@ -648,6 +648,66 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 
   </div><!-- end cer-workspace -->
 </div><!-- end page-cer -->
+
+<!-- ═══════════════════════════════════════════════════════ BREAKEVEN PAGE -->
+<div id="page-breakeven" style="display:none;height:calc(100vh - 136px);overflow-y:auto;padding:2rem 2.5rem;">
+  <div style="max-width:900px;margin:0 auto;">
+
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1.5rem;gap:1rem;flex-wrap:wrap;">
+      <div>
+        <div style="font-family:var(--serif);font-size:20px;font-weight:300;font-style:italic;color:var(--accent)">Breakeven · Inflación</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:3px">Inflación implícita en la curva CER vs Tasa Fija</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn primary" style="margin:0;padding:6px 14px;font-size:12px" onclick="beRecalc()">↻ Recalcular</button>
+        <button class="btn" style="margin:0;padding:6px 14px;font-size:12px" onclick="beOpenModal()">+ Agregar bono CER</button>
+      </div>
+    </div>
+
+    <!-- TABLA PRINCIPAL -->
+    <div style="overflow-x:auto;margin-bottom:2rem;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border2)">
+            <th style="text-align:left;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Proyección infla</th>
+            <th style="text-align:center;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Hasta mes</th>
+            <th style="text-align:center;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400" id="be-header-body"></th>
+            <th style="width:32px"></th>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border)" id="be-subheader">
+            <th style="padding:4px 10px;font-size:10px;color:var(--text3);font-weight:400;text-align:left">Prom. mensual</th>
+            <th></th>
+            <th id="be-subheader-tickers" style="padding:4px 10px;font-size:10px;color:var(--text3);font-weight:400;text-align:center"></th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="be-tbody"></tbody>
+      </table>
+    </div>
+
+    <!-- DETALLE DE BONOS -->
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:.75rem">Bonos analizados</div>
+    <div id="be-bonos-detail" style="display:flex;flex-direction:column;gap:8px;"></div>
+
+  </div>
+</div>
+
+<!-- BREAKEVEN MODAL -->
+<div class="modal-backdrop" id="be-modal">
+  <div class="modal">
+    <div class="modal-title">Agregar bono CER al Breakeven</div>
+    <div class="field-row cols1">
+      <div class="field">
+        <label>Bono CER</label>
+        <select id="be-m-ticker" style="width:100%"></select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="beCloseModal()">Cancelar</button>
+      <button class="btn primary" onclick="beSaveModal()">Agregar</button>
+    </div>
+  </div>
+</div>
 
 <!-- ═══════════════════════════════════════════════════════ PROYECCIONES PAGE -->
 <div id="page-proyecciones" style="display:none;height:calc(100vh - 136px);overflow-y:auto;padding:2rem 2.5rem;">
@@ -1630,6 +1690,7 @@ function switchTab(tab){
   cerPage.style.display='none';
   ferPage.style.display='none';
   document.getElementById('page-proyecciones').style.display='none';
+  document.getElementById('page-breakeven').style.display='none';
 
   if(tab==='lecap'){
     lecapWorkspace.style.display='flex';
@@ -1643,6 +1704,9 @@ function switchTab(tab){
   } else if(tab==='proyecciones'){
     document.getElementById('page-proyecciones').style.display='block';
     projInit();
+  } else if(tab==='breakeven'){
+    document.getElementById('page-breakeven').style.display='block';
+    beInit();
   }
 }
 
@@ -3218,6 +3282,200 @@ function projDeleteMes(mes){
   projSaveLs();
   projRecalc();
 }
+// ══════════════════════════════════════════════════════════════ BREAKEVEN
+const BE_LS_KEY='bonosAR_breakeven_v1';
+let BE_BONOS=[];
+
+function beLoadLs(){
+  try{const r=localStorage.getItem(BE_LS_KEY);if(r)BE_BONOS=JSON.parse(r)||[];}catch(e){}
+}
+function beSaveLs(){
+  try{localStorage.setItem(BE_LS_KEY,JSON.stringify(BE_BONOS));}catch(e){}
+}
+function beInit(){
+  beLoadLs();
+  beRecalc();
+}
+function beOpenModal(){
+  const sel=document.getElementById('be-m-ticker');
+  sel.innerHTML=CER_BONDS.filter(r=>r.vcto&&r.precio).map(r=>`<option value="${r.ticker}">${r.ticker} — vto ${r.vcto.split('-').reverse().join('/')}</option>`).join('');
+  document.getElementById('be-modal').classList.add('open');
+}
+function beCloseModal(){document.getElementById('be-modal').classList.remove('open');}
+function beSaveModal(){
+  const ticker=document.getElementById('be-m-ticker').value;
+  if(!ticker)return;
+  if(!BE_BONOS.includes(ticker))BE_BONOS.push(ticker);
+  beSaveLs();
+  beCloseModal();
+  beRecalc();
+}
+function beRemove(ticker){
+  BE_BONOS=BE_BONOS.filter(t=>t!==ticker);
+  beSaveLs();
+  beRecalc();
+}
+
+function bePrecioSucioCER(r){
+  const liq=G_LIQ||addHabiles(TODAY,1);
+  const cc=r.tipo==='cupon'?cerCuponCorrido(r,liq):0;
+  return (r.precio||0)+cc;
+}
+
+function beFindTF(vctoStr){
+  const enriched=DATA.length?DATA:LECAPS.map(enrich);
+  const futuros=enriched.filter(r=>r.vcto>=vctoStr&&r.precio!=null&&r.dias>0&&r.vf>0);
+  if(!futuros.length)return null;
+  futuros.sort((a,b)=>a.vcto.localeCompare(b.vcto));
+  return futuros[0];
+}
+
+function beHastaMes(vctoStr){
+  const vcto=parseDate(vctoStr);
+  const fixing=cerGetFechaCer(vcto);
+  const dia=fixing.getDate();
+  let y=fixing.getFullYear(),m=fixing.getMonth();
+  if(dia>=15){m-=2;if(m<0){m+=12;y--;}}
+  else{m-=1;if(m<0){m+=12;y--;}}
+  return{año:y,mes:m};
+}
+
+function bePromedioInfla(hastaAño,hastaMes0){
+  const hoyMes=`${TODAY.getFullYear()}-${String(TODAY.getMonth()+1).padStart(2,'0')}`;
+  const hastaMesStr=`${hastaAño}-${String(hastaMes0+1).padStart(2,'0')}`;
+  const items=PROJ_INFLACION.filter(r=>r.mes>=hoyMes&&r.mes<=hastaMesStr);
+  if(!items.length)return null;
+  let ultimaInfla=2;
+  PROJ_INFLACION.forEach(r=>{if(r.infla!=null)ultimaInfla=r.infla;});
+  const vals=items.map(r=>r.infla!=null?r.infla:ultimaInfla);
+  return vals.reduce((s,v)=>s+v,0)/vals.length;
+}
+
+function beCalcular(cerTicker){
+  const cerBond=CER_BONDS.find(r=>r.ticker===cerTicker);
+  if(!cerBond||!cerBond.precio||!cerBond.vcto)return null;
+  const liq=G_LIQ||addHabiles(TODAY,1);
+  const vctoDate=parseDate(cerBond.vcto);
+  const diasCER=diasACT(liq,vctoDate);
+  if(diasCER<=0)return null;
+  const psCER=bePrecioSucioCER(cerBond);
+  if(!psCER)return null;
+  const tfBond=beFindTF(cerBond.vcto);
+  if(!tfBond)return{error:`Sin bono TF para vto ${cerBond.vcto}`};
+  const diasTF=tfBond.dias;
+  const psTF=tfBond.precio; // precio sucio = precio limpio para zero coupon TF
+  if(!psTF||diasTF<=0||!tfBond.vf)return{error:`Sin precio/VF para ${tfBond.ticker}`};
+  const tasaDirecta=tfBond.vf/psTF-1;
+  const pfBE=psCER*(1+tasaDirecta*diasCER/diasTF);
+  const cerIni=cerGetValorCer(parseDate(cerBond.emision));
+  if(!cerIni)return{error:'Sin CER de emisión'};
+  const cerFinalBE=pfBE*cerIni;
+  const lastReal=projGetLastCerReal();
+  if(!lastReal)return{error:'Sin CER real'};
+  const fixingVto=cerGetFechaCer(vctoDate);
+  const diasRestantes=Math.round((fixingVto-parseDate(lastReal.fecha))/86400000);
+  if(diasRestantes<=0)return{error:'Fixing ya pasó'};
+  const varDiaria=Math.pow(cerFinalBE/lastReal.valor,1/diasRestantes);
+  const inflaBE=(Math.pow(varDiaria,30.4)-1)*100;
+  const hm=beHastaMes(cerBond.vcto);
+  const promInfla=bePromedioInfla(hm.año,hm.mes);
+  return{cerTicker,tfTicker:tfBond.ticker,diasCER,diasTF,psCER,psTF,
+    tasaDirecta,pfBE,cerIni,cerFinalBE,lastReal:lastReal.valor,
+    fixingVto:fmtDate(fixingVto),diasRestantes,varDiaria,inflaBE,hastaMes:hm,promInfla};
+}
+
+function beRecalc(){
+  const resultados=BE_BONOS.map(t=>({ticker:t,res:beCalcular(t)}));
+  beRenderTabla(resultados);
+  beRenderDetalle(resultados);
+}
+
+const MESES_ES_BE=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+function beRenderTabla(resultados){
+  const tbody=document.getElementById('be-tbody');
+  const headerBody=document.getElementById('be-header-body');
+  const subTickers=document.getElementById('be-subheader-tickers');
+  if(!tbody)return;
+  if(!resultados.length){
+    if(headerBody)headerBody.textContent='Breakeven';
+    if(subTickers)subTickers.textContent='';
+    tbody.innerHTML=`<tr><td colspan="4" style="padding:2rem;text-align:center;color:var(--text3);font-size:12px">Agregá bonos CER con + Agregar bono CER</td></tr>`;
+    return;
+  }
+  const validos=resultados.filter(r=>r.res&&!r.res.error);
+  if(headerBody)headerBody.textContent='Breakeven · '+resultados.map(r=>r.ticker).join(' / ');
+  if(subTickers)subTickers.innerHTML=resultados.map(({ticker,res})=>{
+    const infla=res&&!res.error?fmtP2(res.inflaBE)+'%':'error';
+    return`<span style="margin-right:16px;color:var(--accent);font-family:var(--mono);font-size:11px">${ticker}: ${infla}</span>`;
+  }).join('');
+
+  // filas de proyección: una por mes desde hoy hasta el max hasta-mes
+  let maxAño=TODAY.getFullYear(),maxMes0=TODAY.getMonth()+1;
+  validos.forEach(r=>{
+    const hm=r.res.hastaMes;
+    if(hm.año>maxAño||(hm.año===maxAño&&hm.mes>maxMes0)){maxAño=hm.año;maxMes0=hm.mes;}
+  });
+  let ultimaInfla=2;
+  PROJ_INFLACION.forEach(r=>{if(r.infla!=null)ultimaInfla=r.infla;});
+
+  const filas=[];
+  let cur=new Date(TODAY.getFullYear(),TODAY.getMonth(),1);
+  const fin=new Date(maxAño,maxMes0+1,1);
+  while(cur<fin){
+    const mesStr=`${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}`;
+    const proj=PROJ_INFLACION.find(r=>r.mes===mesStr);
+    const inflaVal=proj?.infla!=null?proj.infla:ultimaInfla;
+    filas.push({año:cur.getFullYear(),mes0:cur.getMonth(),mesStr,inflaVal,tipo:proj?.tipo||'auto'});
+    cur.setMonth(cur.getMonth()+1);
+  }
+
+  const nCols=resultados.length;
+  tbody.innerHTML=filas.map(f=>{
+    const mesLabel=`${MESES_ES_BE[f.mes0]}-${String(f.año).slice(2)}`;
+    const color=f.tipo==='publicado'?'var(--accent2)':f.tipo==='proyectado'?'var(--warn)':'var(--text3)';
+    const beCols=resultados.map(({ticker,res})=>{
+      if(!res||res.error)return`<td style="padding:6px 10px;text-align:center;color:var(--text3)">—</td>`;
+      const hm=res.hastaMes;
+      const esFila=(hm.año===f.año&&hm.mes===f.mes0);
+      if(esFila){
+        return`<td style="padding:6px 10px;text-align:center;font-family:var(--mono);font-size:13px;color:var(--accent);font-weight:500">${fmtP2(res.inflaBE)}%</td>`;
+      }
+      return`<td style="padding:6px 10px;text-align:center;color:var(--text3)">—</td>`;
+    }).join('');
+    return`<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:6px 10px;font-family:var(--mono);font-size:12px;color:${color}">${fmtP2(f.inflaVal)}%</td>
+      <td style="padding:6px 10px;text-align:center;font-size:12px;color:var(--text2);font-family:var(--mono)">${mesLabel}</td>
+      ${beCols}
+      <td></td>
+    </tr>`;
+  }).join('');
+}
+
+function beRenderDetalle(resultados){
+  const el=document.getElementById('be-bonos-detail');
+  if(!el)return;
+  if(!resultados.length){el.innerHTML='';return;}
+  el.innerHTML=resultados.map(({ticker,res})=>{
+    const err=res?.error;
+    const hm=res&&!err?`${MESES_ES_BE[res.hastaMes.mes]}-${String(res.hastaMes.año).slice(2)}`:'—';
+    return`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+      <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;font-size:11px;">
+        <span style="font-size:13px;color:var(--accent);font-family:var(--mono);font-weight:500">${ticker}</span>
+        ${err?`<span style="color:var(--danger)">${err}</span>`:`
+          <span style="color:var(--text3)">par TF: <span style="color:var(--text2)">${res.tfTicker}</span></span>
+          <span style="color:var(--text3)">ps CER: <span style="color:var(--text2);font-family:var(--mono)">${fmtP2(res.psCER)}</span></span>
+          <span style="color:var(--text3)">tasa directa: <span style="color:var(--text2);font-family:var(--mono)">${fmtPct(res.tasaDirecta*100)}</span></span>
+          <span style="color:var(--text3)">fixing vto: <span style="color:var(--text2);font-family:var(--mono)">${res.fixingVto.split('-').reverse().join('/')}</span></span>
+          <span style="color:var(--text3)">hasta: <span style="color:var(--warn)">${hm}</span></span>
+          <span style="color:var(--text3)">BE: <span style="color:var(--accent);font-family:var(--mono)">${fmtP2(res.inflaBE)}%</span></span>
+          <span style="color:var(--text3)">prom proy: <span style="color:var(--text2);font-family:var(--mono)">${res.promInfla!=null?fmtP2(res.promInfla)+'%':'—'}</span></span>`}
+      </div>
+      <button onclick="beRemove('${ticker}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:2px 6px">✕</button>
+    </div>`;
+  }).join('');
+}
+// ── FIN BREAKEVEN ─────────────────────────────────────────────────────────────
 const LS_LECAPS='bonosAR_lecaps_v1';
 const LS_CER='bonosAR_cer_bonds_v1';
 
@@ -3382,6 +3640,7 @@ document.addEventListener('keydown',e=>{
 document.getElementById('modal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});
 document.getElementById('cer-modal').addEventListener('click',e=>{if(e.target===e.currentTarget)cerCloseModal();});
 document.getElementById('fer-modal').addEventListener('click',e=>{if(e.target===e.currentTarget)ferCloseModal();});
+document.getElementById('be-modal').addEventListener('click',e=>{if(e.target===e.currentTarget)beCloseModal();});
 </script>
 </body>
 </html>
