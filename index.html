@@ -3334,16 +3334,16 @@ function beHastaMes(vctoStr){
   const vcto=parseDate(vctoStr);
   const fixing=cerGetFechaCer(vcto);
   const dia=fixing.getDate();
-  let y=fixing.getFullYear(),m=fixing.getMonth();
-  if(dia>=15){m-=2;if(m<0){m+=12;y--;}}
-  else{m-=1;if(m<0){m+=12;y--;}}
-  return{año:y,mes:m};
+  let y=fixing.getFullYear(),m=fixing.getMonth(); // 0-based
+  if(dia>=15){m-=1;if(m<0){m+=12;y--;}}  // N-1
+  else{m-=2;if(m<0){m+=12;y--;}}          // N-2
+  return{año:y,mes:m,fixingDia:dia,fixingFecha:fmtDate(fixing)};
 }
 
 function bePromedioInfla(hastaAño,hastaMes0){
-  const hoyMes=`${TODAY.getFullYear()}-${String(TODAY.getMonth()+1).padStart(2,'0')}`;
   const hastaMesStr=`${hastaAño}-${String(hastaMes0+1).padStart(2,'0')}`;
-  const items=PROJ_INFLACION.filter(r=>r.mes>=hoyMes&&r.mes<=hastaMesStr);
+  // desde el primer mes proyectado (no publicado) hasta "hasta mes"
+  const items=PROJ_INFLACION.filter(r=>r.tipo!=='publicado'&&r.mes<=hastaMesStr);
   if(!items.length)return null;
   let ultimaInfla=2;
   PROJ_INFLACION.forEach(r=>{if(r.infla!=null)ultimaInfla=r.infla;});
@@ -3380,8 +3380,13 @@ function beCalcular(cerTicker){
   const hm=beHastaMes(cerBond.vcto);
   const promInfla=bePromedioInfla(hm.año,hm.mes);
   return{cerTicker,tfTicker:tfBond.ticker,diasCER,diasTF,psCER,psTF,
-    tasaDirecta,pfBE,cerIni,cerFinalBE,lastReal:lastReal.valor,
-    fixingVto:fmtDate(fixingVto),diasRestantes,varDiaria,inflaBE,hastaMes:hm,promInfla};
+    vfTF:tfBond.vf,
+    tasaDirecta,pfBE,
+    fixingEmision:fmtDate(cerGetFechaCer(parseDate(cerBond.emision))).split('-').reverse().join('/'),
+    cerIni,cerFinalBE,
+    lastReal:lastReal.valor,lastRealFecha:lastReal.fecha.split('-').reverse().join('/'),
+    fixingVto:fmtDate(fixingVto).split('-').reverse().join('/'),
+    diasRestantes,varDiaria,inflaBE,hastaMes:hm,promInfla};
 }
 
 function beRecalc(){
@@ -3397,57 +3402,35 @@ function beRenderTabla(resultados){
   const headerBody=document.getElementById('be-header-body');
   const subTickers=document.getElementById('be-subheader-tickers');
   if(!tbody)return;
+
   if(!resultados.length){
     if(headerBody)headerBody.textContent='Breakeven';
     if(subTickers)subTickers.textContent='';
     tbody.innerHTML=`<tr><td colspan="4" style="padding:2rem;text-align:center;color:var(--text3);font-size:12px">Agregá bonos CER con + Agregar bono CER</td></tr>`;
     return;
   }
-  const validos=resultados.filter(r=>r.res&&!r.res.error);
-  if(headerBody)headerBody.textContent='Breakeven · '+resultados.map(r=>r.ticker).join(' / ');
-  if(subTickers)subTickers.innerHTML=resultados.map(({ticker,res})=>{
-    const infla=res&&!res.error?fmtP2(res.inflaBE)+'%':'error';
-    return`<span style="margin-right:16px;color:var(--accent);font-family:var(--mono);font-size:11px">${ticker}: ${infla}</span>`;
-  }).join('');
 
-  // filas de proyección: una por mes desde hoy hasta el max hasta-mes
-  let maxAño=TODAY.getFullYear(),maxMes0=TODAY.getMonth()+1;
-  validos.forEach(r=>{
-    const hm=r.res.hastaMes;
-    if(hm.año>maxAño||(hm.año===maxAño&&hm.mes>maxMes0)){maxAño=hm.año;maxMes0=hm.mes;}
-  });
-  let ultimaInfla=2;
-  PROJ_INFLACION.forEach(r=>{if(r.infla!=null)ultimaInfla=r.infla;});
+  if(headerBody)headerBody.textContent='Breakeven';
+  if(subTickers)subTickers.textContent='Prom. mensual';
 
-  const filas=[];
-  let cur=new Date(TODAY.getFullYear(),TODAY.getMonth(),1);
-  const fin=new Date(maxAño,maxMes0+1,1);
-  while(cur<fin){
-    const mesStr=`${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}`;
-    const proj=PROJ_INFLACION.find(r=>r.mes===mesStr);
-    const inflaVal=proj?.infla!=null?proj.infla:ultimaInfla;
-    filas.push({año:cur.getFullYear(),mes0:cur.getMonth(),mesStr,inflaVal,tipo:proj?.tipo||'auto'});
-    cur.setMonth(cur.getMonth()+1);
-  }
-
-  const nCols=resultados.length;
-  tbody.innerHTML=filas.map(f=>{
-    const mesLabel=`${MESES_ES_BE[f.mes0]}-${String(f.año).slice(2)}`;
-    const color=f.tipo==='publicado'?'var(--accent2)':f.tipo==='proyectado'?'var(--warn)':'var(--text3)';
-    const beCols=resultados.map(({ticker,res})=>{
-      if(!res||res.error)return`<td style="padding:6px 10px;text-align:center;color:var(--text3)">—</td>`;
-      const hm=res.hastaMes;
-      const esFila=(hm.año===f.año&&hm.mes===f.mes0);
-      if(esFila){
-        return`<td style="padding:6px 10px;text-align:center;font-family:var(--mono);font-size:13px;color:var(--accent);font-weight:500">${fmtP2(res.inflaBE)}%</td>`;
-      }
-      return`<td style="padding:6px 10px;text-align:center;color:var(--text3)">—</td>`;
-    }).join('');
+  // una fila por bono
+  tbody.innerHTML=resultados.map(({ticker,res})=>{
+    if(!res)return`<tr><td colspan="4" style="padding:6px 10px;color:var(--danger);font-size:12px">${ticker}: sin datos</td></tr>`;
+    if(res.error)return`<tr>
+      <td style="padding:6px 10px;font-family:var(--mono);font-size:12px;color:var(--accent)">${ticker}</td>
+      <td colspan="2" style="padding:6px 10px;color:var(--danger);font-size:12px">${res.error}</td>
+      <td><button onclick="beRemove('${ticker}')" style="background:none;border:none;color:var(--text3);cursor:pointer">✕</button></td>
+    </tr>`;
+    const hm=res.hastaMes;
+    const hmLabel=`${MESES_ES_BE[hm.mes]}-${String(hm.año).slice(2)}`;
+    const promStr=res.promInfla!=null?fmtP2(res.promInfla)+'%':'—';
     return`<tr style="border-bottom:1px solid var(--border)">
-      <td style="padding:6px 10px;font-family:var(--mono);font-size:12px;color:${color}">${fmtP2(f.inflaVal)}%</td>
-      <td style="padding:6px 10px;text-align:center;font-size:12px;color:var(--text2);font-family:var(--mono)">${mesLabel}</td>
-      ${beCols}
-      <td></td>
+      <td style="padding:6px 10px;font-family:var(--mono);font-size:12px;color:var(--text2)">${promStr}</td>
+      <td style="padding:6px 10px;text-align:center;font-size:12px;color:var(--text2);font-family:var(--mono)">${hmLabel}</td>
+      <td style="padding:6px 10px;text-align:center;font-family:var(--mono);font-size:13px;color:var(--accent);font-weight:500">
+        <span style="color:var(--text3);font-size:10px;margin-right:6px">${ticker}</span>${fmtP2(res.inflaBE)}%
+      </td>
+      <td style="padding:6px 10px;text-align:center"><button onclick="beRemove('${ticker}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px">✕</button></td>
     </tr>`;
   }).join('');
 }
@@ -3456,22 +3439,31 @@ function beRenderDetalle(resultados){
   const el=document.getElementById('be-bonos-detail');
   if(!el)return;
   if(!resultados.length){el.innerHTML='';return;}
+
   el.innerHTML=resultados.map(({ticker,res})=>{
-    const err=res?.error;
-    const hm=res&&!err?`${MESES_ES_BE[res.hastaMes.mes]}-${String(res.hastaMes.año).slice(2)}`:'—';
-    return`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-      <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;font-size:11px;">
-        <span style="font-size:13px;color:var(--accent);font-family:var(--mono);font-weight:500">${ticker}</span>
-        ${err?`<span style="color:var(--danger)">${err}</span>`:`
-          <span style="color:var(--text3)">par TF: <span style="color:var(--text2)">${res.tfTicker}</span></span>
-          <span style="color:var(--text3)">ps CER: <span style="color:var(--text2);font-family:var(--mono)">${fmtP2(res.psCER)}</span></span>
-          <span style="color:var(--text3)">tasa directa: <span style="color:var(--text2);font-family:var(--mono)">${fmtPct(res.tasaDirecta*100)}</span></span>
-          <span style="color:var(--text3)">fixing vto: <span style="color:var(--text2);font-family:var(--mono)">${res.fixingVto.split('-').reverse().join('/')}</span></span>
-          <span style="color:var(--text3)">hasta: <span style="color:var(--warn)">${hm}</span></span>
-          <span style="color:var(--text3)">BE: <span style="color:var(--accent);font-family:var(--mono)">${fmtP2(res.inflaBE)}%</span></span>
-          <span style="color:var(--text3)">prom proy: <span style="color:var(--text2);font-family:var(--mono)">${res.promInfla!=null?fmtP2(res.promInfla)+'%':'—'}</span></span>`}
+    if(!res||res.error)return``;
+    const hm=res.hastaMes;
+    const hmLabel=`${MESES_ES_BE[hm.mes]}-${String(hm.año).slice(2)}`;
+    const step=(n,label,val)=>`
+      <div style="display:flex;gap:8px;align-items:baseline;padding:3px 0;border-bottom:1px solid var(--border)">
+        <span style="font-size:10px;color:var(--text3);min-width:16px;text-align:right">${n}.</span>
+        <span style="font-size:11px;color:var(--text3);flex:1">${label}</span>
+        <span style="font-size:12px;color:var(--accent);font-family:var(--mono)">${val}</span>
+      </div>`;
+    return`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 14px;margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <span style="font-size:13px;color:var(--accent);font-family:var(--mono);font-weight:500">${ticker}
+          <span style="font-size:11px;color:var(--text3);font-weight:400;margin-left:8px">par TF: ${res.tfTicker} · hasta: ${hmLabel} · BE: <span style="color:var(--accent)">${fmtP2(res.inflaBE)}%</span></span>
+        </span>
       </div>
-      <button onclick="beRemove('${ticker}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:2px 6px">✕</button>
+      <div style="display:grid;gap:0;">
+        ${step(1,`VF TF (${res.tfTicker}) = ${fmtN(res.vfTF,4)} / Px TF = ${fmtP2(res.psTF)} → Tasa directa`,fmtPct(res.tasaDirecta*100))}
+        ${step(2,`Px sucio CER (${fmtP2(res.psCER)}) × (1 + ${fmtPct(res.tasaDirecta*100)} × ${res.diasCER}d / ${res.diasTF}d)`,fmtP2(res.pfBE))}
+        ${step(3,`Pago Final BE (${fmtP2(res.pfBE)}) × CER emisión (${res.fixingEmision} = ${fmtN(res.cerIni,4)})`,fmtN(res.cerFinalBE,4))}
+        ${step(4,`Días entre último CER real (${res.lastRealFecha}) y fixing vto (${res.fixingVto})`,res.diasRestantes+' días')}
+        ${step(5,`(CER final BE / último CER real) ^ (1/${res.diasRestantes})`,fmtN(res.varDiaria,8))}
+        ${step(6,`Var. diaria ^ 30.4 − 1`,fmtP2(res.inflaBE)+'%')}
+      </div>
     </div>`;
   }).join('');
 }
