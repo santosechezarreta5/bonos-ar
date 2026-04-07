@@ -672,6 +672,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
             <th style="text-align:left;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Proyección infla</th>
             <th style="text-align:center;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Hasta mes</th>
             <th style="text-align:center;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400" id="be-header-body"></th>
+            <th style="text-align:center;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Diferencia</th>
             <th style="width:32px"></th>
           </tr>
           <tr style="border-bottom:1px solid var(--border)" id="be-subheader">
@@ -3402,30 +3403,39 @@ function beRenderTabla(resultados){
   if(!resultados.length){
     if(headerBody)headerBody.textContent='Breakeven';
     if(subTickers)subTickers.textContent='';
-    tbody.innerHTML=`<tr><td colspan="4" style="padding:2rem;text-align:center;color:var(--text3);font-size:12px">Agregá bonos CER con + Agregar bono CER</td></tr>`;
+    tbody.innerHTML=`<tr><td colspan="5" style="padding:2rem;text-align:center;color:var(--text3);font-size:12px">Agregá bonos CER con + Agregar bono CER</td></tr>`;
     return;
   }
 
   if(headerBody)headerBody.textContent='Breakeven';
   if(subTickers)subTickers.textContent='Prom. mensual';
 
-  // una fila por bono
-  tbody.innerHTML=resultados.map(({ticker,res})=>{
-    if(!res)return`<tr><td colspan="4" style="padding:6px 10px;color:var(--danger);font-size:12px">${ticker}: sin datos</td></tr>`;
+  // ordenar por vencimiento del bono CER (menor a mayor)
+  const ordenados=[...resultados].sort((a,b)=>{
+    const va=CER_BONDS.find(r=>r.ticker===a.ticker)?.vcto||'9999';
+    const vb=CER_BONDS.find(r=>r.ticker===b.ticker)?.vcto||'9999';
+    return va.localeCompare(vb);
+  });
+
+  tbody.innerHTML=ordenados.map(({ticker,res})=>{
+    if(!res)return`<tr><td colspan="5" style="padding:6px 10px;color:var(--danger);font-size:12px">${ticker}: sin datos</td></tr>`;
     if(res.error)return`<tr>
       <td style="padding:6px 10px;font-family:var(--mono);font-size:12px;color:var(--accent)">${ticker}</td>
-      <td colspan="2" style="padding:6px 10px;color:var(--danger);font-size:12px">${res.error}</td>
+      <td colspan="3" style="padding:6px 10px;color:var(--danger);font-size:12px">${res.error}</td>
       <td><button onclick="beRemove('${ticker}')" style="background:none;border:none;color:var(--text3);cursor:pointer">✕</button></td>
     </tr>`;
     const hm=res.hastaMes;
     const hmLabel=`${MESES_ES_BE[hm.mes]}-${String(hm.año).slice(2)}`;
     const promStr=res.promInfla!=null?fmtP2(res.promInfla)+'%':'—';
+    const dif=res.promInfla!=null?res.inflaBE-res.promInfla:null;
+    const difStr=dif!=null?`<span style="color:${dif>=0?'var(--accent2)':'var(--danger)'}">${dif>=0?'+':''}${fmtP2(dif)}%</span>`:'—';
     return`<tr style="border-bottom:1px solid var(--border)">
       <td style="padding:6px 10px;font-family:var(--mono);font-size:12px;color:var(--text2)">${promStr}</td>
       <td style="padding:6px 10px;text-align:center;font-size:12px;color:var(--text2);font-family:var(--mono)">${hmLabel}</td>
       <td style="padding:6px 10px;text-align:center;font-family:var(--mono);font-size:13px;color:var(--accent);font-weight:500">
-        <span style="color:var(--text3);font-size:10px;margin-right:6px">${ticker}</span>${fmtP2(res.inflaBE)}%
+        <span style="color:var(--text3);font-size:13px;margin-right:6px">${ticker}:</span>${fmtP2(res.inflaBE)}%
       </td>
+      <td style="padding:6px 10px;text-align:center;font-family:var(--mono);font-size:12px">${difStr}</td>
       <td style="padding:6px 10px;text-align:center"><button onclick="beRemove('${ticker}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px">✕</button></td>
     </tr>`;
   }).join('');
