@@ -1124,9 +1124,10 @@ async function fetchPrices(){
   const statusEl=document.getElementById('api-status');
   statusEl.textContent='cargando…';statusEl.className='api-status loading';
   try{
+    const ts=Date.now();
     const [rNotes,rBonds]=await Promise.all([
-      fetch('https://data912.com/live/arg_notes').then(r=>r.json()),
-      fetch('https://data912.com/live/arg_bonds').then(r=>r.json()),
+      fetch(`https://data912.com/live/arg_notes?_=${ts}`,{cache:'no-store'}).then(r=>r.json()),
+      fetch(`https://data912.com/live/arg_bonds?_=${ts}`,{cache:'no-store'}).then(r=>r.json()),
     ]);
     const apiMap=new Map([...rNotes,...rBonds].map(x=>[x.symbol,x]));
     let updated=0, notFound=[];
@@ -2109,9 +2110,10 @@ async function cerFetchPrices(){
   const st=document.getElementById('cer-api-status');
   st.textContent='cargando…';st.className='api-status loading';
   try{
+    const ts=Date.now();
     const [rN,rB]=await Promise.all([
-      fetch('https://data912.com/live/arg_notes').then(r=>r.json()),
-      fetch('https://data912.com/live/arg_bonds').then(r=>r.json()),
+      fetch(`https://data912.com/live/arg_notes?_=${ts}`,{cache:'no-store'}).then(r=>r.json()),
+      fetch(`https://data912.com/live/arg_bonds?_=${ts}`,{cache:'no-store'}).then(r=>r.json()),
     ]);
     const map=new Map([...rN,...rB].map(x=>[x.symbol,x]));
     let updated=0,notFound=[];
