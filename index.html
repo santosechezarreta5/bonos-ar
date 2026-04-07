@@ -3369,7 +3369,7 @@ function beCalcular(cerTicker){
   const pfBE=psCER*(1+tasaDirecta*diasCER/diasTF);
   const cerIni=cerGetValorCer(parseDate(cerBond.emision));
   if(!cerIni)return{error:'Sin CER de emisión'};
-  const cerFinalBE=pfBE*cerIni;
+  const cerFinalBE=(pfBE/100)*cerIni;
   const lastReal=projGetLastCerReal();
   if(!lastReal)return{error:'Sin CER real'};
   const fixingVto=cerGetFechaCer(vctoDate);
@@ -3459,7 +3459,7 @@ function beRenderDetalle(resultados){
       <div style="display:grid;gap:0;">
         ${step(1,`VF TF (${res.tfTicker}) = ${fmtN(res.vfTF,4)} / Px TF = ${fmtP2(res.psTF)} → Tasa directa`,fmtPct(res.tasaDirecta*100))}
         ${step(2,`Px sucio CER (${fmtP2(res.psCER)}) × (1 + ${fmtPct(res.tasaDirecta*100)} × ${res.diasCER}d / ${res.diasTF}d)`,fmtP2(res.pfBE))}
-        ${step(3,`Pago Final BE (${fmtP2(res.pfBE)}) × CER emisión (${res.fixingEmision} = ${fmtN(res.cerIni,4)})`,fmtN(res.cerFinalBE,4))}
+        ${step(3,`(Pago Final BE / 100) × CER emisión (${res.fixingEmision} = ${fmtN(res.cerIni,4)})`,fmtN(res.cerFinalBE,4))}
         ${step(4,`Días entre último CER real (${res.lastRealFecha}) y fixing vto (${res.fixingVto})`,res.diasRestantes+' días')}
         ${step(5,`(CER final BE / último CER real) ^ (1/${res.diasRestantes})`,fmtN(res.varDiaria,8))}
         ${step(6,`Var. diaria ^ 30.4 − 1`,fmtP2(res.inflaBE)+'%')}
