@@ -675,6 +675,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
         </div>
       </div>
 
+      <!-- TAMAR INDEX STRIP -->
       <div class="table-scroll">
         <table>
           <thead><tr>
@@ -692,21 +693,23 @@ tbody tr.selected .c-ticker{color:var(--accent);}
         </table>
       </div>
 
-      <!-- TAMAR INDEX STRIP -->
-      <div id="tamar-index-strip" style="display:none;border-top:1px solid var(--border);padding:.75rem 1rem;">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:.5rem;">
-          <span style="font-size:11px;color:var(--text3)">TAMAR</span>
-          <span style="font-size:16px;color:var(--accent);font-family:var(--mono)" id="tamar-idx-hoy">—</span>
+      <!-- TAMAR INDEX STRIP — abajo de la tabla, expandible -->
+      <div id="tamar-index-strip" style="display:none;border-top:1px solid var(--border);flex-shrink:0;">
+        <div style="display:flex;align-items:center;gap:12px;padding:6px 1rem;">
+          <span style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">TAMAR · BCRA</span>
+          <span style="font-size:13px;color:var(--accent);font-family:var(--mono)" id="tamar-idx-hoy">—</span>
           <span style="font-size:11px;color:var(--text3)" id="tamar-idx-fecha">—</span>
-          <button onclick="tamarToggleIndexTable()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;margin-left:auto">ver tabla ▾</button>
+          <button onclick="tamarToggleIndexTable()" id="tamar-toggle-btn" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;margin-left:auto">ocultar ▴</button>
         </div>
-        <div id="tamar-index-table-wrap" style="display:none;max-height:200px;overflow-y:auto;">
-          <table style="width:100%;border-collapse:collapse;font-size:11px;">
-            <thead><tr style="border-bottom:1px solid var(--border2)">
-              <th style="padding:4px 8px;text-align:left;color:var(--text3);font-weight:400">Fecha</th>
-              <th style="padding:4px 8px;text-align:right;color:var(--text3);font-weight:400">TAMAR % TNA</th>
-              <th style="padding:4px 8px;text-align:right;color:var(--text3);font-weight:400">Var. diaria</th>
-            </tr></thead>
+        <div id="tamar-index-table-wrap" style="display:block;max-height:260px;overflow-y:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:12px;">
+            <thead style="position:sticky;top:0;background:var(--surface2);z-index:1;">
+              <tr style="border-bottom:1px solid var(--border2)">
+                <th style="text-align:left;padding:5px 8px;font-size:10px;color:var(--text3);font-weight:400;text-transform:uppercase;letter-spacing:.06em">Fecha</th>
+                <th style="text-align:right;padding:5px 8px;font-size:10px;color:var(--text3);font-weight:400;text-transform:uppercase;letter-spacing:.06em">TAMAR % TNA</th>
+                <th style="text-align:right;padding:5px 8px;font-size:10px;color:var(--text3);font-weight:400;text-transform:uppercase;letter-spacing:.06em">Var. diaria (pp)</th>
+              </tr>
+            </thead>
             <tbody id="tamar-index-tbody"></tbody>
           </table>
         </div>
@@ -3663,30 +3666,44 @@ function tamarRenderIndexStrip(){
   const strip=document.getElementById('tamar-index-strip');
   if(!strip||!TAMAR_INDEX.length)return;
   strip.style.display='block';
+
   const sorted=[...TAMAR_INDEX].sort((a,b)=>a.fecha.localeCompare(b.fecha));
   const last=sorted[sorted.length-1];
   const prev=sorted[sorted.length-2];
   const varDia=prev?(last.valor-prev.valor):null;
-  document.getElementById('tamar-idx-hoy').textContent=last.valor.toFixed(4)+'%'+(varDia!=null?(varDia>=0?' ▲':' ▼')+Math.abs(varDia).toFixed(4)+'pp':'');
+
+  document.getElementById('tamar-idx-hoy').textContent=
+    last.valor.toFixed(4)+'% TNA'+(varDia!=null?' '+(varDia>=0?'▲':'▼')+Math.abs(varDia).toFixed(4)+'pp':'');
   document.getElementById('tamar-idx-fecha').textContent=last.fecha.split('-').reverse().join('/');
+
   const tbody=document.getElementById('tamar-index-tbody');
   if(!tbody)return;
-  const rows=sorted.slice(-30).reverse();
+  // todos los registros, más reciente primero
+  const rows=sorted.slice().reverse();
   tbody.innerHTML=rows.map((r,i)=>{
-    const p=sorted[sorted.indexOf(sorted.find(x=>x.fecha===r.fecha))-1];
+    const idx=sorted.findIndex(x=>x.fecha===r.fecha);
+    const p=idx>0?sorted[idx-1]:null;
     const varD=p?(r.valor-p.valor):null;
-    const clr=c=>c==null?'<span style="color:var(--text3)">—</span>'
+    const clrPp=c=>c==null
+      ?'<span style="color:var(--text3)">—</span>'
       :`<span style="color:${c>=0?'var(--accent2)':'var(--danger)'}">${c>=0?'+':''}${c.toFixed(4)}pp</span>`;
-    return`<tr style="border-bottom:1px solid var(--border)${i===0?' background:var(--accent-dim)':''}">
-      <td style="padding:4px 8px;color:${i===0?'var(--accent)':'var(--text2)'};font-size:12px">${r.fecha.split('-').reverse().join('/')}</td>
-      <td style="padding:4px 8px;text-align:right;color:${i===0?'var(--accent)':'var(--text)'};font-family:var(--mono);font-size:12px">${r.valor.toFixed(4)}%</td>
-      <td style="padding:4px 8px;text-align:right;font-size:12px">${clr(varD)}</td>
+    return`<tr style="border-bottom:1px solid var(--border)${i===0?';background:var(--accent-dim)':''}">
+      <td style="padding:5px 8px;color:${i===0?'var(--accent)':'var(--text2)'};font-family:var(--mono)">${r.fecha.split('-').reverse().join('/')}</td>
+      <td style="padding:5px 8px;text-align:right;color:${i===0?'var(--accent)':'var(--text)'};font-family:var(--mono)">${r.valor.toFixed(4)}%</td>
+      <td style="padding:5px 8px;text-align:right">${clrPp(varD)}</td>
     </tr>`;
   }).join('');
+
+  const stTab=document.getElementById('tamar-data-status');
+  if(stTab){
+    const now=new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+    stTab.textContent=`TAMAR · ${TAMAR_INDEX.length} registros · ${now}`;
+    stTab.className='api-status ok';
+  }
 }
 function tamarToggleIndexTable(){
   const wrap=document.getElementById('tamar-index-table-wrap');
-  const btn=document.querySelector('[onclick="tamarToggleIndexTable()"]');
+  const btn=document.getElementById('tamar-toggle-btn');
   const hidden=wrap.style.display==='none';
   wrap.style.display=hidden?'block':'none';
   if(btn)btn.textContent=hidden?'ocultar ▴':'ver tabla ▾';
