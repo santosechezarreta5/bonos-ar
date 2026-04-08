@@ -658,8 +658,33 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 <div id="page-tamar" style="display:none;height:calc(100vh - 136px);overflow:hidden;">
   <div style="display:flex;height:100%;gap:0;">
 
-    <!-- LEFT: tabla de bonos TAMAR -->
+    <!-- LEFT: índice TAMAR arriba + tabla bonos abajo -->
     <div class="left-panel" style="display:flex;flex-direction:column;min-width:0;flex:1;">
+
+      <!-- TAMAR INDEX STRIP — arriba, expandible -->
+      <div id="tamar-index-strip" style="display:none;border-bottom:1px solid var(--border);flex-shrink:0;">
+        <div style="display:flex;align-items:center;gap:12px;padding:6px 1rem;">
+          <span style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">Índice TAMAR · BCRA</span>
+          <span style="font-size:13px;color:var(--accent);font-family:var(--mono)" id="tamar-idx-hoy">—</span>
+          <span style="font-size:11px;color:var(--text3)" id="tamar-idx-fecha">—</span>
+          <span class="api-status" id="tamar-data-status" style="margin-left:8px"></span>
+          <button onclick="tamarToggleIndexTable()" id="tamar-toggle-btn" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;margin-left:auto">ocultar ▴</button>
+        </div>
+        <div id="tamar-index-table-wrap" style="display:block;max-height:220px;overflow-y:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:12px;">
+            <thead style="position:sticky;top:0;background:var(--surface2);z-index:1;">
+              <tr style="border-bottom:1px solid var(--border2)">
+                <th style="text-align:left;padding:5px 8px;font-size:10px;color:var(--text3);font-weight:400;text-transform:uppercase;letter-spacing:.06em">Fecha</th>
+                <th style="text-align:right;padding:5px 8px;font-size:10px;color:var(--text3);font-weight:400;text-transform:uppercase;letter-spacing:.06em">TAMAR % TNA</th>
+                <th style="text-align:right;padding:5px 8px;font-size:10px;color:var(--text3);font-weight:400;text-transform:uppercase;letter-spacing:.06em">Var. diaria (pp)</th>
+              </tr>
+            </thead>
+            <tbody id="tamar-index-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- TOOLBAR -->
       <div class="toolbar">
         <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;">
           <span class="pane-title">Bonos TAMAR</span>
@@ -675,7 +700,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
         </div>
       </div>
 
-      <!-- TAMAR INDEX STRIP -->
+      <!-- TABLA BONOS -->
       <div class="table-scroll">
         <table>
           <thead><tr>
@@ -693,37 +718,13 @@ tbody tr.selected .c-ticker{color:var(--accent);}
         </table>
       </div>
 
-      <!-- TAMAR INDEX STRIP — abajo de la tabla, expandible -->
-      <div id="tamar-index-strip" style="display:none;border-top:1px solid var(--border);flex-shrink:0;">
-        <div style="display:flex;align-items:center;gap:12px;padding:6px 1rem;">
-          <span style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">TAMAR · BCRA</span>
-          <span style="font-size:13px;color:var(--accent);font-family:var(--mono)" id="tamar-idx-hoy">—</span>
-          <span style="font-size:11px;color:var(--text3)" id="tamar-idx-fecha">—</span>
-          <button onclick="tamarToggleIndexTable()" id="tamar-toggle-btn" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;margin-left:auto">ocultar ▴</button>
-        </div>
-        <div id="tamar-index-table-wrap" style="display:block;max-height:260px;overflow-y:auto;">
-          <table style="width:100%;border-collapse:collapse;font-size:12px;">
-            <thead style="position:sticky;top:0;background:var(--surface2);z-index:1;">
-              <tr style="border-bottom:1px solid var(--border2)">
-                <th style="text-align:left;padding:5px 8px;font-size:10px;color:var(--text3);font-weight:400;text-transform:uppercase;letter-spacing:.06em">Fecha</th>
-                <th style="text-align:right;padding:5px 8px;font-size:10px;color:var(--text3);font-weight:400;text-transform:uppercase;letter-spacing:.06em">TAMAR % TNA</th>
-                <th style="text-align:right;padding:5px 8px;font-size:10px;color:var(--text3);font-weight:400;text-transform:uppercase;letter-spacing:.06em">Var. diaria (pp)</th>
-              </tr>
-            </thead>
-            <tbody id="tamar-index-tbody"></tbody>
-          </table>
-        </div>
-      </div>
-
       <div class="status-bar">
         <span><span class="status-dot"></span><span id="tamar-st-count">—</span></span>
-        <span id="tamar-data-status" class="api-status" style="margin-left:auto;color:var(--text3)"></span>
       </div>
     </div>
 
-    <!-- RIGHT: panel (placeholder por ahora) -->
-    <div class="right-panel" id="tamar-right-panel" style="display:none;">
-    </div>
+    <!-- RIGHT: panel vacío por ahora -->
+    <div class="right-panel" id="tamar-right-panel" style="display:none;"></div>
 
   </div>
 </div>
@@ -1813,9 +1814,12 @@ function switchTab(tab){
   if(tab==='lecap'){
     lecapWorkspace.style.display='flex';
     chartArea.style.display='flex';
+    if(LECAPS.length) fetchPrices();
   } else if(tab==='cer'){
     cerPage.style.display='flex';
     if(!CER_INDEX.length) cerFetchIndex();
+    // refrescar precios automáticamente al abrir la tab
+    if(CER_BONDS.length) cerFetchPrices();
   } else if(tab==='feriados'){
     ferPage.style.display='block';
     ferInit();
