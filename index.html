@@ -231,7 +231,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
   <button class="nav-tab" id="nav-cer" onclick="switchTab('cer')">Bonos CER</button>
   <button class="nav-tab disabled">TAMAR <span class="soon">pronto</span></button>
   <button class="nav-tab disabled">DLK <span class="soon">pronto</span></button>
-  <button class="nav-tab disabled">Sintéticos <span class="soon">pronto</span></button>
+  <button class="nav-tab" id="nav-tamar" onclick="switchTab('tamar')">TAMAR</button>
   <button class="nav-tab" id="nav-breakeven" onclick="switchTab('breakeven')">Breakeven</button>
   <button class="nav-tab" id="nav-proyecciones" onclick="switchTab('proyecciones')">Proyecciones</button>
   <button class="nav-tab" id="nav-feriados" onclick="switchTab('feriados')" style="margin-left:auto">Feriados</button>
@@ -653,6 +653,104 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 
   </div><!-- end cer-workspace -->
 </div><!-- end page-cer -->
+
+<!-- ═══════════════════════════════════════════════════════ TAMAR PAGE -->
+<div id="page-tamar" style="display:none;height:calc(100vh - 136px);overflow:hidden;display:none;">
+  <div style="display:flex;height:100%;gap:0;">
+
+    <!-- LEFT: tabla de bonos TAMAR -->
+    <div class="left-panel" style="display:flex;flex-direction:column;min-width:0;flex:1;">
+      <div class="toolbar">
+        <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;">
+          <span class="pane-title">Bonos TAMAR</span>
+          <input type="text" id="tamar-search" class="search-input" placeholder="Buscar ticker…" oninput="tamarRenderTable()">
+          <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text3);cursor:pointer;">
+            <input type="checkbox" id="tamar-show-vencidas" onchange="tamarRenderTable()"> vencidas
+          </label>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <span class="api-status" id="tamar-api-status">sin datos</span>
+          <button class="btn" id="tamar-fetch-btn" onclick="tamarFetchPrices()">↻ Precios</button>
+          <button class="btn primary" onclick="tamarOpenModal()">+ Nueva</button>
+        </div>
+      </div>
+
+      <div class="table-scroll">
+        <table>
+          <thead><tr>
+            <th onclick="tamarSortBy('ticker')" id="tamar-th-ticker" style="text-align:left">Ticker</th>
+            <th onclick="tamarSortBy('tipo')"   id="tamar-th-tipo">Tipo</th>
+            <th onclick="tamarSortBy('vcto')"   id="tamar-th-vcto" class="sorted">Vto ↑</th>
+            <th onclick="tamarSortBy('dias')"   id="tamar-th-dias">Días</th>
+            <th onclick="tamarSortBy('modDuration')" id="tamar-th-modDuration">MD</th>
+            <th onclick="tamarSortBy('precio')" id="tamar-th-precio">Precio $</th>
+            <th onclick="tamarSortBy('pct_change')" id="tamar-th-pct_change">Var%</th>
+            <th onclick="tamarSortBy('tir')"    id="tamar-th-tir">TIR</th>
+            <th style="cursor:default;width:40px;"></th>
+          </tr></thead>
+          <tbody id="tamar-table-body"></tbody>
+        </table>
+      </div>
+
+      <!-- TAMAR INDEX STRIP -->
+      <div id="tamar-index-strip" style="display:none;border-top:1px solid var(--border);padding:.75rem 1rem;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:.5rem;">
+          <span style="font-size:11px;color:var(--text3)">TAMAR</span>
+          <span style="font-size:16px;color:var(--accent);font-family:var(--mono)" id="tamar-idx-hoy">—</span>
+          <span style="font-size:11px;color:var(--text3)" id="tamar-idx-fecha">—</span>
+          <button onclick="tamarToggleIndexTable()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;margin-left:auto">ver tabla ▾</button>
+        </div>
+        <div id="tamar-index-table-wrap" style="display:none;max-height:200px;overflow-y:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:11px;">
+            <thead><tr style="border-bottom:1px solid var(--border2)">
+              <th style="padding:4px 8px;text-align:left;color:var(--text3);font-weight:400">Fecha</th>
+              <th style="padding:4px 8px;text-align:right;color:var(--text3);font-weight:400">TAMAR % TNA</th>
+              <th style="padding:4px 8px;text-align:right;color:var(--text3);font-weight:400">Var. diaria</th>
+            </tr></thead>
+            <tbody id="tamar-index-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="status-bar">
+        <span><span class="status-dot"></span><span id="tamar-st-count">—</span></span>
+        <span id="tamar-data-status" class="api-status" style="margin-left:auto;color:var(--text3)"></span>
+      </div>
+    </div>
+
+    <!-- RIGHT: panel (placeholder por ahora) -->
+    <div class="right-panel" id="tamar-right-panel" style="display:none;">
+    </div>
+
+  </div>
+</div>
+
+<!-- TAMAR MODAL -->
+<div class="modal-backdrop" id="tamar-modal">
+  <div class="modal">
+    <div class="modal-title">Nuevo bono TAMAR</div>
+    <div class="field-row cols2">
+      <div class="field"><label>Ticker</label><input type="text" id="tamar-m-ticker" placeholder="Ej: TZX26" style="text-transform:uppercase"></div>
+      <div class="field"><label>Tipo</label>
+        <select id="tamar-m-tipo">
+          <option value="zcupon">Zero coupon</option>
+          <option value="cupon">Con cupón</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-row cols2">
+      <div class="field"><label>Fecha emisión</label><input type="date" id="tamar-m-emision"></div>
+      <div class="field"><label>Fecha vencimiento</label><input type="date" id="tamar-m-vcto"></div>
+    </div>
+    <div class="field-row cols2" style="margin-top:4px">
+      <div class="field"><label>Precio inicial $ (opcional)</label><input type="number" id="tamar-m-precio" step="0.01" placeholder="Precio limpio"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="tamarCloseModal()">Cancelar</button>
+      <button class="btn primary" onclick="tamarSaveModal()">Agregar</button>
+    </div>
+  </div>
+</div>
 
 <!-- ═══════════════════════════════════════════════════════ BREAKEVEN PAGE -->
 <div id="page-breakeven" style="display:none;height:calc(100vh - 136px);overflow-y:auto;padding:2rem 2.5rem;">
@@ -1707,6 +1805,7 @@ function switchTab(tab){
   ferPage.style.display='none';
   document.getElementById('page-proyecciones').style.display='none';
   document.getElementById('page-breakeven').style.display='none';
+  document.getElementById('page-tamar').style.display='none';
 
   if(tab==='lecap'){
     lecapWorkspace.style.display='flex';
@@ -1723,6 +1822,9 @@ function switchTab(tab){
   } else if(tab==='breakeven'){
     document.getElementById('page-breakeven').style.display='block';
     beInit();
+  } else if(tab==='tamar'){
+    document.getElementById('page-tamar').style.display='flex';
+    if(!TAMAR_INDEX.length) tamarFetchIndex();
   }
 }
 
@@ -2662,6 +2764,7 @@ async function tamarFetchIndex(force=false){
     const last=TAMAR_INDEX[TAMAR_INDEX.length-1];
     const now=new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
     if(st){st.textContent=`TAMAR ${last.fecha.split('-').reverse().join('/')} = ${last.valor.toFixed(4)}% · ${now}`;st.className='api-status ok';}
+    tamarRenderIndexStrip();
     return true;
   }catch(e){
     if(st){st.textContent='TAMAR: error: '+e.message;st.className='api-status err';}
@@ -3410,6 +3513,188 @@ function projDeleteMes(mes){
   projSaveLs();
   projRecalc();
 }
+// ══════════════════════════════════════════════════════════════ TAMAR TAB
+const LS_TAMAR='bonosAR_tamar_bonds_v1';
+let TAMAR_BONDS=[];
+let TAMAR_DATA=[];
+let tamarSortCol='vcto', tamarSortAsc=true;
+const TAMAR_TH=['ticker','tipo','vcto','dias','modDuration','precio','pct_change','tir'];
+
+function tamarEnrich(r){
+  const liq=G_LIQ||addHabiles(TODAY,1);
+  const vctoDate=r.vcto?parseDate(r.vcto):null;
+  const dias=vctoDate?Math.max(0,diasACT(liq,vctoDate)):0;
+  // tipo dinámico: igual que CER
+  const diffDias=r.emision&&r.vcto?diasACT(parseDate(r.emision),parseDate(r.vcto)):999;
+  const tipoLabel=r.tipo==='cupon'?'CPN':(diffDias<365?'LETRA':'BONO');
+  // TIR y MD: pendiente hasta definir convención — mostrar — por ahora
+  return{...r,vctoDate,dias,tipoLabel,tir:NaN,modDuration:NaN};
+}
+
+function tamarSortBy(col){
+  tamarSortAsc=tamarSortCol===col?!tamarSortAsc:(col==='vcto'||col==='ticker');
+  tamarSortCol=col;tamarRenderTable();
+}
+
+function tamarRenderTable(){
+  TAMAR_DATA=TAMAR_BONDS.map(tamarEnrich);
+  const q=(document.getElementById('tamar-search')?.value||'').toLowerCase();
+  const showV=document.getElementById('tamar-show-vencidas')?.checked;
+  let rows=TAMAR_DATA.filter(r=>(showV||r.dias>0)&&(!q||r.ticker.toLowerCase().includes(q)));
+  rows.sort((a,b)=>{
+    if(tamarSortCol==='ticker'||tamarSortCol==='vcto'||tamarSortCol==='tipo'){
+      const av=a[tamarSortCol]||'',bv=b[tamarSortCol]||'';
+      return tamarSortAsc?av.localeCompare(bv):bv.localeCompare(av);
+    }
+    let av=a[tamarSortCol],bv=b[tamarSortCol];
+    if(av==null||isNaN(av))av=tamarSortAsc?1e9:-1e9;
+    if(bv==null||isNaN(bv))bv=tamarSortAsc?1e9:-1e9;
+    return tamarSortAsc?(av>bv?1:-1):(av<bv?1:-1);
+  });
+  TAMAR_TH.forEach(c=>{
+    const th=document.getElementById('tamar-th-'+c);if(!th)return;
+    const base=th.textContent.replace(/ [↑↓]$/,'').trim();
+    th.textContent=c===tamarSortCol?base+' '+(tamarSortAsc?'↑':'↓'):base;
+    th.classList.toggle('sorted',c===tamarSortCol);
+  });
+  const tbody=document.getElementById('tamar-table-body');
+  if(!rows.length){
+    tbody.innerHTML=`<tr><td colspan="9" class="no-rows">Agregá bonos TAMAR con + Nueva y actualizá precios.</td></tr>`;
+    document.getElementById('tamar-st-count').textContent='0 bonos';return;
+  }
+  tbody.innerHTML=rows.map(r=>{
+    const v=r.dias<=0;
+    const vctoStr=r.vcto?r.vcto.split('-').reverse().join('/'):'—';
+    const chg=r.pct_change;
+    const chgStr=chg==null?'':`<span class="${chg>=0?'c-chg-pos':'c-chg-neg'}">${chg>=0?'+':''}${chg.toFixed(2)}%</span>`;
+    const tipoBadge=r.tipoLabel==='CPN'
+      ?'<span style="font-size:10px;color:var(--warn)">CPN</span>'
+      :r.tipoLabel==='LETRA'
+        ?'<span style="font-size:10px;color:var(--info)">LETRA</span>'
+        :'<span style="font-size:10px;color:var(--accent2)">BONO</span>';
+    return`<tr>
+      <td class="ticker-cell"><div class="cv left no-edit"><span class="c-ticker">${r.ticker}</span></div></td>
+      <td><div class="cv no-edit" style="justify-content:center">${tipoBadge}</div></td>
+      <td><div class="cv no-edit c-date">${vctoStr}</div></td>
+      <td><div class="cv no-edit c-muted">${v?'<span style="color:var(--text3)">vencida</span>':r.dias}</div></td>
+      <td><div class="cv no-edit c-muted">${isNaN(r.modDuration)?'—':r.modDuration.toFixed(2)}</div></td>
+      <td><div class="cv no-edit c-green">${r.precio!=null?fmtARS(r.precio):'—'}</div></td>
+      <td><div class="cv no-edit">${chgStr}</div></td>
+      <td><div class="cv no-edit c-amber">${isNaN(r.tir)?'—':fmtP2(r.tir)+'%'}</div></td>
+      <td onclick="event.stopPropagation()"><div class="row-act">
+        <button class="rbtn del" onclick="tamarDeleteRow('${r.ticker}')">✕</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+  document.getElementById('tamar-st-count').textContent=rows.length+' bono'+(rows.length!==1?'s':'');
+}
+
+function tamarDeleteRow(ticker){
+  TAMAR_BONDS=TAMAR_BONDS.filter(r=>r.ticker!==ticker);
+  tamarSaveBonds();tamarRenderTable();
+}
+
+function tamarSaveBonds(){
+  try{localStorage.setItem(LS_TAMAR,JSON.stringify(TAMAR_BONDS));}catch(e){}
+}
+function tamarLoadBonds(){
+  try{
+    const raw=localStorage.getItem(LS_TAMAR);
+    if(raw){const p=JSON.parse(raw);if(Array.isArray(p))TAMAR_BONDS=p;}
+  }catch(e){}
+}
+
+function tamarOpenModal(){
+  ['tamar-m-ticker','tamar-m-emision','tamar-m-vcto','tamar-m-precio'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.value='';
+  });
+  document.getElementById('tamar-m-tipo').value='zcupon';
+  document.getElementById('tamar-modal').classList.add('open');
+}
+function tamarCloseModal(){document.getElementById('tamar-modal').classList.remove('open');}
+function tamarSaveModal(){
+  const ticker=(document.getElementById('tamar-m-ticker').value||'').toUpperCase().trim();
+  const tipo=document.getElementById('tamar-m-tipo').value;
+  const emision=document.getElementById('tamar-m-emision').value;
+  const vcto=document.getElementById('tamar-m-vcto').value;
+  const precioRaw=document.getElementById('tamar-m-precio').value;
+  const precio=precioRaw?parseFloat(precioRaw):null;
+  if(!ticker){alert('Ingresá un ticker.');return;}
+  if(!vcto){alert('Ingresá fecha de vencimiento.');return;}
+  if(TAMAR_BONDS.find(r=>r.ticker===ticker)){alert('Ya existe ese ticker.');return;}
+  TAMAR_BONDS.push({ticker,tipo,emision:emision||'',vcto,precio,pct_change:null,manualOverride:false});
+  tamarSaveBonds();
+  tamarCloseModal();
+  tamarRenderTable();
+  tamarFetchPrices();
+}
+
+async function tamarFetchPrices(){
+  if(!TAMAR_BONDS.length){
+    document.getElementById('tamar-api-status').textContent='agregá bonos primero';return;
+  }
+  const st=document.getElementById('tamar-api-status');
+  st.textContent='cargando…';st.className='api-status loading';
+  try{
+    const ts=Date.now();
+    const [rN,rB]=await Promise.all([
+      fetch(`https://data912.com/live/arg_notes?_=${ts}`,{cache:'no-store'}).then(r=>r.json()),
+      fetch(`https://data912.com/live/arg_bonds?_=${ts}`,{cache:'no-store'}).then(r=>r.json()),
+    ]);
+    const map=new Map([...rN,...rB].map(x=>[x.symbol,x]));
+    let updated=0,notFound=[];
+    TAMAR_BONDS=TAMAR_BONDS.map(r=>{
+      const api=map.get(r.ticker);
+      const px=apiBestPrice(api);
+      if(px){updated++;return{...r,precio:px,pct_change:api.pct_change??null,manualOverride:false};}
+      notFound.push(r.ticker);return r;
+    });
+    tamarSaveBonds();tamarRenderTable();
+    const now=new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+    st.textContent=notFound.length?`${updated} actualizados · ${notFound.join(', ')} sin precio · ${now}`:`${updated} actualizados · ${now}`;
+    st.className=notFound.length?'api-status err':'api-status ok';
+  }catch(e){
+    document.getElementById('tamar-api-status').textContent='error de conexión';
+    document.getElementById('tamar-api-status').className='api-status err';
+  }
+}
+
+function tamarRenderIndexStrip(){
+  const strip=document.getElementById('tamar-index-strip');
+  if(!strip||!TAMAR_INDEX.length)return;
+  strip.style.display='block';
+  const sorted=[...TAMAR_INDEX].sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  const last=sorted[sorted.length-1];
+  const prev=sorted[sorted.length-2];
+  const varDia=prev?(last.valor-prev.valor):null;
+  document.getElementById('tamar-idx-hoy').textContent=last.valor.toFixed(4)+'%'+(varDia!=null?(varDia>=0?' ▲':' ▼')+Math.abs(varDia).toFixed(4)+'pp':'');
+  document.getElementById('tamar-idx-fecha').textContent=last.fecha.split('-').reverse().join('/');
+  const tbody=document.getElementById('tamar-index-tbody');
+  if(!tbody)return;
+  const rows=sorted.slice(-30).reverse();
+  tbody.innerHTML=rows.map((r,i)=>{
+    const p=sorted[sorted.indexOf(sorted.find(x=>x.fecha===r.fecha))-1];
+    const varD=p?(r.valor-p.valor):null;
+    const clr=c=>c==null?'<span style="color:var(--text3)">—</span>'
+      :`<span style="color:${c>=0?'var(--accent2)':'var(--danger)'}">${c>=0?'+':''}${c.toFixed(4)}pp</span>`;
+    return`<tr style="border-bottom:1px solid var(--border)${i===0?' background:var(--accent-dim)':''}">
+      <td style="padding:4px 8px;color:${i===0?'var(--accent)':'var(--text2)'};font-size:12px">${r.fecha.split('-').reverse().join('/')}</td>
+      <td style="padding:4px 8px;text-align:right;color:${i===0?'var(--accent)':'var(--text)'};font-family:var(--mono);font-size:12px">${r.valor.toFixed(4)}%</td>
+      <td style="padding:4px 8px;text-align:right;font-size:12px">${clr(varD)}</td>
+    </tr>`;
+  }).join('');
+}
+function tamarToggleIndexTable(){
+  const wrap=document.getElementById('tamar-index-table-wrap');
+  const btn=document.querySelector('[onclick="tamarToggleIndexTable()"]');
+  const hidden=wrap.style.display==='none';
+  wrap.style.display=hidden?'block':'none';
+  if(btn)btn.textContent=hidden?'ocultar ▴':'ver tabla ▾';
+}
+
+// hook: cuando TAMAR carga, renderizar strip
+const _origTamarFetch=tamarFetchIndex;
+// ── FIN TAMAR TAB ─────────────────────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════ BREAKEVEN
 const BE_LS_KEY='bonosAR_breakeven_v1';
 let BE_BONOS=[];
@@ -3785,6 +4070,7 @@ function importarPortfolio(event){
 document.getElementById('g-fecha-op').value=fmtDate(TODAY);
 updateSettlement();
 loadPortfolio();
+tamarLoadBonds();
 cerFetchIndex();
 tamarFetchIndex();
 
@@ -3815,6 +4101,7 @@ document.getElementById('modal').addEventListener('click',e=>{if(e.target===e.cu
 document.getElementById('cer-modal').addEventListener('click',e=>{if(e.target===e.currentTarget)cerCloseModal();});
 document.getElementById('fer-modal').addEventListener('click',e=>{if(e.target===e.currentTarget)ferCloseModal();});
 document.getElementById('be-modal').addEventListener('click',e=>{if(e.target===e.currentTarget)beCloseModal();});
+document.getElementById('tamar-modal').addEventListener('click',e=>{if(e.target===e.currentTarget)tamarCloseModal();});
 </script>
 </body>
 </html>
