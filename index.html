@@ -663,6 +663,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 
       <!-- TAMAR INDEX STRIP — arriba, expandible -->
       <div id="tamar-index-strip" style="display:none;border-bottom:1px solid var(--border);flex-shrink:0;">
+        <!-- header: último valor + promedio 5d -->
         <div style="display:flex;align-items:center;gap:12px;padding:6px 1rem;">
           <span style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">Índice TAMAR · BCRA</span>
           <span style="font-size:13px;color:var(--accent);font-family:var(--mono)" id="tamar-idx-hoy">—</span>
@@ -670,12 +671,33 @@ tbody tr.selected .c-ticker{color:var(--accent);}
           <span class="api-status" id="tamar-data-status" style="margin-left:8px"></span>
           <button onclick="tamarToggleIndexTable()" id="tamar-toggle-btn" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;margin-left:auto">ocultar ▴</button>
         </div>
-        <div id="tamar-index-table-wrap" style="display:block;max-height:220px;overflow-y:auto;">
+        <!-- métricas promedio 5 días -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border-top:1px solid var(--border);border-bottom:1px solid var(--border);" id="tamar-metrics">
+          <div style="background:var(--surface);padding:6px 12px;">
+            <div style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:2px">Último TNA</div>
+            <div style="font-size:15px;color:var(--accent);font-family:var(--mono)" id="tamar-m-tna-last">—</div>
+          </div>
+          <div style="background:var(--surface);padding:6px 12px;">
+            <div style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:2px">Último TEM</div>
+            <div style="font-size:15px;color:var(--accent2);font-family:var(--mono)" id="tamar-m-tem-last">—</div>
+          </div>
+          <div style="background:var(--surface);padding:6px 12px;">
+            <div style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:2px">Prom. 5d TNA</div>
+            <div style="font-size:15px;color:var(--warn);font-family:var(--mono)" id="tamar-m-tna-5d">—</div>
+          </div>
+          <div style="background:var(--surface);padding:6px 12px;">
+            <div style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:2px">Prom. 5d TEM</div>
+            <div style="font-size:15px;color:var(--warn);font-family:var(--mono)" id="tamar-m-tem-5d">—</div>
+          </div>
+        </div>
+        <!-- tabla histórica -->
+        <div id="tamar-index-table-wrap" style="display:block;max-height:180px;overflow-y:auto;">
           <table style="width:100%;border-collapse:collapse;font-size:12px;">
             <thead style="position:sticky;top:0;background:var(--surface2);z-index:1;">
               <tr style="border-bottom:1px solid var(--border2)">
                 <th style="text-align:left;padding:5px 8px;font-size:10px;color:var(--text3);font-weight:400;text-transform:uppercase;letter-spacing:.06em">Fecha</th>
-                <th style="text-align:right;padding:5px 8px;font-size:10px;color:var(--text3);font-weight:400;text-transform:uppercase;letter-spacing:.06em">TAMAR % TNA</th>
+                <th style="text-align:right;padding:5px 8px;font-size:10px;color:var(--text3);font-weight:400;text-transform:uppercase;letter-spacing:.06em">TNA %</th>
+                <th style="text-align:right;padding:5px 8px;font-size:10px;color:var(--accent2);font-weight:400;text-transform:uppercase;letter-spacing:.06em">TEM %</th>
                 <th style="text-align:right;padding:5px 8px;font-size:10px;color:var(--text3);font-weight:400;text-transform:uppercase;letter-spacing:.06em">Var. diaria (pp)</th>
               </tr>
             </thead>
@@ -3668,6 +3690,11 @@ async function tamarFetchPrices(){
   }
 }
 
+function tamarTEM(tna){
+  // TEM = ((1 + TNA/100 × 32/365)^(365/32))^(1/12) - 1  → resultado en %
+  return (Math.pow(Math.pow(1+tna/100*32/365,365/32),1/12)-1)*100;
+}
+
 function tamarRenderIndexStrip(){
   const strip=document.getElementById('tamar-index-strip');
   if(!strip||!TAMAR_INDEX.length)return;
@@ -3677,26 +3704,40 @@ function tamarRenderIndexStrip(){
   const last=sorted[sorted.length-1];
   const prev=sorted[sorted.length-2];
   const varDia=prev?(last.valor-prev.valor):null;
+  const varStr=varDia!=null?(varDia>=0?'+':'')+varDia.toFixed(4)+'pp':'';
+  const temLast=tamarTEM(last.valor);
 
-  document.getElementById('tamar-idx-hoy').textContent=
-    last.valor.toFixed(4)+'% TNA'+(varDia!=null?' '+(varDia>=0?'▲':'▼')+Math.abs(varDia).toFixed(4)+'pp':'');
+  document.getElementById('tamar-idx-hoy').textContent=last.valor.toFixed(4)+'%  '+varStr;
   document.getElementById('tamar-idx-fecha').textContent=last.fecha.split('-').reverse().join('/');
 
+  // métricas: último + promedio 5 días
+  const ultimos5=sorted.slice(-5);
+  const prom5TNA=ultimos5.reduce((s,r)=>s+r.valor,0)/ultimos5.length;
+  const prom5TEM=ultimos5.reduce((s,r)=>s+tamarTEM(r.valor),0)/ultimos5.length;
+
+  const el=id=>document.getElementById(id);
+  if(el('tamar-m-tna-last'))el('tamar-m-tna-last').textContent=last.valor.toFixed(4)+'%';
+  if(el('tamar-m-tem-last'))el('tamar-m-tem-last').textContent=temLast.toFixed(4)+'%';
+  if(el('tamar-m-tna-5d'))el('tamar-m-tna-5d').textContent=prom5TNA.toFixed(4)+'%';
+  if(el('tamar-m-tem-5d'))el('tamar-m-tem-5d').textContent=prom5TEM.toFixed(4)+'%';
+
+  // tabla histórica con TEM
   const tbody=document.getElementById('tamar-index-tbody');
   if(!tbody)return;
-  // todos los registros, más reciente primero
   const rows=sorted.slice().reverse();
   tbody.innerHTML=rows.map((r,i)=>{
-    const idx=sorted.findIndex(x=>x.fecha===r.fecha);
+    const idx=sorted.length-1-i;
     const p=idx>0?sorted[idx-1]:null;
     const varD=p?(r.valor-p.valor):null;
-    const clrPp=c=>c==null
-      ?'<span style="color:var(--text3)">—</span>'
-      :`<span style="color:${c>=0?'var(--accent2)':'var(--danger)'}">${c>=0?'+':''}${c.toFixed(4)}pp</span>`;
-    return`<tr style="border-bottom:1px solid var(--border)${i===0?';background:var(--accent-dim)':''}">
-      <td style="padding:5px 8px;color:${i===0?'var(--accent)':'var(--text2)'};font-family:var(--mono)">${r.fecha.split('-').reverse().join('/')}</td>
-      <td style="padding:5px 8px;text-align:right;color:${i===0?'var(--accent)':'var(--text)'};font-family:var(--mono)">${r.valor.toFixed(4)}%</td>
-      <td style="padding:5px 8px;text-align:right">${clrPp(varD)}</td>
+    const tem=tamarTEM(r.valor);
+    const clrD=varD==null?'color:var(--text3)':varD>=0?'color:var(--accent2)':'color:var(--danger)';
+    const varDStr=varD!=null?(varD>=0?'+':'')+varD.toFixed(4)+'pp':'—';
+    const esHoy=i===0;
+    return`<tr style="border-bottom:1px solid var(--border)${esHoy?';background:var(--accent-dim)':''}">
+      <td style="padding:4px 8px;font-size:12px;color:${esHoy?'var(--accent)':'var(--text2)'};font-family:var(--mono)">${r.fecha.split('-').reverse().join('/')}</td>
+      <td style="padding:4px 8px;text-align:right;font-size:12px;color:${esHoy?'var(--accent)':'var(--text)'};font-family:var(--mono)">${r.valor.toFixed(4)}%</td>
+      <td style="padding:4px 8px;text-align:right;font-size:12px;color:${esHoy?'var(--accent2)':'var(--text2)'};font-family:var(--mono)">${tem.toFixed(4)}%</td>
+      <td style="padding:4px 8px;text-align:right;font-size:12px;${clrD}">${varDStr}</td>
     </tr>`;
   }).join('');
 
