@@ -655,7 +655,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 </div><!-- end page-cer -->
 
 <!-- ═══════════════════════════════════════════════════════ TAMAR PAGE -->
-<div id="page-tamar" style="display:none;height:calc(100vh - 136px);overflow:hidden;display:none;">
+<div id="page-tamar" style="display:none;height:calc(100vh - 136px);overflow:hidden;">
   <div style="display:flex;height:100%;gap:0;">
 
     <!-- LEFT: tabla de bonos TAMAR -->
@@ -1828,6 +1828,8 @@ function switchTab(tab){
   } else if(tab==='tamar'){
     document.getElementById('page-tamar').style.display='flex';
     if(!TAMAR_INDEX.length) tamarFetchIndex();
+    else tamarRenderIndexStrip();
+    tamarRenderTable();
   }
 }
 
