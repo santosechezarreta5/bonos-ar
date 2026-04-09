@@ -669,7 +669,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
           <span style="font-size:13px;color:var(--accent);font-family:var(--mono)" id="tamar-idx-hoy">—</span>
           <span style="font-size:11px;color:var(--text3)" id="tamar-idx-fecha">—</span>
           <span class="api-status" id="tamar-data-status" style="margin-left:8px"></span>
-          <button onclick="tamarToggleIndexTable()" id="tamar-toggle-btn" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;margin-left:auto">ocultar ▴</button>
+          <button onclick="tamarToggleIndexTable()" id="tamar-toggle-btn" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;margin-left:auto">ver tabla ▾</button>
         </div>
         <!-- métricas promedio 5 días -->
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border-top:1px solid var(--border);border-bottom:1px solid var(--border);" id="tamar-metrics">
@@ -691,7 +691,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
           </div>
         </div>
         <!-- tabla histórica -->
-        <div id="tamar-index-table-wrap" style="display:block;max-height:180px;overflow-y:auto;">
+        <div id="tamar-index-table-wrap" style="display:none;max-height:180px;overflow-y:auto;">
           <table style="width:100%;border-collapse:collapse;font-size:12px;">
             <thead style="position:sticky;top:0;background:var(--surface2);z-index:1;">
               <tr style="border-bottom:1px solid var(--border2)">
@@ -3705,12 +3705,22 @@ function tamarRenderTable(){
 let tamarSelectedTicker=null;
 function tamarOpenPanel(ticker){
   tamarSelectedTicker=ticker;
+  // recalcular por si TAMAR_DATA está desactualizado
+  if(!TAMAR_DATA.length||!TAMAR_DATA.find(x=>x.ticker===ticker)){
+    TAMAR_DATA=TAMAR_BONDS.map(tamarEnrich);
+  }
   const r=TAMAR_DATA.find(x=>x.ticker===ticker);
-  if(!r||!r._debug)return;
-  const d=r._debug;
   const panel=document.getElementById('tamar-right-panel');
   if(!panel)return;
   panel.classList.add('open');
+  if(!r||!r._debug){
+    panel.innerHTML=`<div class="panel-header"><div class="panel-ticker">${ticker}</div><button class="panel-close" onclick="tamarClosePanel()">✕</button></div>
+      <div style="padding:1rem;color:var(--text3);font-size:12px">
+        ${!TAMAR_INDEX.length?'Cargá el índice TAMAR primero (↻ TAMAR)':'Sin datos de cálculo — verificá emisión, vencimiento y precio.'}
+      </div>`;
+    return;
+  }
+  const d=r._debug;
   panel.innerHTML=`
     <div class="panel-header">
       <div><div class="panel-ticker">${ticker}</div>
