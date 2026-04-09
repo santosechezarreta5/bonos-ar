@@ -727,13 +727,15 @@ tbody tr.selected .c-ticker{color:var(--accent);}
         <table>
           <thead><tr>
             <th onclick="tamarSortBy('ticker')" id="tamar-th-ticker" style="text-align:left">Ticker</th>
-            <th onclick="tamarSortBy('tipo')"   id="tamar-th-tipo">Tipo</th>
             <th onclick="tamarSortBy('vcto')"   id="tamar-th-vcto" class="sorted">Vto ↑</th>
             <th onclick="tamarSortBy('dias')"   id="tamar-th-dias">Días</th>
             <th onclick="tamarSortBy('modDuration')" id="tamar-th-modDuration">MD</th>
             <th onclick="tamarSortBy('precio')" id="tamar-th-precio">Precio $</th>
             <th onclick="tamarSortBy('pct_change')" id="tamar-th-pct_change">Var%</th>
+            <th onclick="tamarSortBy('margenTNA')" id="tamar-th-margenTNA">Margen TNA</th>
             <th onclick="tamarSortBy('tir')"    id="tamar-th-tir">TIR</th>
+            <th onclick="tamarSortBy('tna')"    id="tamar-th-tna">TNA</th>
+            <th onclick="tamarSortBy('tem')"    id="tamar-th-tem">TEM</th>
             <th style="cursor:default;width:40px;"></th>
           </tr></thead>
           <tbody id="tamar-table-body"></tbody>
@@ -757,12 +759,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
     <div class="modal-title">Nuevo bono TAMAR</div>
     <div class="field-row cols2">
       <div class="field"><label>Ticker</label><input type="text" id="tamar-m-ticker" placeholder="Ej: TZX26" style="text-transform:uppercase"></div>
-      <div class="field"><label>Tipo</label>
-        <select id="tamar-m-tipo">
-          <option value="zcupon">Zero coupon</option>
-          <option value="cupon">Con cupón</option>
-        </select>
-      </div>
+      <div class="field"><label>Margen TAMAR % anual</label><input type="number" id="tamar-m-margen" step="0.01" placeholder="Ej: 3.00"></div>
     </div>
     <div class="field-row cols2">
       <div class="field"><label>Fecha emisión</label><input type="date" id="tamar-m-emision"></div>
@@ -3549,17 +3546,103 @@ const LS_TAMAR='bonosAR_tamar_bonds_v1';
 let TAMAR_BONDS=[];
 let TAMAR_DATA=[];
 let tamarSortCol='vcto', tamarSortAsc=true;
-const TAMAR_TH=['ticker','tipo','vcto','dias','modDuration','precio','pct_change','tir'];
+const TAMAR_TH=['ticker','vcto','dias','modDuration','precio','pct_change','margenTNA','tir','tna','tem'];
 
+// ── DIAS 30/360 ───────────────────────────────────────────────────────────────
+function dias360(d1,d2){
+  let y1=d1.getFullYear(),m1=d1.getMonth()+1,dd1=d1.getDate();
+  let y2=d2.getFullYear(),m2=d2.getMonth()+1,dd2=d2.getDate();
+  if(dd1===31)dd1=30;
+  if(dd2===31&&dd1===30)dd2=30;
+  return (y2-y1)*360+(m2-m1)*30+(dd2-dd1);
+}
+
+// ── TAMAR ENRICH ─────────────────────────────────────────────────────────────
 function tamarEnrich(r){
   const liq=G_LIQ||addHabiles(TODAY,1);
+  const emDate=r.emision?parseDate(r.emision):null;
   const vctoDate=r.vcto?parseDate(r.vcto):null;
-  const dias=vctoDate?Math.max(0,diasACT(liq,vctoDate)):0;
-  // tipo dinámico: igual que CER
-  const diffDias=r.emision&&r.vcto?diasACT(parseDate(r.emision),parseDate(r.vcto)):999;
-  const tipoLabel=r.tipo==='cupon'?'CPN':(diffDias<365?'LETRA':'BONO');
-  // TIR y MD: pendiente hasta definir convención — mostrar — por ahora
-  return{...r,vctoDate,dias,tipoLabel,tir:NaN,modDuration:NaN};
+  if(!emDate||!vctoDate||!r.precio||!TAMAR_INDEX.length){
+    const dias=vctoDate?Math.max(0,diasACT(liq,vctoDate)):0;
+    return{...r,dias,modDuration:NaN,tir:NaN,tna:NaN,tem:NaN,margenTNA:NaN,_debug:null};
+  }
+
+  const liqDate=liq;
+  const DIAS=Math.max(0,diasACT(liqDate,vctoDate));
+  const DIAS_360=dias360(emDate,vctoDate);
+  const duration=DIAS/365;
+
+  // fechas de fixing: emisión-10háb y vto-10háb
+  const fixEmision=restarHabiles(emDate,10);
+  const fixVto=restarHabiles(vctoDate,10);
+
+  // TAMAR ordenado
+  const tamarSorted=[...TAMAR_INDEX].sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  const lastTamar=tamarSorted[tamarSorted.length-1];
+
+  // DIAS_TAMAR_TRANSCURRIDOS: cantidad de datos entre fixEmision y fixVto con dato real
+  const fixEmStr=fmtDate(fixEmision);
+  const fixVtStr=fmtDate(fixVto);
+  const tamReal=tamarSorted.filter(t=>t.fecha>=fixEmStr&&t.fecha<=fixVtStr);
+  const DIAS_TAMAR_TRANSCURRIDOS=tamReal.length;
+
+  // TAMAR_DIAS_TRANSCURRIDOS: promedio de esos datos
+  const TAMAR_DIAS_TRANSCURRIDOS=DIAS_TAMAR_TRANSCURRIDOS>0
+    ?tamReal.reduce((s,t)=>s+t.valor,0)/DIAS_TAMAR_TRANSCURRIDOS
+    :0;
+
+  // TAMAR_MARGEN_DIAS_TRANSCURRIDOS
+  const margen=r.margen||0;
+  const TAMAR_MARGEN_DIAS_TRANSCURRIDOS=(Math.pow(Math.pow(1+(margen+TAMAR_DIAS_TRANSCURRIDOS)/100*32/365,365/32),1/12)-1);
+
+  // DIAS_TAMAR_PROYECTAR: días hábiles entre último dato TAMAR y fixVto
+  const lastTamarDate=parseDate(lastTamar.fecha);
+  let DIAS_TAMAR_PROYECTAR=0;
+  {let d=new Date(lastTamarDate);d.setDate(d.getDate()+1);
+   while(fmtDate(d)<=fixVtStr){if(esHabil(d))DIAS_TAMAR_PROYECTAR++;d.setDate(d.getDate()+1);}}
+  DIAS_TAMAR_PROYECTAR=Math.max(0,DIAS_TAMAR_PROYECTAR);
+
+  // TAMAR_MARGEN_PROYECTAR: prom 5d TEM
+  const ultimos5=tamarSorted.slice(-5);
+  const prom5TEM=ultimos5.reduce((s,t)=>s+tamarTEM(t.valor),0)/ultimos5.length/100; // decimal
+
+  const TAMAR_MARGEN_PROYECTAR=prom5TEM;
+
+  // TASA_NOMINAL_MENSUAL_CAPITALIZABLE
+  const totalDias=DIAS_TAMAR_TRANSCURRIDOS+DIAS_TAMAR_PROYECTAR;
+  const TASA_NMC=totalDias>0
+    ?(DIAS_TAMAR_TRANSCURRIDOS*TAMAR_MARGEN_DIAS_TRANSCURRIDOS+DIAS_TAMAR_PROYECTAR*TAMAR_MARGEN_PROYECTAR)/totalDias
+    :TAMAR_MARGEN_PROYECTAR;
+
+  // VPV
+  const VPV=100*Math.pow(1+TASA_NMC,(DIAS_360/365)*12);
+
+  // TASA_DIRECTA
+  const TASA_DIRECTA=VPV/r.precio-1;
+
+  // TNA, TIR, TEM_MERCADO
+  const TNA=TASA_DIRECTA*365/DIAS*100;
+  const TIR=(Math.pow(1+TASA_DIRECTA,365/DIAS)-1)*100;
+  const TEM_MERCADO=(Math.pow(1+TASA_DIRECTA,(365/12)/DIAS)-1)*100;
+
+  // MARGEN_TNA
+  const prom5TNApct=ultimos5.reduce((s,t)=>s+t.valor,0)/ultimos5.length;
+  const prom5TEMpct=ultimos5.reduce((s,t)=>s+tamarTEM(t.valor),0)/ultimos5.length;
+  const MARGEN_TNA=(TEM_MERCADO-prom5TEMpct)*12;
+
+  const modDuration=!isNaN(TIR)&&DIAS>0?duration/(1+TIR/100):NaN;
+
+  const _debug={
+    DIAS,DIAS_360,duration,
+    fixEmision:fmtDate(fixEmision),fixVto:fixVtStr,
+    DIAS_TAMAR_TRANSCURRIDOS,TAMAR_DIAS_TRANSCURRIDOS,
+    TAMAR_MARGEN_DIAS_TRANSCURRIDOS:TAMAR_MARGEN_DIAS_TRANSCURRIDOS*100,
+    DIAS_TAMAR_PROYECTAR,TAMAR_MARGEN_PROYECTAR:TAMAR_MARGEN_PROYECTAR*100,
+    TASA_NMC:TASA_NMC*100,VPV,TASA_DIRECTA:TASA_DIRECTA*100,
+    TNA,TIR,TEM_MERCADO,MARGEN_TNA,prom5TNA:prom5TNApct,prom5TEM:prom5TEMpct
+  };
+
+  return{...r,dias:DIAS,modDuration,tir:TIR,tna:TNA,tem:TEM_MERCADO,margenTNA:MARGEN_TNA,_debug};
 }
 
 function tamarSortBy(col){
@@ -3573,7 +3656,7 @@ function tamarRenderTable(){
   const showV=document.getElementById('tamar-show-vencidas')?.checked;
   let rows=TAMAR_DATA.filter(r=>(showV||r.dias>0)&&(!q||r.ticker.toLowerCase().includes(q)));
   rows.sort((a,b)=>{
-    if(tamarSortCol==='ticker'||tamarSortCol==='vcto'||tamarSortCol==='tipo'){
+    if(tamarSortCol==='ticker'||tamarSortCol==='vcto'){
       const av=a[tamarSortCol]||'',bv=b[tamarSortCol]||'';
       return tamarSortAsc?av.localeCompare(bv):bv.localeCompare(av);
     }
@@ -3590,7 +3673,7 @@ function tamarRenderTable(){
   });
   const tbody=document.getElementById('tamar-table-body');
   if(!rows.length){
-    tbody.innerHTML=`<tr><td colspan="9" class="no-rows">Agregá bonos TAMAR con + Nueva y actualizá precios.</td></tr>`;
+    tbody.innerHTML=`<tr><td colspan="11" class="no-rows">Agregá bonos TAMAR con + Nueva y actualizá precios.</td></tr>`;
     document.getElementById('tamar-st-count').textContent='0 bonos';return;
   }
   tbody.innerHTML=rows.map(r=>{
@@ -3598,20 +3681,18 @@ function tamarRenderTable(){
     const vctoStr=r.vcto?r.vcto.split('-').reverse().join('/'):'—';
     const chg=r.pct_change;
     const chgStr=chg==null?'':`<span class="${chg>=0?'c-chg-pos':'c-chg-neg'}">${chg>=0?'+':''}${chg.toFixed(2)}%</span>`;
-    const tipoBadge=r.tipoLabel==='CPN'
-      ?'<span style="font-size:10px;color:var(--warn)">CPN</span>'
-      :r.tipoLabel==='LETRA'
-        ?'<span style="font-size:10px;color:var(--info)">LETRA</span>'
-        :'<span style="font-size:10px;color:var(--accent2)">BONO</span>';
-    return`<tr>
+    const f=(val,d=2)=>isNaN(val)||val==null?'—':val.toFixed(d)+'%';
+    return`<tr onclick="tamarOpenPanel('${r.ticker}')" style="cursor:pointer">
       <td class="ticker-cell"><div class="cv left no-edit"><span class="c-ticker">${r.ticker}</span></div></td>
-      <td><div class="cv no-edit" style="justify-content:center">${tipoBadge}</div></td>
       <td><div class="cv no-edit c-date">${vctoStr}</div></td>
       <td><div class="cv no-edit c-muted">${v?'<span style="color:var(--text3)">vencida</span>':r.dias}</div></td>
       <td><div class="cv no-edit c-muted">${isNaN(r.modDuration)?'—':r.modDuration.toFixed(2)}</div></td>
       <td><div class="cv no-edit c-green">${r.precio!=null?fmtARS(r.precio):'—'}</div></td>
       <td><div class="cv no-edit">${chgStr}</div></td>
-      <td><div class="cv no-edit c-amber">${isNaN(r.tir)?'—':fmtP2(r.tir)+'%'}</div></td>
+      <td><div class="cv no-edit c-amber">${f(r.margenTNA)}</div></td>
+      <td><div class="cv no-edit c-amber">${f(r.tir)}</div></td>
+      <td><div class="cv no-edit c-muted">${f(r.tna)}</div></td>
+      <td><div class="cv no-edit c-muted">${f(r.tem,4)}</div></td>
       <td onclick="event.stopPropagation()"><div class="row-act">
         <button class="rbtn del" onclick="tamarDeleteRow('${r.ticker}')">✕</button>
       </div></td>
@@ -3620,9 +3701,66 @@ function tamarRenderTable(){
   document.getElementById('tamar-st-count').textContent=rows.length+' bono'+(rows.length!==1?'s':'');
 }
 
+// ── PANEL DEBUG ───────────────────────────────────────────────────────────────
+let tamarSelectedTicker=null;
+function tamarOpenPanel(ticker){
+  tamarSelectedTicker=ticker;
+  const r=TAMAR_DATA.find(x=>x.ticker===ticker);
+  if(!r||!r._debug)return;
+  const d=r._debug;
+  const panel=document.getElementById('tamar-right-panel');
+  if(!panel)return;
+  panel.style.display='flex';
+  panel.style.flexDirection='column';
+  panel.style.overflowY='auto';
+  panel.innerHTML=`
+    <div class="panel-header">
+      <div><div class="panel-ticker">${ticker}</div>
+        <div style="font-size:11px;color:var(--text3)">Vto: ${r.vcto?r.vcto.split('-').reverse().join('/'):'—'} · Margen: ${r.margen||0}%</div>
+      </div>
+      <button class="panel-close" onclick="tamarClosePanel()">✕</button>
+    </div>
+    <div style="padding:1rem;overflow-y:auto;flex:1;">
+      <div class="section-label">Datos del cálculo</div>
+      <table class="res-table">
+        <tr><td>DIAS (liq → vto)</td><td>${d.DIAS}</td></tr>
+        <tr><td>DIAS_360</td><td>${d.DIAS_360}</td></tr>
+        <tr><td>Duration</td><td>${d.duration.toFixed(4)}</td></tr>
+        <tr><td>Fix. emisión (-10háb)</td><td>${d.fixEmision.split('-').reverse().join('/')}</td></tr>
+        <tr><td>Fix. vto (-10háb)</td><td>${d.fixVto.split('-').reverse().join('/')}</td></tr>
+      </table>
+      <div class="section-label" style="margin-top:8px">TAMAR acumulada</div>
+      <table class="res-table">
+        <tr><td>Días TAMAR transcurridos</td><td>${d.DIAS_TAMAR_TRANSCURRIDOS}</td></tr>
+        <tr><td>TAMAR prom. transcurrida</td><td>${fmtP2(d.TAMAR_DIAS_TRANSCURRIDOS)}</td></tr>
+        <tr><td>TAMAR+Margen transcurrida (TEM)</td><td>${fmtP2(d.TAMAR_MARGEN_DIAS_TRANSCURRIDOS)}</td></tr>
+        <tr><td>Días TAMAR a proyectar</td><td>${d.DIAS_TAMAR_PROYECTAR}</td></tr>
+        <tr><td>TAMAR+Margen proyectada (prom 5d TEM)</td><td>${fmtP2(d.TAMAR_MARGEN_PROYECTAR)}</td></tr>
+      </table>
+      <div class="section-label" style="margin-top:8px">Tasas calculadas</div>
+      <table class="res-table">
+        <tr><td>Prom 5d TNA</td><td>${fmtP2(d.prom5TNA)}</td></tr>
+        <tr><td>Prom 5d TEM</td><td>${fmtP2(d.prom5TEM)}</td></tr>
+        <tr><td>Tasa NMC</td><td>${fmtP2(d.TASA_NMC)}</td></tr>
+        <tr class="hi"><td>VPV</td><td>${fmtP2(d.VPV)}</td></tr>
+        <tr><td>Tasa directa</td><td>${fmtP2(d.TASA_DIRECTA)}</td></tr>
+        <tr class="bl"><td>TIR</td><td>${fmtP2(d.TIR)}</td></tr>
+        <tr class="wa"><td>TNA</td><td>${fmtP2(d.TNA)}</td></tr>
+        <tr class="wa"><td>TEM mercado</td><td>${fmtP2(d.TEM_MERCADO)}</td></tr>
+        <tr class="wa"><td>Margen TNA</td><td>${fmtP2(d.MARGEN_TNA)}</td></tr>
+      </table>
+    </div>`;
+}
+function tamarClosePanel(){
+  tamarSelectedTicker=null;
+  const panel=document.getElementById('tamar-right-panel');
+  if(panel)panel.style.display='none';
+}
+
 function tamarDeleteRow(ticker){
   TAMAR_BONDS=TAMAR_BONDS.filter(r=>r.ticker!==ticker);
   tamarSaveBonds();tamarRenderTable();
+  if(tamarSelectedTicker===ticker)tamarClosePanel();
 }
 
 function tamarSaveBonds(){
@@ -3636,24 +3774,23 @@ function tamarLoadBonds(){
 }
 
 function tamarOpenModal(){
-  ['tamar-m-ticker','tamar-m-emision','tamar-m-vcto','tamar-m-precio'].forEach(id=>{
+  ['tamar-m-ticker','tamar-m-emision','tamar-m-vcto','tamar-m-precio','tamar-m-margen'].forEach(id=>{
     const el=document.getElementById(id);if(el)el.value='';
   });
-  document.getElementById('tamar-m-tipo').value='zcupon';
   document.getElementById('tamar-modal').classList.add('open');
 }
 function tamarCloseModal(){document.getElementById('tamar-modal').classList.remove('open');}
 function tamarSaveModal(){
   const ticker=(document.getElementById('tamar-m-ticker').value||'').toUpperCase().trim();
-  const tipo=document.getElementById('tamar-m-tipo').value;
   const emision=document.getElementById('tamar-m-emision').value;
   const vcto=document.getElementById('tamar-m-vcto').value;
   const precioRaw=document.getElementById('tamar-m-precio').value;
   const precio=precioRaw?parseFloat(precioRaw):null;
+  const margen=parseFloat(document.getElementById('tamar-m-margen').value)||0;
   if(!ticker){alert('Ingresá un ticker.');return;}
   if(!vcto){alert('Ingresá fecha de vencimiento.');return;}
   if(TAMAR_BONDS.find(r=>r.ticker===ticker)){alert('Ya existe ese ticker.');return;}
-  TAMAR_BONDS.push({ticker,tipo,emision:emision||'',vcto,precio,pct_change:null,manualOverride:false});
+  TAMAR_BONDS.push({ticker,emision:emision||'',vcto,precio,margen,pct_change:null,manualOverride:false});
   tamarSaveBonds();
   tamarCloseModal();
   tamarRenderTable();
