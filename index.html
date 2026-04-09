@@ -655,8 +655,8 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 </div><!-- end page-cer -->
 
 <!-- ═══════════════════════════════════════════════════════ TAMAR PAGE -->
-<div id="page-tamar" style="display:none;height:calc(100vh - 136px);overflow:hidden;">
-  <div style="display:flex;height:100%;gap:0;">
+<div id="page-tamar" style="display:none;height:calc(100vh - 136px);overflow:hidden;flex-direction:column;">
+  <div style="display:flex;flex:1;height:100%;gap:0;min-height:0;">
 
     <!-- LEFT: índice TAMAR arriba + tabla bonos abajo -->
     <div class="left-panel" style="display:flex;flex-direction:column;min-width:0;flex:1;">
@@ -3710,9 +3710,7 @@ function tamarOpenPanel(ticker){
   const d=r._debug;
   const panel=document.getElementById('tamar-right-panel');
   if(!panel)return;
-  panel.style.display='flex';
-  panel.style.flexDirection='column';
-  panel.style.overflowY='auto';
+  panel.classList.add('open');
   panel.innerHTML=`
     <div class="panel-header">
       <div><div class="panel-ticker">${ticker}</div>
@@ -3754,7 +3752,7 @@ function tamarOpenPanel(ticker){
 function tamarClosePanel(){
   tamarSelectedTicker=null;
   const panel=document.getElementById('tamar-right-panel');
-  if(panel)panel.style.display='none';
+  if(panel)panel.classList.remove('open');
 }
 
 function tamarDeleteRow(ticker){
