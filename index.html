@@ -707,15 +707,13 @@ tbody tr.selected .c-ticker{color:var(--accent);}
       </div>
 
       <!-- TOOLBAR -->
-      <div class="toolbar">
-        <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;">
-          <span class="pane-title">Bonos TAMAR</span>
-          <input type="text" id="tamar-search" class="search-input" placeholder="Buscar ticker…" oninput="tamarRenderTable()">
-          <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text3);cursor:pointer;">
-            <input type="checkbox" id="tamar-show-vencidas" onchange="tamarRenderTable()"> vencidas
-          </label>
-        </div>
-        <div style="display:flex;gap:6px;align-items:center;">
+      <div class="pane-toolbar">
+        <span class="pane-title">Bonos TAMAR</span>
+        <input type="text" id="tamar-search" class="search-input" placeholder="Buscar ticker…" oninput="tamarRenderTable()" style="width:160px;">
+        <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text3);cursor:pointer;">
+          <input type="checkbox" id="tamar-show-vencidas" onchange="tamarRenderTable()"> vencidas
+        </label>
+        <div style="margin-left:auto;display:flex;gap:6px;align-items:center;">
           <span class="api-status" id="tamar-api-status">sin datos</span>
           <button class="btn" id="tamar-fetch-btn" onclick="tamarFetchPrices()">↻ Precios</button>
           <button class="btn primary" onclick="tamarOpenModal()">+ Nueva</button>
@@ -3704,12 +3702,14 @@ function tamarRenderTable(){
 // ── PANEL DEBUG ───────────────────────────────────────────────────────────────
 let tamarSelectedTicker=null;
 function tamarOpenPanel(ticker){
+  console.log('tamarOpenPanel called:', ticker, 'TAMAR_DATA:', TAMAR_DATA.length, 'TAMAR_INDEX:', TAMAR_INDEX.length);
   tamarSelectedTicker=ticker;
   // recalcular por si TAMAR_DATA está desactualizado
   if(!TAMAR_DATA.length||!TAMAR_DATA.find(x=>x.ticker===ticker)){
     TAMAR_DATA=TAMAR_BONDS.map(tamarEnrich);
   }
   const r=TAMAR_DATA.find(x=>x.ticker===ticker);
+  console.log('found r:', r, '_debug:', r?._debug);
   const panel=document.getElementById('tamar-right-panel');
   if(!panel)return;
   panel.classList.add('open');
