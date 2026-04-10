@@ -3600,11 +3600,12 @@ function tamarEnrich(r){
    while(fmtDate(d)<=fixVtStr){if(esHabil(d))DIAS_TAMAR_PROYECTAR++;d.setDate(d.getDate()+1);}}
   DIAS_TAMAR_PROYECTAR=Math.max(0,DIAS_TAMAR_PROYECTAR);
 
-  // TAMAR_MARGEN_PROYECTAR: prom 5d TEM
+  // TAMAR_MARGEN_PROYECTAR: (((1 + (prom5dTNA% + margen%) / 100 * 32/365)^(365/32))^(1/12)) - 1
   const ultimos5=tamarSorted.slice(-5);
-  const prom5TEM=ultimos5.reduce((s,t)=>s+tamarTEM(t.valor),0)/ultimos5.length/100; // decimal
+  const prom5TNA_val=ultimos5.reduce((s,t)=>s+t.valor,0)/ultimos5.length; // % TNA
+  const prom5TEM=ultimos5.reduce((s,t)=>s+tamarTEM(t.valor),0)/ultimos5.length/100; // decimal (para debug)
 
-  const TAMAR_MARGEN_PROYECTAR=prom5TEM;
+  const TAMAR_MARGEN_PROYECTAR=Math.pow(Math.pow(1+(prom5TNA_val+margen)/100*32/365,365/32),1/12)-1;
 
   // TASA_NOMINAL_MENSUAL_CAPITALIZABLE
   const totalDias=DIAS_TAMAR_TRANSCURRIDOS+DIAS_TAMAR_PROYECTAR;
