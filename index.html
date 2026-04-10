@@ -3678,7 +3678,7 @@ function tamarEnrich(r){
     :TAMAR_MARGEN_PROYECTAR;
 
   // VPV
-  const VPV=100*Math.pow(1+TASA_NMC,(DIAS_360/365)*12);
+  const VPV=100*Math.pow(1+TASA_NMC,(DIAS_360/360)*12);
 
   // TASA_DIRECTA
   const TASA_DIRECTA=VPV/r.precio-1;
