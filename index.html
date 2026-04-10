@@ -3610,15 +3610,6 @@ let TAMAR_DATA=[];
 let tamarSortCol='vcto', tamarSortAsc=true;
 const TAMAR_TH=['ticker','vcto','dias','modDuration','precio','pct_change','margenTNA','tir','tna','tem'];
 
-// ── DIAS 30/360 ───────────────────────────────────────────────────────────────
-function dias360(d1,d2){
-  let y1=d1.getFullYear(),m1=d1.getMonth()+1,dd1=d1.getDate();
-  let y2=d2.getFullYear(),m2=d2.getMonth()+1,dd2=d2.getDate();
-  if(dd1===31)dd1=30;
-  if(dd2===31&&dd1===30)dd2=30;
-  return (y2-y1)*360+(m2-m1)*30+(dd2-dd1);
-}
-
 // ── TAMAR ENRICH ─────────────────────────────────────────────────────────────
 function tamarEnrich(r){
   const liq=G_LIQ||addHabiles(TODAY,1);
@@ -3764,8 +3755,100 @@ function tamarRenderTable(){
   document.getElementById('tamar-st-count').textContent=rows.length+' bono'+(rows.length!==1?'s':'');
 }
 
-// ── PANEL DEBUG ───────────────────────────────────────────────────────────────
+// ── PANEL CALCULADORA TAMAR ───────────────────────────────────────────────────
 let tamarSelectedTicker=null;
+let tamarPanelMode='precio'; // 'precio' | 'margen' | 'tir'
+
+// Calcula VPV dado un margen (para resolver precio→margen por bisección)
+function tamarVPV(margen, debug){
+  // usa los datos pre-calculados del debug excepto el margen
+  const d=debug;
+  const ultimos5tamar=TAMAR_INDEX.slice().sort((a,b)=>a.fecha.localeCompare(b.fecha)).slice(-5);
+  const prom5TNA=ultimos5tamar.reduce((s,t)=>s+t.valor,0)/ultimos5tamar.length;
+  const TAMAR_MARGEN_PROYECTAR=Math.pow(Math.pow(1+(prom5TNA+margen)/100*32/365,365/32),1/12)-1;
+  const TAMAR_MARGEN_DIAS=Math.pow(Math.pow(1+(margen+d.TAMAR_DIAS_TRANSCURRIDOS)/100*32/365,365/32),1/12)-1;
+  const total=d.DIAS_TAMAR_TRANSCURRIDOS+d.DIAS_TAMAR_PROYECTAR;
+  const NMC=total>0?(d.DIAS_TAMAR_TRANSCURRIDOS*TAMAR_MARGEN_DIAS+d.DIAS_TAMAR_PROYECTAR*TAMAR_MARGEN_PROYECTAR)/total:TAMAR_MARGEN_PROYECTAR;
+  return 100*Math.pow(1+NMC,(d.DIAS_360/360)*12);
+}
+
+// Bisección: dado precio, encontrar margen
+function tamarMargenDePrecio(precio, debug){
+  let lo=-50,hi=200,mid,vpv;
+  for(let i=0;i<80;i++){
+    mid=(lo+hi)/2;
+    vpv=tamarVPV(mid,debug);
+    if(Math.abs(vpv-precio)<0.0001)break;
+    if(vpv<precio)lo=mid; else hi=mid;
+  }
+  return mid;
+}
+
+// TIR dado precio y DIAS
+function tamarTIRdePrecio(precio, vpv, dias360, dias){
+  const td=vpv/precio-1;
+  return (Math.pow(1+td,365/dias)-1)*100;
+}
+
+function tamarPanelRecalc(){
+  if(!tamarSelectedTicker)return;
+  if(!TAMAR_DATA.length||!TAMAR_DATA.find(x=>x.ticker===tamarSelectedTicker))
+    TAMAR_DATA=TAMAR_BONDS.map(tamarEnrich);
+  const r=TAMAR_DATA.find(x=>x.ticker===tamarSelectedTicker);
+  if(!r||!r._debug)return;
+  const d=r._debug;
+
+  const precioEl=document.getElementById('tp-precio');
+  const margenEl=document.getElementById('tp-margen');
+  const tirEl=document.getElementById('tp-tir');
+  if(!precioEl||!margenEl||!tirEl)return;
+
+  let precio,margen,vpv,tir,tna,tem,margenTNA;
+
+  if(tamarPanelMode==='precio'){
+    precio=parseFloat(precioEl.value);
+    if(isNaN(precio)||precio<=0)return;
+    margen=tamarMargenDePrecio(precio,d);
+    margenEl.value=margen.toFixed(4);
+  } else if(tamarPanelMode==='margen'){
+    margen=parseFloat(margenEl.value);
+    if(isNaN(margen))return;
+    vpv=tamarVPV(margen,d);
+    precio=vpv; // precio sucio = VPV en este modelo
+    precioEl.value=precio.toFixed(4);
+  } else { // tir
+    tir=parseFloat(tirEl.value)/100;
+    if(isNaN(tir))return;
+    // resolver precio desde TIR: precio = VPV/(1+tir)^(dias/365)
+    // VPV depende del margen → necesitamos margen actual
+    margen=parseFloat(margenEl.value)||0;
+    vpv=tamarVPV(margen,d);
+    const td=Math.pow(1+tir,d.DIAS/365)-1;
+    precio=vpv/(1+td);
+    precioEl.value=precio.toFixed(4);
+  }
+
+  // recalcular VPV con margen final
+  vpv=tamarVPV(margen,d);
+  const td=vpv/precio-1;
+  tir=(Math.pow(1+td,365/d.DIAS)-1)*100;
+  tna=td*365/d.DIAS*100;
+  tem=(Math.pow(1+td,(365/12)/d.DIAS)-1)*100;
+  const ultimos5=TAMAR_INDEX.slice().sort((a,b)=>a.fecha.localeCompare(b.fecha)).slice(-5);
+  const prom5TEM=ultimos5.reduce((s,t)=>s+tamarTEM(t.valor),0)/ultimos5.length;
+  margenTNA=(tem-prom5TEM)*12;
+  tirEl.value=tir.toFixed(4);
+
+  // actualizar resultados
+  const s=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+  s('tp-r-vpv',fmtP2(vpv));
+  s('tp-r-td',fmtP2(td*100));
+  s('tp-r-tir',fmtP2(tir));
+  s('tp-r-tna',fmtP2(tna));
+  s('tp-r-tem',fmtP2(tem));
+  s('tp-r-margen-tna',fmtP2(margenTNA));
+}
+
 function tamarOpenPanel(ticker){
   tamarSelectedTicker=ticker;
   if(!TAMAR_DATA.length||!TAMAR_DATA.find(x=>x.ticker===ticker)){
@@ -3774,9 +3857,9 @@ function tamarOpenPanel(ticker){
   const r=TAMAR_DATA.find(x=>x.ticker===ticker);
   const panel=document.getElementById('tamar-right-panel');
   if(!panel)return;
-  // forzar display y width directamente como hacen los otros paneles
   panel.classList.add('open');
   panel.style.display='flex';
+
   if(!r||!r._debug){
     panel.innerHTML=`<div class="panel-header"><div class="panel-ticker">${ticker}</div><button class="panel-close" onclick="tamarClosePanel()">✕</button></div>
       <div style="padding:1rem;color:var(--text3);font-size:12px">
@@ -3784,45 +3867,95 @@ function tamarOpenPanel(ticker){
       </div>`;
     return;
   }
+
   const d=r._debug;
+  const precioActual=(r.precio||100).toFixed(4);
+  const margenActual=(r.margen||0).toFixed(4);
+
   panel.innerHTML=`
     <div class="panel-header">
-      <div><div class="panel-ticker">${ticker}</div>
-        <div style="font-size:11px;color:var(--text3)">Vto: ${r.vcto?r.vcto.split('-').reverse().join('/'):'—'} · Margen: ${r.margen||0}%</div>
+      <div>
+        <div class="panel-ticker">${ticker}</div>
+        <div style="font-size:11px;color:var(--text3)">
+          Vto: ${r.vcto?r.vcto.split('-').reverse().join('/'):'—'} ·
+          Emisión: ${r.emision?r.emision.split('-').reverse().join('/'):'—'}
+        </div>
       </div>
       <button class="panel-close" onclick="tamarClosePanel()">✕</button>
     </div>
-    <div style="padding:1rem;overflow-y:auto;flex:1;">
-      <div class="section-label">Datos del cálculo</div>
-      <table class="res-table">
+    <div style="padding:.75rem 1rem;overflow-y:auto;flex:1;">
+
+      <!-- DATOS DE EMISIÓN (readonly) -->
+      <div class="section-label">Datos del bono</div>
+      <table class="res-table" style="margin-bottom:10px">
         <tr><td>DIAS (liq → vto)</td><td>${d.DIAS}</td></tr>
         <tr><td>DIAS_360</td><td>${d.DIAS_360}</td></tr>
-        <tr><td>Duration</td><td>${d.duration.toFixed(4)}</td></tr>
-        <tr><td>Fix. emisión (-10háb)</td><td>${d.fixEmision.split('-').reverse().join('/')}</td></tr>
-        <tr><td>Fix. vto (-10háb)</td><td>${d.fixVto.split('-').reverse().join('/')}</td></tr>
-      </table>
-      <div class="section-label" style="margin-top:8px">TAMAR acumulada</div>
-      <table class="res-table">
+        <tr><td>Fix. emisión</td><td>${d.fixEmision.split('-').reverse().join('/')}</td></tr>
+        <tr><td>Fix. vto</td><td>${d.fixVto.split('-').reverse().join('/')}</td></tr>
         <tr><td>Días TAMAR transcurridos</td><td>${d.DIAS_TAMAR_TRANSCURRIDOS}</td></tr>
-        <tr><td>TAMAR prom. transcurrida</td><td>${fmtP2(d.TAMAR_DIAS_TRANSCURRIDOS)}</td></tr>
-        <tr><td>TAMAR+Margen transcurrida (TEM)</td><td>${fmtP2(d.TAMAR_MARGEN_DIAS_TRANSCURRIDOS)}</td></tr>
-        <tr><td>Días TAMAR a proyectar</td><td>${d.DIAS_TAMAR_PROYECTAR}</td></tr>
-        <tr><td>TAMAR+Margen proyectada (prom 5d TEM)</td><td>${fmtP2(d.TAMAR_MARGEN_PROYECTAR)}</td></tr>
-      </table>
-      <div class="section-label" style="margin-top:8px">Tasas calculadas</div>
-      <table class="res-table">
+        <tr><td>TAMAR prom. real</td><td>${fmtP2(d.TAMAR_DIAS_TRANSCURRIDOS)}</td></tr>
+        <tr><td>Días a proyectar</td><td>${d.DIAS_TAMAR_PROYECTAR}</td></tr>
         <tr><td>Prom 5d TNA</td><td>${fmtP2(d.prom5TNA)}</td></tr>
         <tr><td>Prom 5d TEM</td><td>${fmtP2(d.prom5TEM)}</td></tr>
-        <tr><td>Tasa NMC</td><td>${fmtP2(d.TASA_NMC)}</td></tr>
-        <tr class="hi"><td>VPV</td><td>${fmtP2(d.VPV)}</td></tr>
-        <tr><td>Tasa directa</td><td>${fmtP2(d.TASA_DIRECTA)}</td></tr>
-        <tr class="bl"><td>TIR</td><td>${fmtP2(d.TIR)}</td></tr>
-        <tr class="wa"><td>TNA</td><td>${fmtP2(d.TNA)}</td></tr>
-        <tr class="wa"><td>TEM mercado</td><td>${fmtP2(d.TEM_MERCADO)}</td></tr>
-        <tr class="wa"><td>Margen TNA</td><td>${fmtP2(d.MARGEN_TNA)}</td></tr>
+      </table>
+
+      <!-- MODO -->
+      <div class="section-label">Calculadora</div>
+      <div class="mode-row" style="margin-bottom:8px">
+        <button class="mode-btn active" id="tp-mode-precio" onclick="tamarSetMode('precio')">Precio</button>
+        <button class="mode-btn" id="tp-mode-margen" onclick="tamarSetMode('margen')">Margen</button>
+        <button class="mode-btn" id="tp-mode-tir" onclick="tamarSetMode('tir')">TIR</button>
+      </div>
+
+      <!-- INPUTS -->
+      <div class="field-row cols1" style="margin-bottom:6px">
+        <div class="field">
+          <label>Precio sucio $</label>
+          <input type="number" id="tp-precio" step="0.01" value="${precioActual}"
+            style="font-family:var(--mono);font-size:13px;"
+            oninput="tamarSetMode('precio');tamarPanelRecalc()">
+        </div>
+      </div>
+      <div class="field-row cols2" style="margin-bottom:6px">
+        <div class="field">
+          <label>Margen TNA %</label>
+          <input type="number" id="tp-margen" step="0.01" value="${margenActual}"
+            style="font-family:var(--mono);font-size:13px;"
+            oninput="tamarSetMode('margen');tamarPanelRecalc()">
+        </div>
+        <div class="field">
+          <label>TIR %</label>
+          <input type="number" id="tp-tir" step="0.01" value=""
+            style="font-family:var(--mono);font-size:13px;"
+            oninput="tamarSetMode('tir');tamarPanelRecalc()">
+        </div>
+      </div>
+
+      <div class="div-line"></div>
+
+      <!-- RESULTADOS -->
+      <table class="res-table">
+        <tr class="hi"><td>VPV</td><td id="tp-r-vpv">—</td></tr>
+        <tr><td>Tasa directa</td><td id="tp-r-td">—</td></tr>
+        <tr class="bl"><td>TIR</td><td id="tp-r-tir">—</td></tr>
+        <tr class="wa"><td>TNA</td><td id="tp-r-tna">—</td></tr>
+        <tr class="wa"><td>TEM mercado</td><td id="tp-r-tem">—</td></tr>
+        <tr class="wa"><td>Margen TNA</td><td id="tp-r-margen-tna">—</td></tr>
       </table>
     </div>`;
+
+  tamarPanelMode='precio';
+  tamarPanelRecalc();
 }
+
+function tamarSetMode(mode){
+  tamarPanelMode=mode;
+  ['precio','margen','tir'].forEach(m=>{
+    const btn=document.getElementById('tp-mode-'+m);
+    if(btn)btn.classList.toggle('active',m===mode);
+  });
+}
+
 function tamarClosePanel(){
   tamarSelectedTicker=null;
   const panel=document.getElementById('tamar-right-panel');
