@@ -709,7 +709,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
       <!-- TOOLBAR -->
       <div class="pane-toolbar">
         <span class="pane-title">Bonos TAMAR</span>
-        <input type="text" id="tamar-search" class="search-input" placeholder="Buscar ticker…" oninput="tamarRenderTable()" style="width:160px;">
+        <input type="text" id="tamar-search" class="search-box" placeholder="Buscar ticker…" oninput="tamarRenderTable()">
         <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text3);cursor:pointer;">
           <input type="checkbox" id="tamar-show-vencidas" onchange="tamarRenderTable()"> vencidas
         </label>
@@ -3702,16 +3702,24 @@ function tamarRenderTable(){
 // ── PANEL DEBUG ───────────────────────────────────────────────────────────────
 let tamarSelectedTicker=null;
 function tamarOpenPanel(ticker){
-  console.log('tamarOpenPanel called:', ticker, 'TAMAR_DATA:', TAMAR_DATA.length, 'TAMAR_INDEX:', TAMAR_INDEX.length);
   tamarSelectedTicker=ticker;
-  // recalcular por si TAMAR_DATA está desactualizado
   if(!TAMAR_DATA.length||!TAMAR_DATA.find(x=>x.ticker===ticker)){
     TAMAR_DATA=TAMAR_BONDS.map(tamarEnrich);
   }
   const r=TAMAR_DATA.find(x=>x.ticker===ticker);
-  console.log('found r:', r, '_debug:', r?._debug);
   const panel=document.getElementById('tamar-right-panel');
   if(!panel)return;
+  // forzar display y width directamente como hacen los otros paneles
+  panel.classList.add('open');
+  panel.style.display='flex';
+  if(!r||!r._debug){
+    panel.innerHTML=`<div class="panel-header"><div class="panel-ticker">${ticker}</div><button class="panel-close" onclick="tamarClosePanel()">✕</button></div>
+      <div style="padding:1rem;color:var(--text3);font-size:12px">
+        ${!TAMAR_INDEX.length?'Cargá el índice TAMAR primero (↻ TAMAR)':'Sin datos — verificá emisión, vencimiento y precio.'}
+      </div>`;
+    return;
+  }
+  const d=r._debug;
   panel.classList.add('open');
   if(!r||!r._debug){
     panel.innerHTML=`<div class="panel-header"><div class="panel-ticker">${ticker}</div><button class="panel-close" onclick="tamarClosePanel()">✕</button></div>
@@ -3762,7 +3770,7 @@ function tamarOpenPanel(ticker){
 function tamarClosePanel(){
   tamarSelectedTicker=null;
   const panel=document.getElementById('tamar-right-panel');
-  if(panel)panel.classList.remove('open');
+  if(panel){panel.classList.remove('open');panel.style.display='';}
 }
 
 function tamarDeleteRow(ticker){
