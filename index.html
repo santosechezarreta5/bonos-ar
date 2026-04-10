@@ -3720,15 +3720,6 @@ function tamarOpenPanel(ticker){
     return;
   }
   const d=r._debug;
-  panel.classList.add('open');
-  if(!r||!r._debug){
-    panel.innerHTML=`<div class="panel-header"><div class="panel-ticker">${ticker}</div><button class="panel-close" onclick="tamarClosePanel()">✕</button></div>
-      <div style="padding:1rem;color:var(--text3);font-size:12px">
-        ${!TAMAR_INDEX.length?'Cargá el índice TAMAR primero (↻ TAMAR)':'Sin datos de cálculo — verificá emisión, vencimiento y precio.'}
-      </div>`;
-    return;
-  }
-  const d=r._debug;
   panel.innerHTML=`
     <div class="panel-header">
       <div><div class="panel-ticker">${ticker}</div>
