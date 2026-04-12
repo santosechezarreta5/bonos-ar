@@ -827,6 +827,11 @@ tbody tr.selected .c-ticker{color:var(--accent);}
               <th style="text-align:left;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Fecha últ. TAMAR</th>
               <th style="text-align:center;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Breakeven</th>
               <th style="text-align:center;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--warn);font-weight:400">TAMAR TNA</th>
+              <th style="text-align:right;padding:7px 10px;font-size:10px;color:var(--text3);font-weight:400">Valor final</th>
+              <th style="text-align:right;padding:7px 10px;font-size:10px;color:var(--text3);font-weight:400">TEM capitalizar</th>
+              <th style="text-align:right;padding:7px 10px;font-size:10px;color:var(--text3);font-weight:400">TEM proy BE</th>
+              <th style="text-align:right;padding:7px 10px;font-size:10px;color:var(--text3);font-weight:400">TNA proy BE</th>
+              <th style="text-align:right;padding:7px 10px;font-size:10px;color:var(--text3);font-weight:400">Par TF · días TF</th>
             </tr>
           </thead>
           <tbody id="be-tamar-tbody"></tbody>
@@ -4370,6 +4375,7 @@ function beTamarCalcular(tamarTicker){
     fixVto,valor_final,tem_capitalizar:tem_capitalizar*100,
     tem_proy_be:tem_proy_be*100,tna_proy_be:tna_proy_be*100,
     tamar_be_tna,
+    dias_liq_vto_tf,dias_liq_vto_tamar,
   };
 }
 
@@ -4402,6 +4408,11 @@ function beTamarRecalc(){
       <td style="padding:6px 10px;font-family:var(--mono);font-size:12px;color:var(--text2)">${fixDisp}</td>
       <td style="padding:6px 10px;text-align:center;font-family:var(--mono);font-size:13px;color:var(--accent);font-weight:500">${bond.ticker}</td>
       <td style="padding:6px 10px;text-align:center;font-family:var(--mono);font-size:13px;color:var(--warn);font-weight:500">${fmtP2(res.tamar_be_tna)}%</td>
+      <td style="padding:6px 10px;text-align:right;font-family:var(--mono);font-size:11px;color:var(--text3)">${res.valor_final.toFixed(6)}</td>
+      <td style="padding:6px 10px;text-align:right;font-family:var(--mono);font-size:11px;color:var(--text3)">${res.tem_capitalizar.toFixed(6)}%</td>
+      <td style="padding:6px 10px;text-align:right;font-family:var(--mono);font-size:11px;color:var(--text3)">${res.tem_proy_be.toFixed(6)}%</td>
+      <td style="padding:6px 10px;text-align:right;font-family:var(--mono);font-size:11px;color:var(--text3)">${res.tna_proy_be.toFixed(6)}%</td>
+      <td style="padding:6px 10px;text-align:right;font-family:var(--mono);font-size:11px;color:var(--text3)">${res.tfTicker} · ${res.dias_liq_vto_tf}d</td>
     </tr>`;
   }).join('');
 }
