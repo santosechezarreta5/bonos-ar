@@ -4337,7 +4337,7 @@ function beTamarCalcular(tamarTicker){
   if(dias_liq_vto_tamar<=0)return{error:'Bono vencido'};
 
   // 2. Valor_final
-  const valor_final=(tfBond.vf/tfBond.precio)**(dias_liq_vto_tf/dias_liq_vto_tamar)*bond.precio;
+  const valor_final=(tfBond.vf/tfBond.precio)**(dias_liq_vto_tamar/dias_liq_vto_tf)*bond.precio;
 
   // 3. TEM_capitalizar
   const tem_capitalizar=Math.pow(valor_final/100,30/d.DIAS_360)-1;
