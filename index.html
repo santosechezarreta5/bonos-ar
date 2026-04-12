@@ -1206,7 +1206,7 @@ function esFeriado(d){
 function esHabil(d){const w=d.getDay();return w!==0&&w!==6&&!esFeriado(d);}
 function addHabiles(desde,n){
   let d=new Date(desde);d.setHours(0,0,0,0);
-  while(!esHabil(d))d.setDate(d.getDate()+1);
+  // no ajustar el punto de partida — contar n días hábiles hacia adelante
   for(let i=0;i<n;){d.setDate(d.getDate()+1);if(esHabil(d))i++;}
   return d;
 }
@@ -4437,6 +4437,12 @@ window.updateSettlement=function(){
   _origUS();
   if(CER_DATA.length){CER_DATA=CER_BONDS.map(cerEnrich);cerRenderTable();}
   if(cerSelectedTicker)cerRecalcPanel();
+  // recalcular TAMAR cuando cambia la liquidación
+  if(TAMAR_BONDS.length){TAMAR_DATA=TAMAR_BONDS.map(tamarEnrich);tamarRenderTable();}
+  if(tamarSelectedTicker){
+    TAMAR_DATA=TAMAR_BONDS.map(tamarEnrich);
+    tamarOpenPanel(tamarSelectedTicker);
+  }
 };
 
 document.addEventListener('keydown',e=>{
