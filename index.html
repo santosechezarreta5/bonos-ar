@@ -775,68 +775,62 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 
 <!-- ═══════════════════════════════════════════════════════ BREAKEVEN PAGE -->
 <div id="page-breakeven" style="display:none;height:calc(100vh - 136px);overflow-y:auto;padding:2rem 2.5rem;">
-  <div style="max-width:900px;margin:0 auto;">
+  <div style="display:flex;gap:3rem;align-items:flex-start;min-width:0;">
 
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1.5rem;gap:1rem;flex-wrap:wrap;">
-      <div>
-        <div style="font-family:var(--serif);font-size:20px;font-weight:300;font-style:italic;color:var(--accent)">Breakeven · Inflación</div>
-        <div style="font-size:11px;color:var(--text3);margin-top:3px">Inflación implícita en la curva CER vs Tasa Fija</div>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <button class="btn primary" style="margin:0;padding:6px 14px;font-size:12px" onclick="beRecalc()">↻ Recalcular</button>
-        <button class="btn" style="margin:0;padding:6px 14px;font-size:12px" onclick="beOpenModal()">+ Agregar bono CER</button>
-      </div>
-    </div>
-
-    <!-- TABLA PRINCIPAL -->
-    <div style="overflow-x:auto;margin-bottom:2rem;">
-      <table style="width:100%;border-collapse:collapse;">
-        <thead>
-          <tr style="border-bottom:1px solid var(--border2)">
-            <th style="text-align:left;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Proyección infla</th>
-            <th style="text-align:center;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Hasta mes</th>
-            <th style="text-align:center;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400" id="be-header-body"></th>
-            <th style="text-align:center;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Diferencia</th>
-            <th style="text-align:center;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--info);font-weight:400">Tasa Fwd</th>
-            <th style="width:32px"></th>
-          </tr>
-          <tr style="border-bottom:1px solid var(--border)" id="be-subheader">
-            <th style="padding:4px 10px;font-size:10px;color:var(--text3);font-weight:400;text-align:left">Prom. mensual</th>
-            <th></th>
-            <th id="be-subheader-tickers" style="padding:4px 10px;font-size:10px;color:var(--text3);font-weight:400;text-align:center"></th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody id="be-tbody"></tbody>
-      </table>
-    </div>
-
-    <!-- TABLA TAMAR BREAKEVEN -->
-    <div style="margin-top:2rem;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem;">
+    <!-- COLUMNA IZQUIERDA: Breakeven Inflación -->
+    <div style="flex:1;min-width:0;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1.5rem;gap:1rem;flex-wrap:wrap;">
         <div>
-          <div style="font-family:var(--serif);font-size:20px;font-weight:300;font-style:italic;color:var(--accent)">Breakeven · TAMAR</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:3px">TAMAR implícita en la curva TAMAR vs Tasa Fija</div>
+          <div style="font-family:var(--serif);font-size:20px;font-weight:300;font-style:italic;color:var(--accent)">Breakeven · Inflación</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:3px">Inflación implícita en la curva CER vs Tasa Fija</div>
         </div>
-        <button class="btn primary" style="margin:0;padding:6px 14px;font-size:12px" onclick="beTamarRecalc()">↻ Recalcular</button>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button class="btn primary" style="margin:0;padding:6px 14px;font-size:12px" onclick="beRecalc()">↻ Recalcular</button>
+          <button class="btn" style="margin:0;padding:6px 14px;font-size:12px" onclick="beOpenModal()">+ Agregar bono CER</button>
+        </div>
       </div>
       <div style="overflow-x:auto;">
         <table style="width:100%;border-collapse:collapse;">
           <thead>
             <tr style="border-bottom:1px solid var(--border2)">
-              <th style="text-align:left;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Fecha últ. TAMAR</th>
-              <th style="text-align:center;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Breakeven</th>
-              <th style="text-align:center;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--warn);font-weight:400">TAMAR TNA</th>
-              <th style="text-align:right;padding:7px 10px;font-size:10px;color:var(--text3);font-weight:400">Valor final</th>
-              <th style="text-align:right;padding:7px 10px;font-size:10px;color:var(--text3);font-weight:400">TEM capitalizar</th>
-              <th style="text-align:right;padding:7px 10px;font-size:10px;color:var(--text3);font-weight:400">TEM proy BE</th>
-              <th style="text-align:right;padding:7px 10px;font-size:10px;color:var(--text3);font-weight:400">TNA proy BE</th>
-              <th style="text-align:right;padding:7px 10px;font-size:10px;color:var(--text3);font-weight:400">Par TF · días TF</th>
+              <th style="text-align:left;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Proyección infla</th>
+              <th style="text-align:center;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Hasta mes</th>
+              <th style="text-align:center;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400" id="be-header-body"></th>
+              <th style="text-align:center;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Diferencia</th>
+              <th style="text-align:center;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--info);font-weight:400">Tasa Fwd</th>
+              <th style="width:32px"></th>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border)" id="be-subheader">
+              <th style="padding:4px 10px;font-size:10px;color:var(--text3);font-weight:400;text-align:left">Prom. mensual</th>
+              <th></th>
+              <th id="be-subheader-tickers" style="padding:4px 10px;font-size:10px;color:var(--text3);font-weight:400;text-align:center"></th>
+              <th></th>
             </tr>
           </thead>
-          <tbody id="be-tamar-tbody"></tbody>
+          <tbody id="be-tbody"></tbody>
         </table>
       </div>
+    </div>
+
+    <!-- COLUMNA DERECHA: Breakeven TAMAR -->
+    <div style="flex:0 0 320px;min-width:0;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1.5rem;gap:1rem;">
+        <div>
+          <div style="font-family:var(--serif);font-size:20px;font-weight:300;font-style:italic;color:var(--accent)">Breakeven · TAMAR</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:3px">TAMAR implícita vs Tasa Fija</div>
+        </div>
+        <button class="btn primary" style="margin:0;padding:6px 14px;font-size:12px;flex-shrink:0" onclick="beTamarRecalc()">↻</button>
+      </div>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border2)">
+            <th style="text-align:left;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Fecha últ. TAMAR</th>
+            <th style="text-align:center;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Breakeven</th>
+            <th style="text-align:right;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--warn);font-weight:400">TAMAR TNA</th>
+          </tr>
+        </thead>
+        <tbody id="be-tamar-tbody"></tbody>
+      </table>
     </div>
 
   </div>
@@ -4520,12 +4514,7 @@ function beTamarRecalc(){
     return`<tr style="border-bottom:1px solid var(--border)">
       <td style="padding:6px 10px;font-family:var(--mono);font-size:12px;color:var(--text2)">${fixDisp}</td>
       <td style="padding:6px 10px;text-align:center;font-family:var(--mono);font-size:13px;color:var(--accent);font-weight:500">${bond.ticker}</td>
-      <td style="padding:6px 10px;text-align:center;font-family:var(--mono);font-size:13px;color:var(--warn);font-weight:500">${fmtP2(res.tamar_be_tna)}%</td>
-      <td style="padding:6px 10px;text-align:right;font-family:var(--mono);font-size:11px;color:var(--text3)">${res.valor_final.toFixed(6)}</td>
-      <td style="padding:6px 10px;text-align:right;font-family:var(--mono);font-size:11px;color:var(--text3)">${res.tem_capitalizar.toFixed(6)}%</td>
-      <td style="padding:6px 10px;text-align:right;font-family:var(--mono);font-size:11px;color:var(--text3)">${res.tem_proy_be.toFixed(6)}%</td>
-      <td style="padding:6px 10px;text-align:right;font-family:var(--mono);font-size:11px;color:var(--text3)">${res.tna_proy_be.toFixed(6)}%</td>
-      <td style="padding:6px 10px;text-align:right;font-family:var(--mono);font-size:11px;color:var(--text3)">${res.tfTicker} · ${res.dias_liq_vto_tf}d</td>
+      <td style="padding:6px 10px;text-align:right;font-family:var(--mono);font-size:13px;color:var(--warn);font-weight:500">${fmtP2(res.tamar_be_tna)}%</td>
     </tr>`;
   }).join('');
 }
