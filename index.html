@@ -3142,6 +3142,8 @@ async function cerFetchIndex(force=false){
       projRenderPreview();
     }
     if(CER_BONDS.length) cerRenderTable();
+    // re-render forwards si está abierto
+    if(currentTab==='forwards') fwdRecalc();
     return true;
 
   }catch(e){
@@ -4852,6 +4854,12 @@ function fwdBuildTable(bonds, tipo, wrapId){
   if(!wrap)return;
   if(!bonds.length){wrap.innerHTML=`<div style="color:var(--text3);font-size:12px;padding:.5rem">Sin bonos seleccionados.</div>`;return;}
 
+  // para CER necesitamos el índice
+  if(tipo==='cer'&&!CER_INDEX.length){
+    wrap.innerHTML=`<div style="color:var(--warn);font-size:12px;padding:.5rem">Cargá el índice CER primero (↻ CER en la barra superior).</div>`;
+    return;
+  }
+
   const rows=bonds.map(b=>({bond:b,tasa:fwdTasa(b,tipo),dur:fwdDuration(b,tipo),precio:b.precio||null}))
     .filter(r=>r.dur!==null&&r.dur>0);
 
@@ -4911,10 +4919,13 @@ function calcLecap(r){
 }
 
 function fwdGetCERTasa(bond){
+  // CER_INDEX debe estar cargado para calcular el factor
+  if(!CER_INDEX.length) return null;
   // asegurar que CER_DATA esté calculado
   if(!CER_DATA.length&&CER_BONDS.length) CER_DATA=CER_BONDS.map(cerEnrich);
-  const e=CER_DATA.find(x=>x.ticker===bond.ticker)||cerEnrich(bond);
-  return(!e||isNaN(e.tir))?null:e.tir;
+  // recalcular el bono específico para asegurar datos frescos
+  const enriched=cerEnrich(bond);
+  return(!enriched||isNaN(enriched.tir))?null:enriched.tir;
 }
 
 function fwdRecalc(){
