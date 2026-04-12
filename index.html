@@ -4800,7 +4800,8 @@ function fwdToggleTF(ticker){
   if(fwdTFExcluded.has(ticker))fwdTFExcluded.delete(ticker);
   else fwdTFExcluded.add(ticker);
   fwdSaveLs();
-  const allTF=LECAPS.filter(r=>r.vcto&&r.dias>0).sort((a,b)=>a.vcto.localeCompare(b.vcto));
+  const liq=G_LIQ||addHabiles(TODAY,1);
+  const allTF=LECAPS.filter(r=>{if(!r.vcto)return false;const v=parseDate(r.vcto);return v&&diasACT(liq,v)>0;}).sort((a,b)=>a.vcto.localeCompare(b.vcto));
   fwdRenderChips(allTF,fwdTFExcluded,'fwd-tf-chips','fwdToggleTF');
   fwdBuildTable(allTF.filter(r=>!fwdTFExcluded.has(r.ticker)),'tf','fwd-tf-wrap');
 }
@@ -4913,7 +4914,8 @@ function calcLecap(r){
 
 function fwdRecalc(){
   fwdLoadLs();
-  const allTF=LECAPS.filter(r=>r.vcto&&r.dias>0).sort((a,b)=>a.vcto.localeCompare(b.vcto));
+  const liq=G_LIQ||addHabiles(TODAY,1);
+  const allTF=LECAPS.filter(r=>{if(!r.vcto)return false;const v=parseDate(r.vcto);return v&&diasACT(liq,v)>0;}).sort((a,b)=>a.vcto.localeCompare(b.vcto));
   const allCER=CER_BONDS.filter(r=>r.vcto).sort((a,b)=>a.vcto.localeCompare(b.vcto));
   fwdRenderChips(allTF,fwdTFExcluded,'fwd-tf-chips','fwdToggleTF');
   fwdRenderChips(allCER,fwdCERExcluded,'fwd-cer-chips','fwdToggleCER');
