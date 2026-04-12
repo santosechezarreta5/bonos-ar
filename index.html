@@ -778,10 +778,10 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 <!-- ═══════════════════════════════════════════════════════ FORWARDS PAGE -->
 <div id="page-forwards" style="display:none;height:calc(100vh - 136px);overflow-y:auto;padding:1.5rem 2rem;">
 
-  <!-- SELECTOR DE TASA -->
-  <div style="display:flex;align-items:center;gap:1.5rem;margin-bottom:1.5rem;flex-wrap:wrap;">
+  <!-- CONTROLES -->
+  <div style="display:flex;align-items:center;gap:1.5rem;margin-bottom:1.25rem;flex-wrap:wrap;">
     <div style="display:flex;align-items:center;gap:8px;">
-      <span style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Mostrar tasa:</span>
+      <span style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Tasa:</span>
       <div class="mode-row">
         <button class="mode-btn active" id="fwd-mode-tir" onclick="fwdSetMode('tir')">TIR</button>
         <button class="mode-btn" id="fwd-mode-tna" onclick="fwdSetMode('tna')">TNA</button>
@@ -793,18 +793,28 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 
   <!-- TABLA TF -->
   <div style="margin-bottom:2.5rem;">
-    <div style="font-family:var(--serif);font-size:18px;font-weight:300;font-style:italic;color:var(--accent);margin-bottom:.75rem">Tasas Forward · Tasa Fija</div>
-    <div style="overflow-x:auto;">
-      <div id="fwd-tf-wrap"></div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:.6rem;flex-wrap:wrap;">
+      <div style="font-family:var(--serif);font-size:18px;font-weight:300;font-style:italic;color:var(--accent)">Tasas Forward · Tasa Fija</div>
+      <button class="btn" style="padding:3px 8px;font-size:10px" onclick="fwdTFToggleSelector()">+ / −</button>
     </div>
+    <div id="fwd-tf-selector" style="display:none;margin-bottom:.75rem;padding:.6rem .75rem;background:var(--surface);border:1px solid var(--border);border-radius:4px;display:none;">
+      <div style="font-size:10px;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em">Bonos incluidos</div>
+      <div id="fwd-tf-chips" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+    </div>
+    <div style="overflow-x:auto;"><div id="fwd-tf-wrap"></div></div>
   </div>
 
   <!-- TABLA CER -->
   <div>
-    <div style="font-family:var(--serif);font-size:18px;font-weight:300;font-style:italic;color:var(--accent);margin-bottom:.75rem">Tasas Forward · CER <span style="font-size:12px;color:var(--text3);font-style:normal;font-family:var(--mono)">(TIR real)</span></div>
-    <div style="overflow-x:auto;">
-      <div id="fwd-cer-wrap"></div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:.6rem;flex-wrap:wrap;">
+      <div style="font-family:var(--serif);font-size:18px;font-weight:300;font-style:italic;color:var(--accent)">Tasas Forward · CER <span style="font-size:12px;color:var(--text3);font-style:normal;font-family:var(--mono)">(TIR real)</span></div>
+      <button class="btn" style="padding:3px 8px;font-size:10px" onclick="fwdCERToggleSelector()">+ / −</button>
     </div>
+    <div id="fwd-cer-selector" style="display:none;margin-bottom:.75rem;padding:.6rem .75rem;background:var(--surface);border:1px solid var(--border);border-radius:4px;">
+      <div style="font-size:10px;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em">Bonos incluidos</div>
+      <div id="fwd-cer-chips" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+    </div>
+    <div style="overflow-x:auto;"><div id="fwd-cer-wrap"></div></div>
   </div>
 
 </div>
@@ -4734,7 +4744,26 @@ document.getElementById('be-modal').addEventListener('click',e=>{if(e.target===e
 document.getElementById('tamar-modal').addEventListener('click',e=>{if(e.target===e.currentTarget)tamarCloseModal();});
 
 // ══════════════════════════════════════════════════════════════ FORWARDS
-let fwdMode='tir'; // 'tir' | 'tna' | 'tem'
+let fwdMode='tir';
+const FWD_LS='bonosAR_fwd_v1';
+// Sets de tickers excluidos (null = todos incluidos por defecto)
+let fwdTFExcluded=new Set();
+let fwdCERExcluded=new Set();
+
+function fwdLoadLs(){
+  try{
+    const raw=localStorage.getItem(FWD_LS);
+    if(raw){const p=JSON.parse(raw);
+      fwdTFExcluded=new Set(p.tfEx||[]);
+      fwdCERExcluded=new Set(p.cerEx||[]);
+    }
+  }catch(e){}
+}
+function fwdSaveLs(){
+  try{localStorage.setItem(FWD_LS,JSON.stringify({
+    tfEx:[...fwdTFExcluded],cerEx:[...fwdCERExcluded]
+  }));}catch(e){}
+}
 
 function fwdSetMode(m){
   fwdMode=m;
@@ -4745,22 +4774,56 @@ function fwdSetMode(m){
   fwdRecalc();
 }
 
-// Obtener la tasa del bono según el modo
+function fwdTFToggleSelector(){
+  const el=document.getElementById('fwd-tf-selector');
+  if(!el)return;
+  el.style.display=el.style.display==='none'?'block':'none';
+}
+function fwdCERToggleSelector(){
+  const el=document.getElementById('fwd-cer-selector');
+  if(!el)return;
+  el.style.display=el.style.display==='none'?'block':'none';
+}
+
+function fwdRenderChips(bonds, excluded, chipsId, onToggle){
+  const wrap=document.getElementById(chipsId);
+  if(!wrap)return;
+  wrap.innerHTML=bonds.map(b=>{
+    const active=!excluded.has(b.ticker);
+    return`<button onclick="${onToggle}('${b.ticker}')"
+      style="padding:3px 9px;font-size:11px;font-family:var(--mono);border-radius:3px;cursor:pointer;border:1px solid ${active?'var(--accent)':'var(--border2)'};background:${active?'var(--accent-dim)':'var(--surface2)'};color:${active?'var(--accent)':'var(--text3)'};transition:all .12s"
+    >${b.ticker}</button>`;
+  }).join('');
+}
+
+function fwdToggleTF(ticker){
+  if(fwdTFExcluded.has(ticker))fwdTFExcluded.delete(ticker);
+  else fwdTFExcluded.add(ticker);
+  fwdSaveLs();
+  const allTF=LECAPS.filter(r=>r.vcto&&r.dias>0).sort((a,b)=>a.vcto.localeCompare(b.vcto));
+  fwdRenderChips(allTF,fwdTFExcluded,'fwd-tf-chips','fwdToggleTF');
+  fwdBuildTable(allTF.filter(r=>!fwdTFExcluded.has(r.ticker)),'tf','fwd-tf-wrap');
+}
+
+function fwdToggleCER(ticker){
+  if(fwdCERExcluded.has(ticker))fwdCERExcluded.delete(ticker);
+  else fwdCERExcluded.add(ticker);
+  fwdSaveLs();
+  const allCER=CER_BONDS.filter(r=>r.vcto).sort((a,b)=>a.vcto.localeCompare(b.vcto));
+  fwdRenderChips(allCER,fwdCERExcluded,'fwd-cer-chips','fwdToggleCER');
+  fwdBuildTable(allCER.filter(r=>!fwdCERExcluded.has(r.ticker)),'cer','fwd-cer-wrap');
+}
+
 function fwdTasa(bond, tipo){
-  // tipo: 'tf' | 'cer'
   if(tipo==='cer'){
-    // CER siempre usa TIR real
     const e=CER_DATA.find(x=>x.ticker===bond.ticker)||cerEnrich(bond);
     return isNaN(e.tir)?null:e.tir;
   }
-  // Tasa Fija
-  const e=LECAPS.find(x=>x.ticker===bond.ticker);
-  if(!e||!e.precio||!e.vcto)return null;
-  const enriched=calcLecap(e); // reutilizar el enriquecimiento de TASA FIJA
-  if(!enriched)return null;
-  if(fwdMode==='tir') return isNaN(enriched.tir)?null:enriched.tir;
-  if(fwdMode==='tna') return isNaN(enriched.tna)?null:enriched.tna;
-  if(fwdMode==='tem') return isNaN(enriched.tem)?null:enriched.tem;
+  const calc=calcLecap(bond);
+  if(!calc)return null;
+  if(fwdMode==='tir')return isNaN(calc.tir)?null:calc.tir;
+  if(fwdMode==='tna')return isNaN(calc.tna)?null:calc.tna;
+  if(fwdMode==='tem')return isNaN(calc.tem)?null:calc.tem;
   return null;
 }
 
@@ -4778,108 +4841,68 @@ function fwdDuration(bond, tipo){
   return dias>0?dias/365:null;
 }
 
-// color para la celda según valor relativo al rango
 function fwdCellStyle(val, min, max, isDiag){
-  if(isDiag) return 'background:var(--surface2);color:var(--accent);font-weight:600;';
-  if(val==null||isNaN(val))return 'background:var(--bg);color:var(--text3);';
-  // heat: rojo (bajo) → amarillo (medio) → verde (alto)
+  if(isDiag)return'background:var(--surface2);color:var(--accent);font-weight:600;';
+  if(val==null||isNaN(val))return'background:var(--bg);color:var(--text3);';
   const t=max===min?0.5:(val-min)/(max-min);
-  const r=Math.round(180*(1-t));
-  const g=Math.round(160*t);
-  const lum=t<0.5?0.35:0.25;
-  return `background:rgba(${r},${g},0,0.45);color:var(--text);`;
+  const r=Math.round(180*(1-t)),g=Math.round(160*t);
+  return`background:rgba(${r},${g},0,0.45);color:var(--text);`;
 }
 
 function fwdBuildTable(bonds, tipo, wrapId){
   const wrap=document.getElementById(wrapId);
   if(!wrap)return;
+  if(!bonds.length){wrap.innerHTML=`<div style="color:var(--text3);font-size:12px;padding:.5rem">Sin bonos seleccionados.</div>`;return;}
 
-  if(!bonds.length){
-    wrap.innerHTML=`<div style="color:var(--text3);font-size:12px;padding:1rem">Sin bonos cargados.</div>`;
-    return;
-  }
+  const rows=bonds.map(b=>({bond:b,tasa:fwdTasa(b,tipo),dur:fwdDuration(b,tipo),precio:b.precio||null}))
+    .filter(r=>r.dur!==null&&r.dur>0);
 
-  // enriquecer con tasa y duration
-  const rows=bonds.map(b=>({
-    bond:b,
-    tasa:fwdTasa(b,tipo),
-    dur:fwdDuration(b,tipo),
-    precio:b.precio||null,
-  })).filter(r=>r.dur!==null&&r.dur>0);
+  if(!rows.length){wrap.innerHTML=`<div style="color:var(--text3);font-size:12px;padding:.5rem">Sin datos de tasa/duration.</div>`;return;}
 
-  if(!rows.length){
-    wrap.innerHTML=`<div style="color:var(--text3);font-size:12px;padding:1rem">Sin datos de tasa/duration.</div>`;
-    return;
-  }
-
-  // pre-calcular todas las tasas forward para el heatmap
   const allVals=[];
-  for(let i=0;i<rows.length;i++){
+  for(let i=0;i<rows.length;i++)
     for(let j=i+1;j<rows.length;j++){
       const fi=rows[i],fj=rows[j];
-      if(fi.tasa==null||fj.tasa==null)continue;
-      const fwd=(fj.tasa*fj.dur - fi.tasa*fi.dur)/(fj.dur-fi.dur);
-      allVals.push(fwd);
+      if(fi.tasa!=null&&fj.tasa!=null)
+        allVals.push((fj.tasa*fj.dur-fi.tasa*fi.dur)/(fj.dur-fi.dur));
     }
-  }
   const diagVals=rows.map(r=>r.tasa).filter(v=>v!=null);
-  const allForHeat=[...allVals,...diagVals];
-  const minV=allForHeat.length?Math.min(...allForHeat):0;
-  const maxV=allForHeat.length?Math.max(...allForHeat):0;
+  const allH=[...allVals,...diagVals];
+  const minV=allH.length?Math.min(...allH):0,maxV=allH.length?Math.max(...allH):0;
 
-  const thStyle='padding:5px 8px;font-size:10px;color:var(--text3);font-weight:400;text-align:center;white-space:nowrap;border-bottom:1px solid var(--border2);';
-  const tdBase='padding:5px 8px;font-family:var(--mono);font-size:11px;text-align:center;white-space:nowrap;border-bottom:1px solid var(--border);border-right:1px solid var(--border);';
+  const th='padding:5px 8px;font-size:10px;color:var(--text3);font-weight:400;text-align:center;white-space:nowrap;border-bottom:1px solid var(--border2);';
+  const td='padding:5px 8px;font-family:var(--mono);font-size:11px;text-align:center;white-space:nowrap;border-bottom:1px solid var(--border);border-right:1px solid var(--border);';
 
-  // cabecera
-  let html=`<table style="border-collapse:collapse;font-size:11px;">`;
-  html+=`<thead><tr>`;
-  html+=`<th style="${thStyle}text-align:left">Bono</th>`;
-  html+=`<th style="${thStyle}text-align:right">Px</th>`;
-  rows.forEach(r=>{
-    html+=`<th style="${thStyle}">${r.bond.ticker}</th>`;
-  });
+  let html=`<table style="border-collapse:collapse;font-size:11px;"><thead><tr>`;
+  html+=`<th style="${th}text-align:left">Bono</th><th style="${th}text-align:right">Px</th>`;
+  rows.forEach(r=>{html+=`<th style="${th}">${r.bond.ticker}</th>`;});
   html+=`</tr></thead><tbody>`;
 
   rows.forEach((ri,i)=>{
     const tasaLabel=ri.tasa!=null?fmtP2(ri.tasa)+'%':'—';
-    html+=`<tr>`;
-    html+=`<td style="${tdBase}text-align:left;color:var(--accent);font-weight:500">${ri.bond.ticker}</td>`;
-    html+=`<td style="${tdBase}text-align:right;color:var(--text2)">${ri.precio!=null?fmtARS(ri.precio):'—'}</td>`;
+    html+=`<tr><td style="${td}text-align:left;color:var(--accent);font-weight:500">${ri.bond.ticker}</td>`;
+    html+=`<td style="${td}text-align:right;color:var(--text2)">${ri.precio!=null?fmtARS(ri.precio):'—'}</td>`;
     rows.forEach((rj,j)=>{
-      if(j<i){
-        // triángulo inferior: vacío
-        html+=`<td style="${tdBase}background:var(--bg);"></td>`;
-      } else if(j===i){
-        // diagonal: tasa propia
-        const st=fwdCellStyle(ri.tasa,minV,maxV,true);
-        html+=`<td style="${tdBase}${st}">${tasaLabel}</td>`;
-      } else {
-        // triángulo superior: forward
-        if(ri.tasa==null||rj.tasa==null||ri.dur==null||rj.dur==null){
-          html+=`<td style="${tdBase}background:var(--bg);color:var(--text3)">—</td>`;
-        } else {
-          const fwd=(rj.tasa*rj.dur - ri.tasa*ri.dur)/(rj.dur-ri.dur);
-          const st=fwdCellStyle(fwd,minV,maxV,false);
-          html+=`<td style="${tdBase}${st}">${fmtP2(fwd)}%</td>`;
-        }
+      if(j<i){html+=`<td style="${td}background:var(--bg);"></td>`;}
+      else if(j===i){const st=fwdCellStyle(ri.tasa,minV,maxV,true);html+=`<td style="${td}${st}">${tasaLabel}</td>`;}
+      else{
+        if(ri.tasa==null||rj.tasa==null){html+=`<td style="${td}background:var(--bg);color:var(--text3)">—</td>`;}
+        else{const fwd=(rj.tasa*rj.dur-ri.tasa*ri.dur)/(rj.dur-ri.dur);const st=fwdCellStyle(fwd,minV,maxV,false);html+=`<td style="${td}${st}">${fmtP2(fwd)}%</td>`;}
       }
     });
     html+=`</tr>`;
   });
-
   html+=`</tbody></table>`;
   wrap.innerHTML=html;
 }
 
 function calcLecap(r){
-  // enriquece un bono TF con TIR/TNA/TEM — reutiliza lógica de lecapEnrich
   if(!r||!r.precio||!r.vcto)return null;
   const liq=G_LIQ||addHabiles(TODAY,1);
   const vctoDate=parseDate(r.vcto);
   const dias=diasACT(liq,vctoDate);
   if(dias<=0)return null;
   const emDate=r.emision?parseDate(r.emision):null;
-  const d360=emDate?dias360(emDate,vctoDate):dias;
   const vf=emDate?calcVF(r.tasaEmision||0,emDate,vctoDate):100;
   const tasaDirecta=vf/r.precio-1;
   const tir=(Math.pow(1+tasaDirecta,365/dias)-1)*100;
@@ -4889,13 +4912,13 @@ function calcLecap(r){
 }
 
 function fwdRecalc(){
-  // TF: usar LECAPS con precio
-  const tfBonds=LECAPS.filter(r=>r.precio&&r.vcto&&r.dias>0).sort((a,b)=>a.vcto.localeCompare(b.vcto));
-  fwdBuildTable(tfBonds,'tf','fwd-tf-wrap');
-
-  // CER: usar CER_BONDS con precio
-  const cerBonds=CER_BONDS.filter(r=>r.precio&&r.vcto).sort((a,b)=>a.vcto.localeCompare(b.vcto));
-  fwdBuildTable(cerBonds,'cer','fwd-cer-wrap');
+  fwdLoadLs();
+  const allTF=LECAPS.filter(r=>r.vcto&&r.dias>0).sort((a,b)=>a.vcto.localeCompare(b.vcto));
+  const allCER=CER_BONDS.filter(r=>r.vcto).sort((a,b)=>a.vcto.localeCompare(b.vcto));
+  fwdRenderChips(allTF,fwdTFExcluded,'fwd-tf-chips','fwdToggleTF');
+  fwdRenderChips(allCER,fwdCERExcluded,'fwd-cer-chips','fwdToggleCER');
+  fwdBuildTable(allTF.filter(r=>!fwdTFExcluded.has(r.ticker)),'tf','fwd-tf-wrap');
+  fwdBuildTable(allCER.filter(r=>!fwdCERExcluded.has(r.ticker)),'cer','fwd-cer-wrap');
 }
 </script>
 </body>
