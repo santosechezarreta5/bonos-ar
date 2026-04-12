@@ -4816,10 +4816,7 @@ function fwdToggleCER(ticker){
 }
 
 function fwdTasa(bond, tipo){
-  if(tipo==='cer'){
-    const e=CER_DATA.find(x=>x.ticker===bond.ticker)||cerEnrich(bond);
-    return isNaN(e.tir)?null:e.tir;
-  }
+  if(tipo==='cer') return fwdGetCERTasa(bond);
   const calc=calcLecap(bond);
   if(!calc)return null;
   if(fwdMode==='tir')return isNaN(calc.tir)?null:calc.tir;
@@ -4904,12 +4901,20 @@ function calcLecap(r){
   const dias=diasACT(liq,vctoDate);
   if(dias<=0)return null;
   const emDate=r.emision?parseDate(r.emision):null;
-  const vf=emDate?calcVF(r.tasaEmision||0,emDate,vctoDate):100;
+  // VF usa tem_emision (TEM de emisión del bono), igual que lecapEnrich
+  const vf=emDate&&r.tem_emision?calcVF(r.tem_emision,emDate,vctoDate):100;
   const tasaDirecta=vf/r.precio-1;
   const tir=(Math.pow(1+tasaDirecta,365/dias)-1)*100;
   const tna=tasaDirecta*(365/dias)*100;
   const tem=(Math.pow(1+tasaDirecta,(365/12)/dias)-1)*100;
   return{tir,tna,tem,dias,vf};
+}
+
+function fwdGetCERTasa(bond){
+  // asegurar que CER_DATA esté calculado
+  if(!CER_DATA.length&&CER_BONDS.length) CER_DATA=CER_BONDS.map(cerEnrich);
+  const e=CER_DATA.find(x=>x.ticker===bond.ticker)||cerEnrich(bond);
+  return(!e||isNaN(e.tir))?null:e.tir;
 }
 
 function fwdRecalc(){
