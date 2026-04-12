@@ -811,10 +811,31 @@ tbody tr.selected .c-ticker{color:var(--accent);}
       </table>
     </div>
 
+    <!-- TABLA TAMAR BREAKEVEN -->
+    <div style="margin-top:2rem;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem;">
+        <div>
+          <div style="font-family:var(--serif);font-size:20px;font-weight:300;font-style:italic;color:var(--accent)">Breakeven · TAMAR</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:3px">TAMAR implícita en la curva TAMAR vs Tasa Fija</div>
+        </div>
+        <button class="btn primary" style="margin:0;padding:6px 14px;font-size:12px" onclick="beTamarRecalc()">↻ Recalcular</button>
+      </div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border2)">
+              <th style="text-align:left;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Fecha últ. TAMAR</th>
+              <th style="text-align:center;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Breakeven</th>
+              <th style="text-align:center;padding:7px 10px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--warn);font-weight:400">TAMAR TNA</th>
+            </tr>
+          </thead>
+          <tbody id="be-tamar-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
   </div>
 </div>
-
-<!-- BREAKEVEN MODAL -->
 <div class="modal-backdrop" id="be-modal">
   <div class="modal">
     <div class="modal-title">Agregar bono CER al Breakeven</div>
@@ -4065,6 +4086,7 @@ function beSaveLs(){
 function beInit(){
   beLoadLs();
   beRecalc();
+  beTamarRecalc();
 }
 function beOpenModal(){
   const sel=document.getElementById('be-m-ticker');
@@ -4291,6 +4313,98 @@ function beRenderDetalle(resultados){
   }).join('');
 }
 // ── FIN BREAKEVEN ─────────────────────────────────────────────────────────────
+
+// ══════════════════════════════════════════════════════════════ TAMAR BREAKEVEN
+function beTamarCalcular(tamarTicker){
+  const r=TAMAR_DATA.length?TAMAR_DATA.find(x=>x.ticker===tamarTicker):null;
+  const bond=TAMAR_BONDS.find(x=>x.ticker===tamarTicker);
+  if(!bond||!bond.precio||!bond.vcto)return{error:'Sin precio o vencimiento'};
+
+  // recalcular si hace falta
+  const rb=r||tamarEnrich(bond);
+  if(!rb._debug)return{error:'Sin datos de cálculo'};
+  const d=rb._debug;
+
+  const liq=G_LIQ||addHabiles(TODAY,1);
+
+  // 1. Buscar bono TF par
+  const tfBond=beFindTF(bond.vcto);
+  if(!tfBond)return{error:`Sin bono TF para vto ${bond.vcto}`};
+  if(!tfBond.precio||!tfBond.vf||tfBond.dias<=0)return{error:`Sin precio/VF para ${tfBond.ticker}`};
+
+  const dias_liq_vto_tf=tfBond.dias;
+  const dias_liq_vto_tamar=d.DIAS;
+  if(dias_liq_vto_tamar<=0)return{error:'Bono vencido'};
+
+  // 2. Valor_final
+  const valor_final=(tfBond.vf/tfBond.precio)**(dias_liq_vto_tf/dias_liq_vto_tamar)*bond.precio;
+
+  // 3. TEM_capitalizar
+  const tem_capitalizar=Math.pow(valor_final/100,30/d.DIAS_360)-1;
+
+  // 4. TEM_TAMAR_MARGEN_PROY_BE
+  const dias_trans=d.DIAS_TAMAR_TRANSCURRIDOS;
+  const dias_proy=d.DIAS_TAMAR_PROYECTAR;
+  const tm_trans=d.TAMAR_MARGEN_DIAS_TRANSCURRIDOS/100; // decimal
+
+  let tem_proy_be;
+  if(dias_proy>0){
+    const num=Math.pow(1+tem_capitalizar,(dias_trans+dias_proy)/30);
+    const den=Math.pow(1+tm_trans,dias_trans/30);
+    tem_proy_be=Math.pow(num/den,30/dias_proy)-1;
+  } else {
+    tem_proy_be=tem_capitalizar;
+  }
+
+  // 5. TNA_TAMAR_MARGEN_PROY_BE
+  const tna_proy_be=(Math.pow(Math.pow(1+tem_proy_be,12),32/365)-1)*365/32;
+
+  // 6. TAMAR_BE_TNA
+  const tamar_be_tna=(tna_proy_be-(bond.margen||0)/100)*100;
+
+  // Fecha último TAMAR = fixVto del bono
+  const fixVto=d.fixVto;
+
+  return{
+    ticker:tamarTicker,tfTicker:tfBond.ticker,
+    fixVto,valor_final,tem_capitalizar:tem_capitalizar*100,
+    tem_proy_be:tem_proy_be*100,tna_proy_be:tna_proy_be*100,
+    tamar_be_tna,
+  };
+}
+
+function beTamarRecalc(){
+  // recalcular TAMAR_DATA
+  if(TAMAR_BONDS.length) TAMAR_DATA=TAMAR_BONDS.map(tamarEnrich);
+
+  const tbody=document.getElementById('be-tamar-tbody');
+  if(!tbody)return;
+
+  if(!TAMAR_BONDS.length){
+    tbody.innerHTML=`<tr><td colspan="3" style="padding:2rem;text-align:center;color:var(--text3);font-size:12px">Agregá bonos en la tab TAMAR primero.</td></tr>`;
+    return;
+  }
+
+  // ordenar por vencimiento
+  const bondsOrdenados=[...TAMAR_BONDS].filter(b=>b.vcto&&b.precio).sort((a,b)=>a.vcto.localeCompare(b.vcto));
+
+  tbody.innerHTML=bondsOrdenados.map(bond=>{
+    const res=beTamarCalcular(bond.ticker);
+    if(!res||res.error){
+      return`<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:6px 10px;color:var(--text3);font-size:12px">—</td>
+        <td style="padding:6px 10px;text-align:center;font-family:var(--mono);font-size:12px;color:var(--accent)">${bond.ticker}</td>
+        <td style="padding:6px 10px;text-align:center;color:var(--danger);font-size:12px">${res?.error||'—'}</td>
+      </tr>`;
+    }
+    const fixDisp=res.fixVto.split('-').reverse().join('/');
+    return`<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:6px 10px;font-family:var(--mono);font-size:12px;color:var(--text2)">${fixDisp}</td>
+      <td style="padding:6px 10px;text-align:center;font-family:var(--mono);font-size:13px;color:var(--accent);font-weight:500">${bond.ticker}</td>
+      <td style="padding:6px 10px;text-align:center;font-family:var(--mono);font-size:13px;color:var(--warn);font-weight:500">${fmtP2(res.tamar_be_tna)}%</td>
+    </tr>`;
+  }).join('');
+}
 const LS_LECAPS='bonosAR_lecaps_v1';
 const LS_CER='bonosAR_cer_bonds_v1';
 
