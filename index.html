@@ -1284,6 +1284,18 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script>
+// ── GLOBAL STATE (declared first to avoid TDZ issues with let/const) ──────────
+let fwdMode='tir';
+const FWD_LS='bonosAR_fwd_v1';
+let fwdTFExcluded=new Set();
+let fwdCERExcluded=new Set();
+let beChartTF=null, beChartCER=null;
+let cerTabChart=null;
+let tamarTabChart=null;
+let beChartTFMode='tna';
+let beChartTFExcluded=new Set();
+let beChartCERExcluded=new Set();
+
 // ── UTILIDADES BÁSICAS (necesarias antes de todo) ─────────────────────────────
 const fmtDate=d=>d.toISOString().split('T')[0];
 
@@ -5143,9 +5155,6 @@ function beStartResize(e, colId){
 }
 
 // ══════════════════════════════════════════════════════════════ BE CHARTS
-let beChartTFMode='tna';
-let beChartTF=null, beChartCER=null;
-
 function beChartTFSetMode(m){
   beChartTFMode=m;
   ['tna','tir','tem'].forEach(x=>{const b=document.getElementById('be-chart-tf-'+x);if(b)b.classList.toggle('active',x===m);});
@@ -5153,7 +5162,6 @@ function beChartTFSetMode(m){
 }
 
 // ── CER TAB CHART ─────────────────────────────────────────────────────────────
-let cerTabChart=null;
 function cerRenderTabChart(){
   const canvas=document.getElementById('cer-curve-chart');
   const status=document.getElementById('cer-chart-status');
@@ -5177,7 +5185,6 @@ function cerRenderTabChart(){
 }
 
 // ── TAMAR TAB CHART ───────────────────────────────────────────────────────────
-let tamarTabChart=null;
 function tamarRenderTabChart(){
   const canvas=document.getElementById('tamar-curve-chart');
   if(!canvas)return;
@@ -5199,8 +5206,6 @@ function tamarRenderTabChart(){
 
 // ── CHART BOND SELECTORS ──────────────────────────────────────────────────────
 const LS_CHART_SEL='bonosAR_chart_sel_v1';
-let beChartTFExcluded=new Set();
-let beChartCERExcluded=new Set();
 
 function beChartSelLoadLs(){
   try{
@@ -5336,11 +5341,6 @@ function beDrawScatter(canvas,pts,ptColor,ptBorder,yLabel){
     }
   });
 }
-let fwdMode='tir';
-const FWD_LS='bonosAR_fwd_v1';
-// Sets de tickers excluidos (null = todos incluidos por defecto)
-let fwdTFExcluded=new Set();
-let fwdCERExcluded=new Set();
 
 function fwdLoadLs(){
   try{
