@@ -4440,11 +4440,11 @@ function beInit(){
   beRecalc();
   beTamarRecalc();
   beCPRecalc();
-  // defer chart render so canvas has real dimensions
-  requestAnimationFrame(()=>{
+  // double rAF ensures canvas has real layout dimensions before Chart.js renders
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
     beRenderChartTF();
     beRenderChartCER();
-  });
+  }));
 }
 function beOpenModal(){
   const sel=document.getElementById('be-m-ticker');
@@ -5124,12 +5124,20 @@ function beCPSaveModal(){
   beCPRecalc();
 }
 
-document.getElementById('be-cp-modal').addEventListener('click',e=>{if(e.target===e.currentTarget)beCPCloseModal();});
-
-document.getElementById('cer-modal').addEventListener('click',e=>{if(e.target===e.currentTarget)cerCloseModal();});
-document.getElementById('fer-modal').addEventListener('click',e=>{if(e.target===e.currentTarget)ferCloseModal();});
-document.getElementById('be-modal').addEventListener('click',e=>{if(e.target===e.currentTarget)beCloseModal();});
-document.getElementById('tamar-modal').addEventListener('click',e=>{if(e.target===e.currentTarget)tamarCloseModal();});
+// Modal backdrop click-to-close (safe — elements exist by this point)
+;['be-cp-modal','cer-modal','fer-modal','be-modal','tamar-modal','modal'].forEach(id=>{
+  const el=document.getElementById(id);
+  if(!el)return;
+  const closeFn={
+    'be-cp-modal': ()=>beCPCloseModal(),
+    'cer-modal':   ()=>cerCloseModal(),
+    'fer-modal':   ()=>ferCloseModal(),
+    'be-modal':    ()=>beCloseModal(),
+    'tamar-modal': ()=>tamarCloseModal(),
+    'modal':       ()=>closeModal(),
+  }[id];
+  if(closeFn) el.addEventListener('click',e=>{if(e.target===e.currentTarget)closeFn();});
+});
 
 // ── COLUMN RESIZER ────────────────────────────────────────────────────────────
 function beStartResize(e, colId){
