@@ -4420,40 +4420,6 @@ function beSaveLs(){
   try{localStorage.setItem(BE_LS_KEY,JSON.stringify(BE_BONOS));}catch(e){}
 }
 
-// ── PESOS CORTO PLAZO state (must be defined before beInit) ───────────────────
-const LS_CP='bonosAR_cp_v1';
-let CP_BONDS=[];
-const CP_COLORS={
-  cer:  {bg:'rgba(74,222,128,0.12)', accent:'#4ade80'},
-  tf:   {bg:'rgba(251,191,36,0.12)', accent:'#fbbf24'},
-  tamar:{bg:'rgba(56,189,248,0.12)', accent:'#38bdf8'},
-};
-function beCPLoadLs(){
-  try{const r=localStorage.getItem(LS_CP);if(r)CP_BONDS=JSON.parse(r);}catch(e){}
-}
-function beCPSaveLs(){
-  try{localStorage.setItem(LS_CP,JSON.stringify(CP_BONDS));}catch(e){}
-}
-
-// ── BE CHART SEL state (must be defined before beInit) ────────────────────────
-const LS_CHART_SEL='bonosAR_chart_sel_v1';
-let beChartTFExcluded=new Set();
-let beChartCERExcluded=new Set();
-function beChartSelLoadLs(){
-  try{
-    const r=localStorage.getItem(LS_CHART_SEL);
-    if(r){const p=JSON.parse(r);
-      beChartTFExcluded=new Set(p.tf||[]);
-      beChartCERExcluded=new Set(p.cer||[]);
-    }
-  }catch(e){}
-}
-function beChartSelSaveLs(){
-  try{localStorage.setItem(LS_CHART_SEL,JSON.stringify({
-    tf:[...beChartTFExcluded],cer:[...beChartCERExcluded]
-  }));}catch(e){}
-}
-
 function beInit(){
   beLoadLs();
   beCPLoadLs();
@@ -4990,6 +4956,19 @@ document.addEventListener('keydown',e=>{
   }
 });
 // ══════════════════════════════════════════════════════════════ PESOS CORTO PLAZO
+const LS_CP='bonosAR_cp_v1';
+let CP_BONDS=[];
+const CP_COLORS={
+  cer:  {bg:'rgba(74,222,128,0.12)', accent:'#4ade80'},
+  tf:   {bg:'rgba(251,191,36,0.12)', accent:'#fbbf24'},
+  tamar:{bg:'rgba(56,189,248,0.12)', accent:'#38bdf8'},
+};
+function beCPLoadLs(){
+  try{const r=localStorage.getItem(LS_CP);if(r)CP_BONDS=JSON.parse(r);}catch(e){}
+}
+function beCPSaveLs(){
+  try{localStorage.setItem(LS_CP,JSON.stringify(CP_BONDS));}catch(e){}
+}
 
 function beCPEnrich(item){
   const {ticker, tipo}=item;
