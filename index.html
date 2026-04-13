@@ -821,18 +821,18 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 
 <!-- ═══════════════════════════════════════════════════════ BREAKEVEN PAGE -->
 <div id="page-breakeven" style="display:none;height:calc(100vh - 136px);overflow-y:auto;padding:1.5rem 2rem;">
-  <div style="display:flex;gap:2.5rem;align-items:flex-start;min-width:0;">
+  <div style="display:flex;gap:2rem;align-items:flex-start;min-width:0;">
 
-    <!-- COLUMNA IZQUIERDA: Breakeven Inflación -->
-    <div style="flex:1;min-width:0;">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1rem;gap:1rem;flex-wrap:wrap;">
+    <!-- COLUMNA 1: Breakeven Inflación -->
+    <div style="flex:0 0 auto;min-width:0;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1rem;gap:.75rem;">
         <div>
-          <div style="font-family:var(--serif);font-size:18px;font-weight:300;font-style:italic;color:var(--accent)">Breakeven · Inflación</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:2px">Inflación implícita en la curva CER vs Tasa Fija</div>
+          <div style="font-family:var(--serif);font-size:17px;font-weight:300;font-style:italic;color:var(--accent)">Breakeven · Inflación</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">CER vs Tasa Fija</div>
         </div>
-        <div style="display:flex;gap:6px;align-items:center;">
-          <button class="btn primary" style="margin:0;padding:5px 10px;font-size:11px" onclick="beRecalc()">↻ Recalcular</button>
-          <button class="btn" style="margin:0;padding:5px 10px;font-size:11px" onclick="beOpenModal()">+ Agregar bono CER</button>
+        <div style="display:flex;gap:5px;align-items:center;">
+          <button class="btn primary" style="margin:0;padding:4px 8px;font-size:10px" onclick="beRecalc()">↻</button>
+          <button class="btn" style="margin:0;padding:4px 8px;font-size:10px" onclick="beOpenModal()">+</button>
         </div>
       </div>
       <div style="overflow-x:auto;">
@@ -842,12 +842,12 @@ tbody tr.selected .c-ticker{color:var(--accent);}
               <th style="text-align:left;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Proy. infla</th>
               <th style="text-align:center;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Hasta mes</th>
               <th style="text-align:center;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400" id="be-header-body"></th>
-              <th style="text-align:center;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Diferencia</th>
-              <th style="text-align:center;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--info);font-weight:400">Tasa Fwd</th>
-              <th style="width:24px"></th>
+              <th style="text-align:center;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Dif.</th>
+              <th style="text-align:center;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--info);font-weight:400">Fwd</th>
+              <th style="width:20px"></th>
             </tr>
             <tr style="border-bottom:1px solid var(--border)" id="be-subheader">
-              <th style="padding:3px 8px;font-size:10px;color:var(--text3);font-weight:400;text-align:left">Prom. mensual</th>
+              <th style="padding:3px 8px;font-size:10px;color:var(--text3);font-weight:400;text-align:left">Prom.</th>
               <th></th>
               <th id="be-subheader-tickers" style="padding:3px 8px;font-size:10px;color:var(--text3);font-weight:400;text-align:center"></th>
               <th></th>
@@ -858,20 +858,20 @@ tbody tr.selected .c-ticker{color:var(--accent);}
       </div>
     </div>
 
-    <!-- COLUMNA DERECHA: Breakeven TAMAR -->
+    <!-- COLUMNA 2: Breakeven TAMAR -->
     <div style="flex:0 0 auto;min-width:0;">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1rem;gap:1rem;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1rem;gap:.75rem;">
         <div>
-          <div style="font-family:var(--serif);font-size:18px;font-weight:300;font-style:italic;color:var(--accent)">Breakeven · TAMAR</div>
-          <div style="font-size:11px;color:var(--text3);margin-top:2px">TAMAR implícita vs Tasa Fija</div>
+          <div style="font-family:var(--serif);font-size:17px;font-weight:300;font-style:italic;color:var(--accent)">Breakeven · TAMAR</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">TAMAR implícita vs TF</div>
         </div>
-        <button class="btn primary" style="margin:0;padding:5px 10px;font-size:11px;flex-shrink:0" onclick="beTamarRecalc()">↻</button>
+        <button class="btn primary" style="margin:0;padding:4px 8px;font-size:10px;flex-shrink:0" onclick="beTamarRecalc()">↻</button>
       </div>
       <table style="border-collapse:collapse;white-space:nowrap;">
         <thead>
           <tr style="border-bottom:1px solid var(--border2)">
-            <th style="text-align:left;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Fecha últ. TAMAR</th>
-            <th style="text-align:center;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Breakeven</th>
+            <th style="text-align:left;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Fecha últ.</th>
+            <th style="text-align:center;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Bono</th>
             <th style="text-align:right;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--warn);font-weight:400">TAMAR TNA</th>
           </tr>
         </thead>
@@ -879,8 +879,44 @@ tbody tr.selected .c-ticker{color:var(--accent);}
       </table>
     </div>
 
+    <!-- COLUMNA 3: Pesos Corto Plazo -->
+    <div style="flex:0 0 auto;min-width:0;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1rem;gap:.75rem;">
+        <div>
+          <div style="font-family:var(--serif);font-size:17px;font-weight:300;font-style:italic;color:var(--accent)">Pesos Corto Plazo</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">
+            <span style="color:#4ade80">■</span> CER &nbsp;
+            <span style="color:#fbbf24">■</span> Tasa Fija &nbsp;
+            <span style="color:#38bdf8">■</span> TAMAR
+          </div>
+        </div>
+        <div style="display:flex;gap:5px;align-items:center;">
+          <button class="btn primary" style="margin:0;padding:4px 8px;font-size:10px" onclick="beCPRecalc()">↻</button>
+          <button class="btn" style="margin:0;padding:4px 8px;font-size:10px" onclick="beCPOpenModal()">+</button>
+        </div>
+      </div>
+      <table style="border-collapse:collapse;white-space:nowrap;">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border2)">
+            <th style="text-align:left;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Bono</th>
+            <th style="text-align:center;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Vto</th>
+            <th style="text-align:center;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Fixing</th>
+            <th style="text-align:right;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Px</th>
+            <th style="text-align:right;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">TIR Real</th>
+            <th style="text-align:right;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">TNA</th>
+            <th style="text-align:right;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">TIR</th>
+            <th style="text-align:right;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">TEM</th>
+            <th style="width:20px"></th>
+          </tr>
+        </thead>
+        <tbody id="be-cp-tbody"></tbody>
+      </table>
+    </div>
+
   </div>
 </div>
+
+<!-- BE MODAL -->
 <div class="modal-backdrop" id="be-modal">
   <div class="modal">
     <div class="modal-title">Agregar bono CER al Breakeven</div>
@@ -893,6 +929,31 @@ tbody tr.selected .c-ticker{color:var(--accent);}
     <div class="modal-actions">
       <button class="btn" onclick="beCloseModal()">Cancelar</button>
       <button class="btn primary" onclick="beSaveModal()">Agregar</button>
+    </div>
+  </div>
+</div>
+
+<!-- CP MODAL -->
+<div class="modal-backdrop" id="be-cp-modal">
+  <div class="modal">
+    <div class="modal-title">Agregar bono · Pesos Corto Plazo</div>
+    <div class="field-row cols2">
+      <div class="field">
+        <label>Tipo</label>
+        <select id="be-cp-tipo" onchange="beCPModalUpdateList()">
+          <option value="tf">Tasa Fija</option>
+          <option value="cer">CER</option>
+          <option value="tamar">TAMAR</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Bono</label>
+        <select id="be-cp-ticker" style="width:100%"></select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="beCPCloseModal()">Cancelar</button>
+      <button class="btn primary" onclick="beCPSaveModal()">Agregar</button>
     </div>
   </div>
 </div>
@@ -4249,8 +4310,10 @@ function beSaveLs(){
 }
 function beInit(){
   beLoadLs();
+  beCPLoadLs();
   beRecalc();
   beTamarRecalc();
+  beCPRecalc();
 }
 function beOpenModal(){
   const sel=document.getElementById('be-m-ticker');
@@ -4739,7 +4802,143 @@ document.addEventListener('keydown',e=>{
     }
   }
 });
-document.getElementById('modal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});
+// ══════════════════════════════════════════════════════════════ PESOS CORTO PLAZO
+const LS_CP='bonosAR_cp_v1';
+let CP_BONDS=[]; // [{ticker, tipo:'tf'|'cer'|'tamar'}]
+
+function beCPLoadLs(){
+  try{const r=localStorage.getItem(LS_CP);if(r)CP_BONDS=JSON.parse(r);}catch(e){}
+}
+function beCPSaveLs(){
+  try{localStorage.setItem(LS_CP,JSON.stringify(CP_BONDS));}catch(e){}
+}
+
+const CP_COLORS={
+  cer:  {bg:'rgba(74,222,128,0.12)', accent:'#4ade80'},
+  tf:   {bg:'rgba(251,191,36,0.12)', accent:'#fbbf24'},
+  tamar:{bg:'rgba(56,189,248,0.12)', accent:'#38bdf8'},
+};
+
+function beCPEnrich(item){
+  const {ticker, tipo}=item;
+  const td='padding:5px 8px;font-family:var(--mono);font-size:12px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--border);';
+  const bg=CP_COLORS[tipo]?.bg||'';
+  const ac=CP_COLORS[tipo]?.accent||'var(--text)';
+
+  if(tipo==='tf'){
+    const b=LECAPS.find(r=>r.ticker===ticker);
+    if(!b)return null;
+    const calc=calcLecap(b);
+    if(!calc)return null;
+    const vctoStr=b.vcto?b.vcto.split('-').reverse().join('/'):'—';
+    return{ticker,tipo,vctoStr,fixing:'N/A',px:b.precio,tirReal:null,tna:calc.tna,tir:calc.tir,tem:calc.tem,bg,ac};
+  }
+  if(tipo==='cer'){
+    const b=CER_BONDS.find(r=>r.ticker===ticker);
+    if(!b)return null;
+    if(!CER_INDEX.length)return{ticker,tipo,error:'Sin índice CER'};
+    const e=cerEnrich(b);
+    const vctoStr=b.vcto?b.vcto.split('-').reverse().join('/'):'—';
+    // fixing = restarHabiles(vcto, 10)
+    const fixDate=b.vcto?restarHabiles(parseDate(b.vcto),10):null;
+    const fixStr=fixDate?fmtDate(fixDate).split('-').reverse().join('/'):'—';
+    return{ticker,tipo,vctoStr,fixing:fixStr,px:b.precio,
+      tirReal:isNaN(e.tir)?null:e.tir,
+      tna:isNaN(e.tnaProy)?null:e.tnaProy,
+      tir:isNaN(e.tirProy)?null:e.tirProy,
+      tem:isNaN(e.temProy)?null:e.temProy,bg,ac};
+  }
+  if(tipo==='tamar'){
+    const b=TAMAR_BONDS.find(r=>r.ticker===ticker);
+    if(!b)return null;
+    const e=tamarEnrich(b);
+    const vctoStr=b.vcto?b.vcto.split('-').reverse().join('/'):'—';
+    const fixStr=e._debug?e._debug.fixVto.split('-').reverse().join('/'):'—';
+    return{ticker,tipo,vctoStr,fixing:fixStr,px:b.precio,
+      tirReal:null,
+      tna:isNaN(e.tna)?null:e.tna,
+      tir:isNaN(e.tir)?null:e.tir,
+      tem:isNaN(e.tem)?null:e.tem,bg,ac};
+  }
+  return null;
+}
+
+function beCPRecalc(){
+  const tbody=document.getElementById('be-cp-tbody');
+  if(!tbody)return;
+  if(!CP_BONDS.length){
+    tbody.innerHTML=`<tr><td colspan="9" style="padding:1.5rem;text-align:center;color:var(--text3);font-size:12px">Agregá bonos con +</td></tr>`;
+    return;
+  }
+
+  // ordenar por vencimiento
+  const sorted=[...CP_BONDS].sort((a,b)=>{
+    const bA=[...LECAPS,...CER_BONDS,...TAMAR_BONDS].find(r=>r.ticker===a.ticker);
+    const bB=[...LECAPS,...CER_BONDS,...TAMAR_BONDS].find(r=>r.ticker===b.ticker);
+    return(bA?.vcto||'').localeCompare(bB?.vcto||'');
+  });
+
+  const td='padding:5px 8px;font-size:12px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--border);font-family:var(--mono);';
+  const f=(v,d=2)=>v!=null&&!isNaN(v)?v.toFixed(d)+'%':'—';
+
+  tbody.innerHTML=sorted.map(item=>{
+    const r=beCPEnrich(item);
+    if(!r)return`<tr><td colspan="9" style="padding:5px 8px;color:var(--danger);font-size:12px;border-bottom:1px solid var(--border)">${item.ticker}: sin datos</td></tr>`;
+    if(r.error)return`<tr><td colspan="9" style="padding:5px 8px;color:var(--warn);font-size:12px;border-bottom:1px solid var(--border)">${item.ticker}: ${r.error}</td></tr>`;
+    return`<tr style="background:${r.bg}">
+      <td style="${td}text-align:left;color:${r.ac};font-weight:600">${r.ticker}</td>
+      <td style="${td}text-align:center;color:var(--text2)">${r.vctoStr}</td>
+      <td style="${td}text-align:center;color:var(--text3)">${r.fixing}</td>
+      <td style="${td}">${r.px!=null?fmtARS(r.px):'—'}</td>
+      <td style="${td}color:${r.tipo==='cer'?'var(--accent2)':'var(--text3)'}">${f(r.tirReal,4)}</td>
+      <td style="${td}color:var(--text)">${f(r.tna)}</td>
+      <td style="${td}color:var(--warn)">${f(r.tir)}</td>
+      <td style="${td}color:var(--text)">${f(r.tem,4)}</td>
+      <td style="padding:5px 4px;border-bottom:1px solid var(--border)">
+        <button onclick="beCPRemove('${item.ticker}','${item.tipo}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px">✕</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function beCPRemove(ticker, tipo){
+  CP_BONDS=CP_BONDS.filter(b=>!(b.ticker===ticker&&b.tipo===tipo));
+  beCPSaveLs();beCPRecalc();
+}
+
+function beCPOpenModal(){
+  beCPModalUpdateList();
+  document.getElementById('be-cp-modal').classList.add('open');
+}
+function beCPCloseModal(){document.getElementById('be-cp-modal').classList.remove('open');}
+
+function beCPModalUpdateList(){
+  const tipo=document.getElementById('be-cp-tipo').value;
+  const sel=document.getElementById('be-cp-ticker');
+  let pool=[];
+  if(tipo==='tf')pool=LECAPS.map(r=>r.ticker);
+  else if(tipo==='cer')pool=CER_BONDS.map(r=>r.ticker);
+  else pool=TAMAR_BONDS.map(r=>r.ticker);
+  const already=new Set(CP_BONDS.filter(b=>b.tipo===tipo).map(b=>b.ticker));
+  const available=pool.filter(t=>!already.has(t));
+  sel.innerHTML=available.length
+    ?available.map(t=>`<option value="${t}">${t}</option>`).join('')
+    :`<option disabled>Sin bonos disponibles</option>`;
+}
+
+function beCPSaveModal(){
+  const tipo=document.getElementById('be-cp-tipo').value;
+  const ticker=document.getElementById('be-cp-ticker').value;
+  if(!ticker)return;
+  if(CP_BONDS.find(b=>b.ticker===ticker&&b.tipo===tipo)){beCPCloseModal();return;}
+  CP_BONDS.push({ticker,tipo});
+  beCPSaveLs();
+  beCPCloseModal();
+  beCPRecalc();
+}
+
+document.getElementById('be-cp-modal').addEventListener('click',e=>{if(e.target===e.currentTarget)beCPCloseModal();});
+
 document.getElementById('cer-modal').addEventListener('click',e=>{if(e.target===e.currentTarget)cerCloseModal();});
 document.getElementById('fer-modal').addEventListener('click',e=>{if(e.target===e.currentTarget)ferCloseModal();});
 document.getElementById('be-modal').addEventListener('click',e=>{if(e.target===e.currentTarget)beCloseModal();});
