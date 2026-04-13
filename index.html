@@ -1674,6 +1674,7 @@ async function fetchPrices(){
       : `${updated} actualizadas · ${now}`;
     statusEl.textContent=msg;
     statusEl.className=notFound.length?'api-status err':'api-status ok';
+    if(currentTab==='breakeven') requestAnimationFrame(()=>{beRenderChartTF();beCPRecalc();});
   }catch(e){
     statusEl.textContent='error de conexión';
     statusEl.className='api-status err';
@@ -3326,7 +3327,7 @@ async function cerFetchIndex(force=false){
     if(CER_BONDS.length) cerRenderTable();
     // re-render forwards y gráfico CER si están abiertos
     if(currentTab==='forwards') fwdRecalc();
-    if(currentTab==='breakeven') beRenderChartCER();
+    if(currentTab==='breakeven'){beRenderChartCER();beRenderChartTF();beCPRecalc();}
     if(currentTab==='cer') cerRenderTabChart();
     return true;
 
@@ -4439,8 +4440,11 @@ function beInit(){
   beRecalc();
   beTamarRecalc();
   beCPRecalc();
-  beRenderChartTF();
-  beRenderChartCER();
+  // defer chart render so canvas has real dimensions
+  requestAnimationFrame(()=>{
+    beRenderChartTF();
+    beRenderChartCER();
+  });
 }
 function beOpenModal(){
   const sel=document.getElementById('be-m-ticker');
