@@ -229,14 +229,13 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 </header>
 
 <nav class="nav">
-  <button class="nav-tab disabled">Resumen <span class="soon">pronto</span></button>
+  <button class="nav-tab" id="nav-breakeven" onclick="switchTab('breakeven')">Resumen</button>
+  <button class="nav-tab" id="nav-forwards" onclick="switchTab('forwards')">Forwards</button>
   <button class="nav-tab active" id="nav-lecap" onclick="switchTab('lecap')">Tasa Fija</button>
-  <button class="nav-tab" id="nav-cer" onclick="switchTab('cer')">Bonos CER</button>
+  <button class="nav-tab" id="nav-cer" onclick="switchTab('cer')">CER</button>
   <button class="nav-tab" id="nav-tamar" onclick="switchTab('tamar')">TAMAR</button>
   <button class="nav-tab disabled">DLK <span class="soon">pronto</span></button>
   <button class="nav-tab disabled">Sintético ARS <span class="soon">pronto</span></button>
-  <button class="nav-tab" id="nav-forwards" onclick="switchTab('forwards')">Forwards</button>
-  <button class="nav-tab" id="nav-breakeven" onclick="switchTab('breakeven')">Breakeven</button>
   <button class="nav-tab" id="nav-proyecciones" onclick="switchTab('proyecciones')">Proyecciones</button>
   <button class="nav-tab" id="nav-feriados" onclick="switchTab('feriados')" style="margin-left:auto">Feriados</button>
 </nav>
@@ -656,6 +655,18 @@ tbody tr.selected .c-ticker{color:var(--accent);}
     </div>
 
   </div><!-- end cer-workspace -->
+
+  <!-- CER CHART: curva TIR real debajo -->
+  <div id="cer-chart-area" style="height:200px;border-top:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;">
+    <div style="display:flex;align-items:center;gap:8px;padding:.3rem 1rem;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <span style="font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em">Curva CER · TIR Real</span>
+      <span id="cer-chart-status" style="font-size:10px;color:var(--text3);margin-left:4px"></span>
+    </div>
+    <div style="flex:1;min-height:0;padding:.2rem .5rem;">
+      <canvas id="cer-curve-chart" style="width:100%;height:100%"></canvas>
+    </div>
+  </div>
+
 </div><!-- end page-cer -->
 
 <!-- ═══════════════════════════════════════════════════════ TAMAR PAGE -->
@@ -753,6 +764,17 @@ tbody tr.selected .c-ticker{color:var(--accent);}
     <div class="right-panel" id="tamar-right-panel" style="display:none;"></div>
 
   </div>
+
+  <!-- TAMAR CHART: curva Margen TNA debajo -->
+  <div id="tamar-chart-area" style="height:200px;border-top:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;">
+    <div style="display:flex;align-items:center;padding:.3rem 1rem;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <span style="font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em">Curva TAMAR · Margen TNA</span>
+    </div>
+    <div style="flex:1;min-height:0;padding:.2rem .5rem;">
+      <canvas id="tamar-curve-chart" style="width:100%;height:100%"></canvas>
+    </div>
+  </div>
+
 </div>
 
 <!-- TAMAR MODAL -->
@@ -2175,6 +2197,7 @@ function switchTab(tab){
     if(!CER_INDEX.length) cerFetchIndex();
     // refrescar precios automáticamente al abrir la tab
     if(CER_BONDS.length) cerFetchPrices();
+    cerRenderTabChart();
   } else if(tab==='feriados'){
     ferPage.style.display='block';
     ferInit();
@@ -2192,6 +2215,7 @@ function switchTab(tab){
     if(!TAMAR_INDEX.length) tamarFetchIndex();
     else tamarRenderIndexStrip();
     tamarRenderTable();
+    tamarRenderTabChart();
   }
 }
 
@@ -3132,6 +3156,7 @@ async function tamarFetchIndex(force=false){
     const now=new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
     if(st){st.textContent=`TAMAR ${last.fecha.split('-').reverse().join('/')} = ${last.valor.toFixed(4)}% · ${now}`;st.className='api-status ok';}
     tamarRenderIndexStrip();
+    if(currentTab==='tamar') tamarRenderTabChart();
     return true;
   }catch(e){
     if(st){st.textContent='TAMAR: error: '+e.message;st.className='api-status err';}
@@ -3239,6 +3264,7 @@ async function cerFetchIndex(force=false){
     // re-render forwards y gráfico CER si están abiertos
     if(currentTab==='forwards') fwdRecalc();
     if(currentTab==='breakeven') beRenderChartCER();
+    if(currentTab==='cer') cerRenderTabChart();
     return true;
 
   }catch(e){
@@ -5036,6 +5062,51 @@ function beChartTFSetMode(m){
   beChartTFMode=m;
   ['tna','tir','tem'].forEach(x=>{const b=document.getElementById('be-chart-tf-'+x);if(b)b.classList.toggle('active',x===m);});
   beRenderChartTF();
+}
+
+// ── CER TAB CHART ─────────────────────────────────────────────────────────────
+let cerTabChart=null;
+function cerRenderTabChart(){
+  const canvas=document.getElementById('cer-curve-chart');
+  const status=document.getElementById('cer-chart-status');
+  if(!canvas)return;
+  if(!CER_INDEX.length){if(status)status.textContent='(sin índice CER)';return;}
+  if(status)status.textContent='';
+  const liq=G_LIQ||addHabiles(TODAY,1);
+  const pts=CER_BONDS.map(r=>{
+    if(!r.vcto||!r.precio)return null;
+    const vctoDate=parseDate(r.vcto);
+    if(!vctoDate)return null;
+    const dias=diasACT(liq,vctoDate);
+    if(dias<=0)return null;
+    const e=cerEnrich(r);
+    if(isNaN(e.tir))return null;
+    return{ticker:r.ticker,dias,val:e.tir};
+  }).filter(Boolean).sort((a,b)=>a.dias-b.dias);
+  if(cerTabChart){cerTabChart.destroy();cerTabChart=null;}
+  if(!pts.length){if(status)status.textContent='(sin datos)';return;}
+  cerTabChart=beDrawScatter(canvas,pts,'#6eb8d5','#3a8aad','TIR Real (%)');
+}
+
+// ── TAMAR TAB CHART ───────────────────────────────────────────────────────────
+let tamarTabChart=null;
+function tamarRenderTabChart(){
+  const canvas=document.getElementById('tamar-curve-chart');
+  if(!canvas)return;
+  if(!TAMAR_INDEX.length)return;
+  const liq=G_LIQ||addHabiles(TODAY,1);
+  if(!TAMAR_DATA.length&&TAMAR_BONDS.length) TAMAR_DATA=TAMAR_BONDS.map(tamarEnrich);
+  const pts=TAMAR_DATA.map(r=>{
+    if(!r.vcto||!r.precio||isNaN(r.margenTNA))return null;
+    const vctoDate=parseDate(r.vcto);
+    if(!vctoDate)return null;
+    const dias=diasACT(liq,vctoDate);
+    if(dias<=0)return null;
+    return{ticker:r.ticker,dias,val:r.margenTNA};
+  }).filter(Boolean).sort((a,b)=>a.dias-b.dias);
+  if(tamarTabChart){tamarTabChart.destroy();tamarTabChart=null;}
+  if(!pts.length)return;
+  tamarTabChart=beDrawScatter(canvas,pts,'#38bdf8','#0ea5e9','Margen TNA (%)');
 }
 
 // ── CHART BOND SELECTORS ──────────────────────────────────────────────────────
