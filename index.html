@@ -4923,19 +4923,19 @@ async function usdFetch(){
     const al30  = bySymbol.get('AL30');
     const al30d = bySymbol.get('AL30D');
     const al30c = bySymbol.get('AL30C');
-    const g=obj=>({bid:parseFloat(obj?.bid||obj?.c||0),ask:parseFloat(obj?.ask||obj?.c||0)});
-    const base=g(al30), mepB=g(al30d), cclB=g(al30c);
-    // MEP: AL30D/AL30
-    const mepBid  = base.ask>0 ? mepB.bid/base.ask : 0;
-    const mepAsk  = base.bid>0 ? mepB.ask/base.bid : 0;
-    // CCL/CABLE: AL30C/AL30
-    const cclBid  = base.ask>0 ? cclB.bid/base.ask : 0;
-    const cclAsk  = base.bid>0 ? cclB.ask/base.bid : 0;
-    // CANJE
+    const pb=(o)=>parseFloat(o?.px_bid||0);
+    const pa=(o)=>parseFloat(o?.px_ask||0);
+    // MEP: BID = px_ask AL30 / px_bid AL30D | OFFER = px_bid AL30 / px_ask AL30D
+    const mepBid  = pb(al30d)>0 ? pa(al30)/pb(al30d) : 0;
+    const mepAsk  = pa(al30d)>0 ? pb(al30)/pa(al30d) : 0;
+    // CABLE: BID = px_ask AL30 / px_bid AL30C | OFFER = px_bid AL30 / px_ask AL30C
+    const cclBid  = pb(al30c)>0 ? pa(al30)/pb(al30c) : 0;
+    const cclAsk  = pa(al30c)>0 ? pb(al30)/pa(al30c) : 0;
+    // CANJE: BID = CCL_BID / MEP_ASK - 1 | OFFER = CCL_ASK / MEP_BID - 1
     const canjeBid = mepAsk>0 ? cclBid/mepAsk-1 : 0;
     const canjeAsk = mepBid>0 ? cclAsk/mepBid-1 : 0;
     const fmt =v=>v>0?v.toFixed(2):'—';
-    const fmtP=v=>v>-1?(v>=0?'+':'')+( v*100).toFixed(2)+'%':'—';
+    const fmtP=v=>(v>=0?'+':'')+( v*100).toFixed(2)+'%';
     document.getElementById('usd-mep-bid').textContent  = fmt(mepBid);
     document.getElementById('usd-mep-ask').textContent  = fmt(mepAsk);
     document.getElementById('usd-ccl-bid').textContent  = fmt(cclBid);
