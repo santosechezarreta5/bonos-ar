@@ -1295,6 +1295,15 @@ let tamarTabChart=null;
 let beChartTFMode='tna';
 let beChartTFExcluded=new Set();
 let beChartCERExcluded=new Set();
+// Pesos Corto Plazo state
+const LS_CP='bonosAR_cp_v1';
+let CP_BONDS=[];
+const CP_COLORS={
+  cer:  {bg:'rgba(74,222,128,0.12)', accent:'#4ade80'},
+  tf:   {bg:'rgba(251,191,36,0.12)', accent:'#fbbf24'},
+  tamar:{bg:'rgba(56,189,248,0.12)', accent:'#38bdf8'},
+};
+const LS_CHART_SEL='bonosAR_chart_sel_v1';
 
 // ── UTILIDADES BÁSICAS (necesarias antes de todo) ─────────────────────────────
 const fmtDate=d=>d.toISOString().split('T')[0];
@@ -4972,13 +4981,6 @@ document.addEventListener('keydown',e=>{
   }
 });
 // ══════════════════════════════════════════════════════════════ PESOS CORTO PLAZO
-const LS_CP='bonosAR_cp_v1';
-let CP_BONDS=[];
-const CP_COLORS={
-  cer:  {bg:'rgba(74,222,128,0.12)', accent:'#4ade80'},
-  tf:   {bg:'rgba(251,191,36,0.12)', accent:'#fbbf24'},
-  tamar:{bg:'rgba(56,189,248,0.12)', accent:'#38bdf8'},
-};
 function beCPLoadLs(){
   try{const r=localStorage.getItem(LS_CP);if(r)CP_BONDS=JSON.parse(r);}catch(e){}
 }
@@ -5217,7 +5219,6 @@ function tamarRenderTabChart(){
 }
 
 // ── CHART BOND SELECTORS ──────────────────────────────────────────────────────
-const LS_CHART_SEL='bonosAR_chart_sel_v1';
 
 function beChartSelLoadLs(){
   try{
