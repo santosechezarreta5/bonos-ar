@@ -923,11 +923,15 @@ tbody tr.selected .c-ticker{color:var(--accent);}
       <div style="flex:1;min-height:0;display:flex;flex-direction:column;border-bottom:1px solid var(--border);">
         <div style="display:flex;align-items:center;gap:8px;padding:.4rem 1rem;flex-shrink:0;border-bottom:1px solid var(--border);">
           <span style="font-size:11px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em">Curva Tasa Fija</span>
+          <button class="btn" style="padding:2px 6px;font-size:10px" onclick="beToggleChartSelector('tf')">bonos ▾</button>
           <div class="mode-row" style="margin-left:auto">
             <button class="mode-btn active" id="be-chart-tf-tna" onclick="beChartTFSetMode('tna')">TNA</button>
             <button class="mode-btn" id="be-chart-tf-tir" onclick="beChartTFSetMode('tir')">TIR</button>
             <button class="mode-btn" id="be-chart-tf-tem" onclick="beChartTFSetMode('tem')">TEM</button>
           </div>
+        </div>
+        <div id="be-chart-tf-selector" style="display:none;padding:.4rem 1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;">
+          <div id="be-chart-tf-chips" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
         </div>
         <div style="flex:1;min-height:0;padding:.25rem .5rem;">
           <canvas id="be-chart-tf" style="width:100%;height:100%"></canvas>
@@ -936,9 +940,13 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 
       <!-- Gráfico CER -->
       <div style="flex:1;min-height:0;display:flex;flex-direction:column;">
-        <div style="display:flex;align-items:center;padding:.4rem 1rem;flex-shrink:0;border-bottom:1px solid var(--border);">
+        <div style="display:flex;align-items:center;gap:8px;padding:.4rem 1rem;flex-shrink:0;border-bottom:1px solid var(--border);">
           <span style="font-size:11px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em">Curva CER · TIR Real</span>
-          <span id="be-chart-cer-status" style="font-size:10px;color:var(--text3);margin-left:8px"></span>
+          <button class="btn" style="padding:2px 6px;font-size:10px" onclick="beToggleChartSelector('cer')">bonos ▾</button>
+          <span id="be-chart-cer-status" style="font-size:10px;color:var(--text3);margin-left:4px"></span>
+        </div>
+        <div id="be-chart-cer-selector" style="display:none;padding:.4rem 1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;">
+          <div id="be-chart-cer-chips" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
         </div>
         <div style="flex:1;min-height:0;padding:.25rem .5rem;">
           <canvas id="be-chart-cer" style="width:100%;height:100%"></canvas>
@@ -4337,6 +4345,7 @@ function beSaveLs(){
 function beInit(){
   beLoadLs();
   beCPLoadLs();
+  beChartSelLoadLs();
   beRecalc();
   beTamarRecalc();
   beCPRecalc();
@@ -4891,6 +4900,13 @@ function beCPEnrich(item){
   return null;
 }
 
+function beCPHeat(val, min, max){
+  if(val==null||isNaN(val)||min===max)return'';
+  const t=(val-min)/(max-min);
+  const r=Math.round(180*(1-t)), g=Math.round(160*t);
+  return `background:rgba(${r},${g},0,0.35);`;
+}
+
 function beCPRecalc(){
   const tbody=document.getElementById('be-cp-tbody');
   if(!tbody)return;
@@ -4899,29 +4915,42 @@ function beCPRecalc(){
     return;
   }
 
-  // ordenar por vencimiento
   const sorted=[...CP_BONDS].sort((a,b)=>{
     const bA=[...LECAPS,...CER_BONDS,...TAMAR_BONDS].find(r=>r.ticker===a.ticker);
     const bB=[...LECAPS,...CER_BONDS,...TAMAR_BONDS].find(r=>r.ticker===b.ticker);
     return(bA?.vcto||'').localeCompare(bB?.vcto||'');
   });
 
+  // enriquecer todos primero para calcular rangos
+  const enriched=sorted.map(item=>({item,r:beCPEnrich(item)}));
+  const valid=enriched.filter(x=>x.r&&!x.r.error);
+
+  // rangos para heatmap de TNA, TIR, TEM
+  const tnaVals=valid.map(x=>x.r.tna).filter(v=>v!=null&&!isNaN(v));
+  const tirVals=valid.map(x=>x.r.tir).filter(v=>v!=null&&!isNaN(v));
+  const temVals=valid.map(x=>x.r.tem).filter(v=>v!=null&&!isNaN(v));
+  const mnTNA=Math.min(...tnaVals),mxTNA=Math.max(...tnaVals);
+  const mnTIR=Math.min(...tirVals),mxTIR=Math.max(...tirVals);
+  const mnTEM=Math.min(...temVals),mxTEM=Math.max(...temVals);
+
   const td='padding:5px 8px;font-size:12px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--border);font-family:var(--mono);';
   const f=(v,d=2)=>v!=null&&!isNaN(v)?v.toFixed(d)+'%':'—';
 
-  tbody.innerHTML=sorted.map(item=>{
-    const r=beCPEnrich(item);
+  tbody.innerHTML=enriched.map(({item,r})=>{
     if(!r)return`<tr><td colspan="9" style="padding:5px 8px;color:var(--danger);font-size:12px;border-bottom:1px solid var(--border)">${item.ticker}: sin datos</td></tr>`;
     if(r.error)return`<tr><td colspan="9" style="padding:5px 8px;color:var(--warn);font-size:12px;border-bottom:1px solid var(--border)">${item.ticker}: ${r.error}</td></tr>`;
+    const htna=beCPHeat(r.tna,mnTNA,mxTNA);
+    const htir=beCPHeat(r.tir,mnTIR,mxTIR);
+    const htem=beCPHeat(r.tem,mnTEM,mxTEM);
     return`<tr style="background:${r.bg}">
       <td style="${td}text-align:left;color:${r.ac};font-weight:600">${r.ticker}</td>
       <td style="${td}text-align:center;color:var(--text2)">${r.vctoStr}</td>
       <td style="${td}text-align:center;color:var(--text3)">${r.fixing}</td>
       <td style="${td}">${r.px!=null?fmtARS(r.px):'—'}</td>
-      <td style="${td}color:${r.tipo==='cer'?'var(--accent2)':'var(--text3)'}">${f(r.tirReal,4)}</td>
-      <td style="${td}color:var(--text)">${f(r.tna)}</td>
-      <td style="${td}color:var(--warn)">${f(r.tir)}</td>
-      <td style="${td}color:var(--text)">${f(r.tem,4)}</td>
+      <td style="${td}color:${r.tipo==='cer'?'var(--accent2)':r.tipo==='tamar'?'var(--warn)':'var(--text3)'}">${f(r.tirReal,4)}</td>
+      <td style="${td}${htna}">${f(r.tna)}</td>
+      <td style="${td}${htir}">${f(r.tir)}</td>
+      <td style="${td}${htem}">${f(r.tem,4)}</td>
       <td style="padding:5px 4px;border-bottom:1px solid var(--border)">
         <button onclick="beCPRemove('${item.ticker}','${item.tipo}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px">✕</button>
       </td>
@@ -5009,11 +5038,68 @@ function beChartTFSetMode(m){
   beRenderChartTF();
 }
 
+// ── CHART BOND SELECTORS ──────────────────────────────────────────────────────
+const LS_CHART_SEL='bonosAR_chart_sel_v1';
+let beChartTFExcluded=new Set();
+let beChartCERExcluded=new Set();
+
+function beChartSelLoadLs(){
+  try{
+    const r=localStorage.getItem(LS_CHART_SEL);
+    if(r){const p=JSON.parse(r);
+      beChartTFExcluded=new Set(p.tf||[]);
+      beChartCERExcluded=new Set(p.cer||[]);
+    }
+  }catch(e){}
+}
+function beChartSelSaveLs(){
+  try{localStorage.setItem(LS_CHART_SEL,JSON.stringify({
+    tf:[...beChartTFExcluded],cer:[...beChartCERExcluded]
+  }));}catch(e){}
+}
+
+function beToggleChartSelector(tipo){
+  const el=document.getElementById('be-chart-'+tipo+'-selector');
+  if(!el)return;
+  const opening=el.style.display==='none';
+  el.style.display=opening?'block':'none';
+  if(opening) beRenderChartChips(tipo);
+}
+
+function beRenderChartChips(tipo){
+  const chipsEl=document.getElementById('be-chart-'+tipo+'-chips');
+  if(!chipsEl)return;
+  const pool=tipo==='tf'
+    ?LECAPS.filter(r=>r.vcto&&r.precio).sort((a,b)=>a.vcto.localeCompare(b.vcto))
+    :CER_BONDS.filter(r=>r.vcto&&r.precio).sort((a,b)=>a.vcto.localeCompare(b.vcto));
+  const excluded=tipo==='tf'?beChartTFExcluded:beChartCERExcluded;
+  chipsEl.innerHTML=pool.map(b=>{
+    const active=!excluded.has(b.ticker);
+    return`<button onclick="beToggleChartBond('${tipo}','${b.ticker}')"
+      style="padding:3px 8px;font-size:10px;font-family:var(--mono);border-radius:3px;cursor:pointer;
+      border:1px solid ${active?'var(--accent)':'var(--border2)'};
+      background:${active?'var(--accent-dim)':'var(--surface2)'};
+      color:${active?'var(--accent)':'var(--text3)'};transition:all .12s"
+    >${b.ticker}</button>`;
+  }).join('');
+}
+
+function beToggleChartBond(tipo, ticker){
+  const excluded=tipo==='tf'?beChartTFExcluded:beChartCERExcluded;
+  if(excluded.has(ticker))excluded.delete(ticker);
+  else excluded.add(ticker);
+  beChartSelSaveLs();
+  beRenderChartChips(tipo);
+  if(tipo==='tf') beRenderChartTF();
+  else beRenderChartCER();
+}
+
+// ── CHART RENDER ──────────────────────────────────────────────────────────────
 function beRenderChartTF(){
   const canvas=document.getElementById('be-chart-tf');
   if(!canvas)return;
   const liq=G_LIQ||addHabiles(TODAY,1);
-  const pts=LECAPS.map(r=>{
+  const pts=LECAPS.filter(r=>!beChartTFExcluded.has(r.ticker)).map(r=>{
     const vctoDate=r.vcto?parseDate(r.vcto):null;
     if(!vctoDate)return null;
     const dias=diasACT(liq,vctoDate);
@@ -5038,7 +5124,7 @@ function beRenderChartCER(){
   if(status)status.textContent='';
   const liq=G_LIQ||addHabiles(TODAY,1);
   // calcular fresh desde CER_BONDS para asegurar datos válidos
-  const pts=CER_BONDS.map(r=>{
+  const pts=CER_BONDS.filter(r=>!beChartCERExcluded.has(r.ticker)).map(r=>{
     if(!r.vcto||!r.precio)return null;
     const vctoDate=parseDate(r.vcto);
     if(!vctoDate)return null;
