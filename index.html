@@ -4419,6 +4419,41 @@ function beLoadLs(){
 function beSaveLs(){
   try{localStorage.setItem(BE_LS_KEY,JSON.stringify(BE_BONOS));}catch(e){}
 }
+
+// ── PESOS CORTO PLAZO state (must be defined before beInit) ───────────────────
+const LS_CP='bonosAR_cp_v1';
+let CP_BONDS=[];
+const CP_COLORS={
+  cer:  {bg:'rgba(74,222,128,0.12)', accent:'#4ade80'},
+  tf:   {bg:'rgba(251,191,36,0.12)', accent:'#fbbf24'},
+  tamar:{bg:'rgba(56,189,248,0.12)', accent:'#38bdf8'},
+};
+function beCPLoadLs(){
+  try{const r=localStorage.getItem(LS_CP);if(r)CP_BONDS=JSON.parse(r);}catch(e){}
+}
+function beCPSaveLs(){
+  try{localStorage.setItem(LS_CP,JSON.stringify(CP_BONDS));}catch(e){}
+}
+
+// ── BE CHART SEL state (must be defined before beInit) ────────────────────────
+const LS_CHART_SEL='bonosAR_chart_sel_v1';
+let beChartTFExcluded=new Set();
+let beChartCERExcluded=new Set();
+function beChartSelLoadLs(){
+  try{
+    const r=localStorage.getItem(LS_CHART_SEL);
+    if(r){const p=JSON.parse(r);
+      beChartTFExcluded=new Set(p.tf||[]);
+      beChartCERExcluded=new Set(p.cer||[]);
+    }
+  }catch(e){}
+}
+function beChartSelSaveLs(){
+  try{localStorage.setItem(LS_CHART_SEL,JSON.stringify({
+    tf:[...beChartTFExcluded],cer:[...beChartCERExcluded]
+  }));}catch(e){}
+}
+
 function beInit(){
   beLoadLs();
   beCPLoadLs();
@@ -4892,28 +4927,30 @@ switchTab('breakeven');
 async function usdFetch(){
   try{
     const ts=Date.now();
-    const [rMep,rCcl]=await Promise.all([
-      fetch(`https://data912.com/live/mep?_=${ts}`,{cache:'no-store'}).then(r=>r.json()),
-      fetch(`https://data912.com/live/ccl?_=${ts}`,{cache:'no-store'}).then(r=>r.json()),
-    ]);
-    // cada respuesta es un array; buscamos el primer item con bid/ask
-    const mep=Array.isArray(rMep)?rMep[0]:rMep;
-    const ccl=Array.isArray(rCcl)?rCcl[0]:rCcl;
-    const mepBid=parseFloat(mep?.bid||mep?.px_bid||mep?.price||0);
-    const mepAsk=parseFloat(mep?.ask||mep?.px_ask||mep?.price||0);
-    const cclBid=parseFloat(ccl?.bid||ccl?.px_bid||ccl?.price||0);
-    const cclAsk=parseFloat(ccl?.ask||ccl?.px_ask||ccl?.price||0);
-    const fmt=v=>v>0?v.toFixed(2):'—';
-    const fmtP=v=>v>0?(v*100).toFixed(2)+'%':'—';
-    document.getElementById('usd-mep-bid').textContent=fmt(mepBid);
-    document.getElementById('usd-mep-ask').textContent=fmt(mepAsk);
-    document.getElementById('usd-ccl-bid').textContent=fmt(cclBid);
-    document.getElementById('usd-ccl-ask').textContent=fmt(cclAsk);
-    // CANJE: bid = cclBid/mepAsk - 1 | ask = cclAsk/mepBid - 1
-    const canjeBid=mepAsk>0?cclBid/mepAsk-1:0;
-    const canjeAsk=mepBid>0?cclAsk/mepBid-1:0;
-    document.getElementById('usd-canje-bid').textContent=fmtP(canjeBid);
-    document.getElementById('usd-canje-ask').textContent=fmtP(canjeAsk);
+    const data=await fetch(`https://data912.com/live/arg_bonds?_=${ts}`,{cache:'no-store'}).then(r=>r.json());
+    const bySymbol=new Map(data.map(x=>[x.symbol,x]));
+    const al30  = bySymbol.get('AL30');
+    const al30d = bySymbol.get('AL30D');
+    const al30c = bySymbol.get('AL30C');
+    const g=obj=>({bid:parseFloat(obj?.bid||obj?.c||0),ask:parseFloat(obj?.ask||obj?.c||0)});
+    const base=g(al30), mepB=g(al30d), cclB=g(al30c);
+    // MEP: AL30D/AL30
+    const mepBid  = base.ask>0 ? mepB.bid/base.ask : 0;
+    const mepAsk  = base.bid>0 ? mepB.ask/base.bid : 0;
+    // CCL/CABLE: AL30C/AL30
+    const cclBid  = base.ask>0 ? cclB.bid/base.ask : 0;
+    const cclAsk  = base.bid>0 ? cclB.ask/base.bid : 0;
+    // CANJE
+    const canjeBid = mepAsk>0 ? cclBid/mepAsk-1 : 0;
+    const canjeAsk = mepBid>0 ? cclAsk/mepBid-1 : 0;
+    const fmt =v=>v>0?v.toFixed(2):'—';
+    const fmtP=v=>v>-1?(v>=0?'+':'')+( v*100).toFixed(2)+'%':'—';
+    document.getElementById('usd-mep-bid').textContent  = fmt(mepBid);
+    document.getElementById('usd-mep-ask').textContent  = fmt(mepAsk);
+    document.getElementById('usd-ccl-bid').textContent  = fmt(cclBid);
+    document.getElementById('usd-ccl-ask').textContent  = fmt(cclAsk);
+    document.getElementById('usd-canje-bid').textContent= fmtP(canjeBid);
+    document.getElementById('usd-canje-ask').textContent= fmtP(canjeAsk);
     const now=new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
     document.getElementById('usd-ts').textContent=now;
   }catch(e){
@@ -4921,7 +4958,7 @@ async function usdFetch(){
   }
 }
 usdFetch();
-setInterval(usdFetch,5*60*1000); // auto-refresh cada 5 min
+setInterval(usdFetch,5*60*1000);
 
 // hook CER into settlement refresh
 const _origUS=updateSettlement;
@@ -4953,21 +4990,6 @@ document.addEventListener('keydown',e=>{
   }
 });
 // ══════════════════════════════════════════════════════════════ PESOS CORTO PLAZO
-const LS_CP='bonosAR_cp_v1';
-let CP_BONDS=[]; // [{ticker, tipo:'tf'|'cer'|'tamar'}]
-
-function beCPLoadLs(){
-  try{const r=localStorage.getItem(LS_CP);if(r)CP_BONDS=JSON.parse(r);}catch(e){}
-}
-function beCPSaveLs(){
-  try{localStorage.setItem(LS_CP,JSON.stringify(CP_BONDS));}catch(e){}
-}
-
-const CP_COLORS={
-  cer:  {bg:'rgba(74,222,128,0.12)', accent:'#4ade80'},
-  tf:   {bg:'rgba(251,191,36,0.12)', accent:'#fbbf24'},
-  tamar:{bg:'rgba(56,189,248,0.12)', accent:'#38bdf8'},
-};
 
 function beCPEnrich(item){
   const {ticker, tipo}=item;
