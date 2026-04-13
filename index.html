@@ -820,97 +820,122 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 </div>
 
 <!-- ═══════════════════════════════════════════════════════ BREAKEVEN PAGE -->
-<div id="page-breakeven" style="display:none;height:calc(100vh - 136px);overflow-y:auto;padding:1.5rem 2rem;">
-  <div style="display:flex;gap:2rem;align-items:flex-start;min-width:0;">
+<div id="page-breakeven" style="display:none;height:calc(100vh - 136px);overflow:hidden;">
+  <div style="display:flex;height:100%;gap:0;min-height:0;">
 
-    <!-- COLUMNA 1: Breakeven Inflación -->
-    <div style="flex:0 0 auto;min-width:0;">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1rem;gap:.75rem;">
-        <div>
-          <div style="font-family:var(--serif);font-size:17px;font-weight:300;font-style:italic;color:var(--accent)">Breakeven · Inflación</div>
-          <div style="font-size:10px;color:var(--text3);margin-top:2px">CER vs Tasa Fija</div>
+    <!-- IZQUIERDA: tablas con scroll -->
+    <div style="flex:0 0 auto;overflow-y:auto;padding:1.25rem 1.25rem;display:flex;flex-direction:column;gap:1.25rem;border-right:1px solid var(--border);">
+
+      <!-- BE Inflación -->
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem;gap:.5rem;">
+          <div style="font-family:var(--serif);font-size:16px;font-weight:300;font-style:italic;color:var(--accent)">Breakeven · Inflación</div>
+          <div style="display:flex;gap:4px;">
+            <button class="btn primary" style="margin:0;padding:3px 7px;font-size:10px" onclick="beRecalc()">↻</button>
+            <button class="btn" style="margin:0;padding:3px 7px;font-size:10px" onclick="beOpenModal()">+</button>
+          </div>
         </div>
-        <div style="display:flex;gap:5px;align-items:center;">
-          <button class="btn primary" style="margin:0;padding:4px 8px;font-size:10px" onclick="beRecalc()">↻</button>
-          <button class="btn" style="margin:0;padding:4px 8px;font-size:10px" onclick="beOpenModal()">+</button>
-        </div>
-      </div>
-      <div style="overflow-x:auto;">
         <table style="border-collapse:collapse;white-space:nowrap;">
           <thead>
             <tr style="border-bottom:1px solid var(--border2)">
-              <th style="text-align:left;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Proy. infla</th>
-              <th style="text-align:center;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Hasta mes</th>
-              <th style="text-align:center;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400" id="be-header-body"></th>
-              <th style="text-align:center;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Dif.</th>
-              <th style="text-align:center;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--info);font-weight:400">Fwd</th>
-              <th style="width:20px"></th>
+              <th style="text-align:left;padding:4px 7px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Proy.</th>
+              <th style="text-align:center;padding:4px 7px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Mes</th>
+              <th style="text-align:center;padding:4px 7px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400" id="be-header-body"></th>
+              <th style="text-align:center;padding:4px 7px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Dif.</th>
+              <th style="text-align:center;padding:4px 7px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--info);font-weight:400">Fwd</th>
+              <th style="width:18px"></th>
             </tr>
             <tr style="border-bottom:1px solid var(--border)" id="be-subheader">
-              <th style="padding:3px 8px;font-size:10px;color:var(--text3);font-weight:400;text-align:left">Prom.</th>
+              <th style="padding:2px 7px;font-size:10px;color:var(--text3);font-weight:400;text-align:left">Prom.</th>
               <th></th>
-              <th id="be-subheader-tickers" style="padding:3px 8px;font-size:10px;color:var(--text3);font-weight:400;text-align:center"></th>
+              <th id="be-subheader-tickers" style="padding:2px 7px;font-size:10px;color:var(--text3);font-weight:400;text-align:center"></th>
               <th></th>
             </tr>
           </thead>
           <tbody id="be-tbody"></tbody>
         </table>
       </div>
-    </div>
 
-    <!-- COLUMNA 2: Breakeven TAMAR -->
-    <div style="flex:0 0 auto;min-width:0;">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1rem;gap:.75rem;">
-        <div>
-          <div style="font-family:var(--serif);font-size:17px;font-weight:300;font-style:italic;color:var(--accent)">Breakeven · TAMAR</div>
-          <div style="font-size:10px;color:var(--text3);margin-top:2px">TAMAR implícita vs TF</div>
+      <!-- BE TAMAR -->
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem;gap:.5rem;">
+          <div style="font-family:var(--serif);font-size:16px;font-weight:300;font-style:italic;color:var(--accent)">Breakeven · TAMAR</div>
+          <button class="btn primary" style="margin:0;padding:3px 7px;font-size:10px" onclick="beTamarRecalc()">↻</button>
         </div>
-        <button class="btn primary" style="margin:0;padding:4px 8px;font-size:10px;flex-shrink:0" onclick="beTamarRecalc()">↻</button>
+        <table style="border-collapse:collapse;white-space:nowrap;">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border2)">
+              <th style="text-align:left;padding:4px 7px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Fecha últ.</th>
+              <th style="text-align:center;padding:4px 7px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Bono</th>
+              <th style="text-align:right;padding:4px 7px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--warn);font-weight:400">TAMAR TNA</th>
+            </tr>
+          </thead>
+          <tbody id="be-tamar-tbody"></tbody>
+        </table>
       </div>
-      <table style="border-collapse:collapse;white-space:nowrap;">
-        <thead>
-          <tr style="border-bottom:1px solid var(--border2)">
-            <th style="text-align:left;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Fecha últ.</th>
-            <th style="text-align:center;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Bono</th>
-            <th style="text-align:right;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--warn);font-weight:400">TAMAR TNA</th>
-          </tr>
-        </thead>
-        <tbody id="be-tamar-tbody"></tbody>
-      </table>
-    </div>
 
-    <!-- COLUMNA 3: Pesos Corto Plazo -->
-    <div style="flex:0 0 auto;min-width:0;">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1rem;gap:.75rem;">
-        <div>
-          <div style="font-family:var(--serif);font-size:17px;font-weight:300;font-style:italic;color:var(--accent)">Pesos Corto Plazo</div>
-          <div style="font-size:10px;color:var(--text3);margin-top:2px">
-            <span style="color:#4ade80">■</span> CER &nbsp;
-            <span style="color:#fbbf24">■</span> Tasa Fija &nbsp;
-            <span style="color:#38bdf8">■</span> TAMAR
+      <!-- Pesos Corto Plazo -->
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem;gap:.5rem;">
+          <div>
+            <div style="font-family:var(--serif);font-size:16px;font-weight:300;font-style:italic;color:var(--accent)">Pesos Corto Plazo</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:2px">
+              <span style="color:#4ade80">■</span> CER &nbsp;<span style="color:#fbbf24">■</span> TF &nbsp;<span style="color:#38bdf8">■</span> TAMAR
+            </div>
+          </div>
+          <div style="display:flex;gap:4px;">
+            <button class="btn primary" style="margin:0;padding:3px 7px;font-size:10px" onclick="beCPRecalc()">↻</button>
+            <button class="btn" style="margin:0;padding:3px 7px;font-size:10px" onclick="beCPOpenModal()">+</button>
           </div>
         </div>
-        <div style="display:flex;gap:5px;align-items:center;">
-          <button class="btn primary" style="margin:0;padding:4px 8px;font-size:10px" onclick="beCPRecalc()">↻</button>
-          <button class="btn" style="margin:0;padding:4px 8px;font-size:10px" onclick="beCPOpenModal()">+</button>
+        <table style="border-collapse:collapse;white-space:nowrap;">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border2)">
+              <th style="text-align:left;padding:4px 7px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Bono</th>
+              <th style="text-align:center;padding:4px 7px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Vto</th>
+              <th style="text-align:center;padding:4px 7px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Fixing</th>
+              <th style="text-align:right;padding:4px 7px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Px</th>
+              <th style="text-align:right;padding:4px 7px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">TIR R/Mgn</th>
+              <th style="text-align:right;padding:4px 7px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">TNA</th>
+              <th style="text-align:right;padding:4px 7px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">TIR</th>
+              <th style="text-align:right;padding:4px 7px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">TEM</th>
+              <th style="width:18px"></th>
+            </tr>
+          </thead>
+          <tbody id="be-cp-tbody"></tbody>
+        </table>
+      </div>
+
+    </div>
+
+    <!-- DERECHA: Gráficos -->
+    <div style="flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden;">
+
+      <!-- Gráfico TF -->
+      <div style="flex:1;min-height:0;display:flex;flex-direction:column;border-bottom:1px solid var(--border);">
+        <div style="display:flex;align-items:center;gap:8px;padding:.4rem 1rem;flex-shrink:0;border-bottom:1px solid var(--border);">
+          <span style="font-size:11px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em">Curva Tasa Fija</span>
+          <div class="mode-row" style="margin-left:auto">
+            <button class="mode-btn active" id="be-chart-tf-tna" onclick="beChartTFSetMode('tna')">TNA</button>
+            <button class="mode-btn" id="be-chart-tf-tir" onclick="beChartTFSetMode('tir')">TIR</button>
+            <button class="mode-btn" id="be-chart-tf-tem" onclick="beChartTFSetMode('tem')">TEM</button>
+          </div>
+        </div>
+        <div style="flex:1;min-height:0;padding:.25rem .5rem;">
+          <canvas id="be-chart-tf" style="width:100%;height:100%"></canvas>
         </div>
       </div>
-      <table style="border-collapse:collapse;white-space:nowrap;">
-        <thead>
-          <tr style="border-bottom:1px solid var(--border2)">
-            <th style="text-align:left;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Bono</th>
-            <th style="text-align:center;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Vto</th>
-            <th style="text-align:center;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Fixing</th>
-            <th style="text-align:right;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Px</th>
-            <th style="text-align:right;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">TIR Real</th>
-            <th style="text-align:right;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">TNA</th>
-            <th style="text-align:right;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">TIR</th>
-            <th style="text-align:right;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">TEM</th>
-            <th style="width:20px"></th>
-          </tr>
-        </thead>
-        <tbody id="be-cp-tbody"></tbody>
-      </table>
+
+      <!-- Gráfico CER -->
+      <div style="flex:1;min-height:0;display:flex;flex-direction:column;">
+        <div style="display:flex;align-items:center;padding:.4rem 1rem;flex-shrink:0;border-bottom:1px solid var(--border);">
+          <span style="font-size:11px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em">Curva CER · TIR Real</span>
+        </div>
+        <div style="flex:1;min-height:0;padding:.25rem .5rem;">
+          <canvas id="be-chart-cer" style="width:100%;height:100%"></canvas>
+        </div>
+      </div>
+
     </div>
 
   </div>
@@ -921,10 +946,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
   <div class="modal">
     <div class="modal-title">Agregar bono CER al Breakeven</div>
     <div class="field-row cols1">
-      <div class="field">
-        <label>Bono CER</label>
-        <select id="be-m-ticker" style="width:100%"></select>
-      </div>
+      <div class="field"><label>Bono CER</label><select id="be-m-ticker" style="width:100%"></select></div>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="beCloseModal()">Cancelar</button>
@@ -938,18 +960,14 @@ tbody tr.selected .c-ticker{color:var(--accent);}
   <div class="modal">
     <div class="modal-title">Agregar bono · Pesos Corto Plazo</div>
     <div class="field-row cols2">
-      <div class="field">
-        <label>Tipo</label>
+      <div class="field"><label>Tipo</label>
         <select id="be-cp-tipo" onchange="beCPModalUpdateList()">
           <option value="tf">Tasa Fija</option>
           <option value="cer">CER</option>
           <option value="tamar">TAMAR</option>
         </select>
       </div>
-      <div class="field">
-        <label>Bono</label>
-        <select id="be-cp-ticker" style="width:100%"></select>
-      </div>
+      <div class="field"><label>Bono</label><select id="be-cp-ticker" style="width:100%"></select></div>
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="beCPCloseModal()">Cancelar</button>
@@ -957,7 +975,6 @@ tbody tr.selected .c-ticker{color:var(--accent);}
     </div>
   </div>
 </div>
-
 <!-- ═══════════════════════════════════════════════════════ PROYECCIONES PAGE -->
 <div id="page-proyecciones" style="display:none;height:calc(100vh - 136px);overflow-y:auto;padding:2rem 2.5rem;">
   <div style="max-width:900px;margin:0 auto;">
@@ -3203,8 +3220,9 @@ async function cerFetchIndex(force=false){
       projRenderPreview();
     }
     if(CER_BONDS.length) cerRenderTable();
-    // re-render forwards si está abierto
+    // re-render forwards y gráfico CER si están abiertos
     if(currentTab==='forwards') fwdRecalc();
+    if(currentTab==='breakeven') beRenderChartCER();
     return true;
 
   }catch(e){
@@ -4314,6 +4332,8 @@ function beInit(){
   beRecalc();
   beTamarRecalc();
   beCPRecalc();
+  beRenderChartTF();
+  beRenderChartCER();
 }
 function beOpenModal(){
   const sel=document.getElementById('be-m-ticker');
@@ -4855,7 +4875,7 @@ function beCPEnrich(item){
     const vctoStr=b.vcto?b.vcto.split('-').reverse().join('/'):'—';
     const fixStr=e._debug?e._debug.fixVto.split('-').reverse().join('/'):'—';
     return{ticker,tipo,vctoStr,fixing:fixStr,px:b.precio,
-      tirReal:null,
+      tirReal:isNaN(e.margenTNA)?null:e.margenTNA, // margen TNA para TAMAR
       tna:isNaN(e.tna)?null:e.tna,
       tir:isNaN(e.tir)?null:e.tir,
       tem:isNaN(e.tem)?null:e.tem,bg,ac};
@@ -4944,7 +4964,82 @@ document.getElementById('fer-modal').addEventListener('click',e=>{if(e.target===
 document.getElementById('be-modal').addEventListener('click',e=>{if(e.target===e.currentTarget)beCloseModal();});
 document.getElementById('tamar-modal').addEventListener('click',e=>{if(e.target===e.currentTarget)tamarCloseModal();});
 
-// ══════════════════════════════════════════════════════════════ FORWARDS
+// ══════════════════════════════════════════════════════════════ BE CHARTS
+let beChartTFMode='tna';
+let beChartTF=null, beChartCER=null;
+
+function beChartTFSetMode(m){
+  beChartTFMode=m;
+  ['tna','tir','tem'].forEach(x=>{const b=document.getElementById('be-chart-tf-'+x);if(b)b.classList.toggle('active',x===m);});
+  beRenderChartTF();
+}
+
+function beRenderChartTF(){
+  const canvas=document.getElementById('be-chart-tf');
+  if(!canvas)return;
+  const liq=G_LIQ||addHabiles(TODAY,1);
+  const pts=LECAPS.map(r=>{
+    const vctoDate=r.vcto?parseDate(r.vcto):null;
+    if(!vctoDate)return null;
+    const dias=diasACT(liq,vctoDate);
+    if(dias<=0||!r.precio)return null;
+    const calc=calcLecap(r);
+    if(!calc)return null;
+    return{ticker:r.ticker,dias,val:calc[beChartTFMode]};
+  }).filter(Boolean).sort((a,b)=>a.dias-b.dias);
+  if(beChartTF){beChartTF.destroy();beChartTF=null;}
+  if(!pts.length)return;
+  beChartTF=beDrawScatter(canvas,pts,'#a8d5a2','#6eb868',beChartTFMode.toUpperCase()+' (%)');
+}
+
+function beRenderChartCER(){
+  const canvas=document.getElementById('be-chart-cer');
+  if(!canvas)return;
+  if(!CER_INDEX.length)return;
+  if(!CER_DATA.length&&CER_BONDS.length)CER_DATA=CER_BONDS.map(cerEnrich);
+  const pts=CER_DATA.map(r=>{
+    if(!r.vctoDate||r.dias<=0||!r.precio||isNaN(r.tir))return null;
+    return{ticker:r.ticker,dias:r.dias,val:r.tir};
+  }).filter(Boolean).sort((a,b)=>a.dias-b.dias);
+  if(beChartCER){beChartCER.destroy();beChartCER=null;}
+  if(!pts.length)return;
+  beChartCER=beDrawScatter(canvas,pts,'#6eb8d5','#3a8aad','TIR Real (%)');
+}
+
+function beDrawScatter(canvas,pts,ptColor,ptBorder,yLabel){
+  const xVals=pts.map(p=>p.dias),yVals=pts.map(p=>p.val);
+  const lx=xVals.map(x=>Math.log(x));
+  const n=xVals.length;
+  const slx=lx.reduce((s,v)=>s+v,0),sy=yVals.reduce((s,v)=>s+v,0);
+  const slx2=lx.reduce((s,v)=>s+v*v,0),slxy=lx.reduce((s,v,i)=>s+v*yVals[i],0);
+  const den=n*slx2-slx*slx;
+  const b=den!==0?(n*slxy-slx*sy)/den:0,a=(sy-b*slx)/n;
+  const xMin=Math.min(...xVals),xMax=Math.max(...xVals);
+  const trendData=[];
+  for(let i=0;i<=100;i++){const x=xMin+(xMax-xMin)*i/100;trendData.push({x:Math.round(x),y:a+b*Math.log(x)});}
+  if(window.ChartDataLabels)Chart.register(ChartDataLabels);
+  return new Chart(canvas,{
+    type:'scatter',
+    data:{datasets:[
+      {label:'Tendencia',data:trendData,type:'line',borderColor:'rgba(168,213,162,0.4)',borderWidth:1.5,pointRadius:0,fill:false,tension:0.4,order:1},
+      {label:yLabel,data:pts.map(p=>({x:p.dias,y:p.val,ticker:p.ticker})),backgroundColor:ptColor,borderColor:ptBorder,pointRadius:5,pointHoverRadius:7,order:2}
+    ]},
+    options:{
+      responsive:true,maintainAspectRatio:false,animation:{duration:0},
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>ctx.raw.ticker?`${ctx.raw.ticker}: ${ctx.raw.y.toFixed(2)}%`:`${ctx.raw.y.toFixed(2)}%`}},
+        datalabels:{display:ctx=>ctx.datasetIndex===1,
+          formatter:(v,ctx)=>ctx.chart.data.datasets[1].data[ctx.dataIndex].ticker||'',
+          color:'#a8d5a2',font:{size:9,family:'DM Mono,monospace'},anchor:'end',align:'top',offset:2}
+      },
+      scales:{
+        x:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#6b7c6b',font:{size:9}},title:{display:true,text:'Días',color:'#6b7c6b',font:{size:9}}},
+        y:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#6b7c6b',font:{size:9},callback:v=>v.toFixed(1)+'%'},title:{display:true,text:yLabel,color:'#6b7c6b',font:{size:9}}}
+      }
+    }
+  });
+}
 let fwdMode='tir';
 const FWD_LS='bonosAR_fwd_v1';
 // Sets de tickers excluidos (null = todos incluidos por defecto)
