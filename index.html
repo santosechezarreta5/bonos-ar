@@ -57,7 +57,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13
 .api-status.err{color:var(--danger);}
 .api-status.loading{color:var(--warn);}
 
-.workspace{display:flex;flex-direction:column;height:calc(100vh - 136px);overflow:hidden;}
+.workspace{display:flex;flex-direction:column;height:calc(100vh - 164px);overflow:hidden;}
 .workspace-top{display:flex;flex:1;min-height:0;overflow:hidden;}
 
 /* left pane */
@@ -229,9 +229,9 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 </header>
 
 <nav class="nav">
-  <button class="nav-tab" id="nav-breakeven" onclick="switchTab('breakeven')">Resumen</button>
+  <button class="nav-tab active" id="nav-breakeven" onclick="switchTab('breakeven')">Resumen</button>
   <button class="nav-tab" id="nav-forwards" onclick="switchTab('forwards')">Forwards</button>
-  <button class="nav-tab active" id="nav-lecap" onclick="switchTab('lecap')">Tasa Fija</button>
+  <button class="nav-tab" id="nav-lecap" onclick="switchTab('lecap')">Tasa Fija</button>
   <button class="nav-tab" id="nav-cer" onclick="switchTab('cer')">CER</button>
   <button class="nav-tab" id="nav-tamar" onclick="switchTab('tamar')">TAMAR</button>
   <button class="nav-tab disabled">DLK <span class="soon">pronto</span></button>
@@ -239,6 +239,31 @@ tbody tr.selected .c-ticker{color:var(--accent);}
   <button class="nav-tab" id="nav-proyecciones" onclick="switchTab('proyecciones')">Proyecciones</button>
   <button class="nav-tab" id="nav-feriados" onclick="switchTab('feriados')" style="margin-left:auto">Feriados</button>
 </nav>
+
+<!-- USD BAR -->
+<div id="usd-bar" style="display:flex;align-items:center;gap:0;background:var(--surface);border-bottom:1px solid var(--border);padding:0 1rem;height:28px;font-family:var(--mono);font-size:11px;flex-shrink:0;">
+  <span style="color:var(--text3);margin-right:8px;font-size:10px;text-transform:uppercase;letter-spacing:.06em">USD</span>
+  <!-- MEP -->
+  <span style="color:var(--text3);margin-right:5px">MEP</span>
+  <span id="usd-mep-bid" style="color:var(--accent2)">—</span>
+  <span style="color:var(--border2);margin:0 3px">/</span>
+  <span id="usd-mep-ask" style="color:var(--accent2)">—</span>
+  <span style="width:1px;background:var(--border);height:16px;margin:0 12px;flex-shrink:0;"></span>
+  <!-- CABLE -->
+  <span style="color:var(--text3);margin-right:5px">CABLE</span>
+  <span id="usd-ccl-bid" style="color:var(--warn)">—</span>
+  <span style="color:var(--border2);margin:0 3px">/</span>
+  <span id="usd-ccl-ask" style="color:var(--warn)">—</span>
+  <span style="width:1px;background:var(--border);height:16px;margin:0 12px;flex-shrink:0;"></span>
+  <!-- CANJE -->
+  <span style="color:var(--text3);margin-right:5px">CANJE</span>
+  <span id="usd-canje-bid" style="color:var(--info)">—</span>
+  <span style="color:var(--border2);margin:0 3px">/</span>
+  <span id="usd-canje-ask" style="color:var(--info)">—</span>
+  <span style="width:1px;background:var(--border);height:16px;margin:0 12px;flex-shrink:0;"></span>
+  <span id="usd-ts" style="color:var(--text3);font-size:10px">—</span>
+  <button onclick="usdFetch()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;margin-left:6px;padding:0">↻</button>
+</div>
 
 <!-- SETTLEMENT BAR -->
 <div class="sbar">
@@ -427,7 +452,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 </div><!-- end workspace -->
 
 <!-- ═══════════════════════════════════════════════════════ CER PAGE -->
-<div id="page-cer" style="display:none;height:calc(100vh - 136px);flex-direction:column;overflow:hidden;">
+<div id="page-cer" style="display:none;height:calc(100vh - 164px);flex-direction:column;overflow:hidden;">
 
   <div class="cer-workspace">
 
@@ -658,6 +683,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 
   <!-- CER CHART: curva TIR real debajo -->
   <div id="cer-chart-area" style="height:200px;border-top:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;">
+    <div class="chart-resize-handle" id="cer-chart-resize-handle"></div>
     <div style="display:flex;align-items:center;gap:8px;padding:.3rem 1rem;border-bottom:1px solid var(--border);flex-shrink:0;">
       <span style="font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em">Curva CER · TIR Real</span>
       <span id="cer-chart-status" style="font-size:10px;color:var(--text3);margin-left:4px"></span>
@@ -670,7 +696,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 </div><!-- end page-cer -->
 
 <!-- ═══════════════════════════════════════════════════════ TAMAR PAGE -->
-<div id="page-tamar" style="display:none;height:calc(100vh - 136px);overflow:hidden;flex-direction:column;">
+<div id="page-tamar" style="display:none;height:calc(100vh - 164px);overflow:hidden;flex-direction:column;">
   <div style="display:flex;flex:1;height:100%;gap:0;min-height:0;">
 
     <!-- LEFT: índice TAMAR arriba + tabla bonos abajo -->
@@ -767,6 +793,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 
   <!-- TAMAR CHART: curva Margen TNA debajo -->
   <div id="tamar-chart-area" style="height:200px;border-top:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;">
+    <div class="chart-resize-handle" id="tamar-chart-resize-handle"></div>
     <div style="display:flex;align-items:center;padding:.3rem 1rem;border-bottom:1px solid var(--border);flex-shrink:0;">
       <span style="font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em">Curva TAMAR · Margen TNA</span>
     </div>
@@ -800,7 +827,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 </div>
 
 <!-- ═══════════════════════════════════════════════════════ FORWARDS PAGE -->
-<div id="page-forwards" style="display:none;height:calc(100vh - 136px);overflow-y:auto;padding:1.5rem 2rem;">
+<div id="page-forwards" style="display:none;height:calc(100vh - 164px);overflow-y:auto;padding:1.5rem 2rem;">
 
   <!-- CONTROLES -->
   <div style="display:flex;align-items:center;gap:1.5rem;margin-bottom:1.25rem;flex-wrap:wrap;">
@@ -844,7 +871,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 </div>
 
 <!-- ═══════════════════════════════════════════════════════ BREAKEVEN PAGE -->
-<div id="page-breakeven" style="display:none;height:calc(100vh - 136px);overflow:hidden;">
+<div id="page-breakeven" style="display:none;height:calc(100vh - 164px);overflow:hidden;">
   <div id="be-columns" style="display:flex;height:100%;gap:0;min-height:0;">
 
     <!-- COL 1: BE Inflación + BE TAMAR (resizable) -->
@@ -1014,7 +1041,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
   </div>
 </div>
 <!-- ═══════════════════════════════════════════════════════ PROYECCIONES PAGE -->
-<div id="page-proyecciones" style="display:none;height:calc(100vh - 136px);overflow-y:auto;padding:2rem 2.5rem;">
+<div id="page-proyecciones" style="display:none;height:calc(100vh - 164px);overflow-y:auto;padding:2rem 2.5rem;">
   <div style="max-width:900px;margin:0 auto;">
 
     <!-- HEADER -->
@@ -1096,7 +1123,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 </div>
 
 <!-- ═══════════════════════════════════════════════════════ FERIADOS PAGE -->
-<div id="page-feriados" style="display:none;height:calc(100vh - 136px);overflow-y:auto;padding:2rem 2.5rem;">
+<div id="page-feriados" style="display:none;height:calc(100vh - 164px);overflow-y:auto;padding:2rem 2.5rem;">
   <div style="max-width:700px;margin:0 auto;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;">
       <div>
@@ -2165,6 +2192,30 @@ function renderChart(){
     document.body.style.userSelect='';
     if(curveChart)curveChart.resize();
   });
+}());
+
+// CER chart resize
+(function(){
+  const handle=document.getElementById('cer-chart-resize-handle');
+  const area=document.getElementById('cer-chart-area');
+  if(!handle||!area)return;
+  const MIN_H=100,MAX_H=600;
+  let dragging=false,startY=0,startH=0;
+  handle.addEventListener('mousedown',e=>{dragging=true;startY=e.clientY;startH=area.offsetHeight;document.body.style.cursor='ns-resize';document.body.style.userSelect='none';e.preventDefault();});
+  document.addEventListener('mousemove',e=>{if(!dragging)return;const newH=Math.min(MAX_H,Math.max(MIN_H,startH+(startY-e.clientY)));area.style.height=newH+'px';if(cerTabChart)cerTabChart.resize();});
+  document.addEventListener('mouseup',()=>{if(!dragging)return;dragging=false;document.body.style.cursor='';document.body.style.userSelect='';if(cerTabChart)cerTabChart.resize();});
+}());
+
+// TAMAR chart resize
+(function(){
+  const handle=document.getElementById('tamar-chart-resize-handle');
+  const area=document.getElementById('tamar-chart-area');
+  if(!handle||!area)return;
+  const MIN_H=100,MAX_H=600;
+  let dragging=false,startY=0,startH=0;
+  handle.addEventListener('mousedown',e=>{dragging=true;startY=e.clientY;startH=area.offsetHeight;document.body.style.cursor='ns-resize';document.body.style.userSelect='none';e.preventDefault();});
+  document.addEventListener('mousemove',e=>{if(!dragging)return;const newH=Math.min(MAX_H,Math.max(MIN_H,startH+(startY-e.clientY)));area.style.height=newH+'px';if(tamarTabChart)tamarTabChart.resize();});
+  document.addEventListener('mouseup',()=>{if(!dragging)return;dragging=false;document.body.style.cursor='';document.body.style.userSelect='';if(tamarTabChart)tamarTabChart.resize();});
 }());
 
 // ══════════════════════════════════════════════════════════════ TAB SWITCHER
@@ -4835,6 +4886,42 @@ loadPortfolio();
 tamarLoadBonds();
 cerFetchIndex();
 tamarFetchIndex();
+switchTab('breakeven');
+
+// ══════════════════════════════════════════════════════════════ USD BAR
+async function usdFetch(){
+  try{
+    const ts=Date.now();
+    const [rMep,rCcl]=await Promise.all([
+      fetch(`https://data912.com/live/mep?_=${ts}`,{cache:'no-store'}).then(r=>r.json()),
+      fetch(`https://data912.com/live/ccl?_=${ts}`,{cache:'no-store'}).then(r=>r.json()),
+    ]);
+    // cada respuesta es un array; buscamos el primer item con bid/ask
+    const mep=Array.isArray(rMep)?rMep[0]:rMep;
+    const ccl=Array.isArray(rCcl)?rCcl[0]:rCcl;
+    const mepBid=parseFloat(mep?.bid||mep?.px_bid||mep?.price||0);
+    const mepAsk=parseFloat(mep?.ask||mep?.px_ask||mep?.price||0);
+    const cclBid=parseFloat(ccl?.bid||ccl?.px_bid||ccl?.price||0);
+    const cclAsk=parseFloat(ccl?.ask||ccl?.px_ask||ccl?.price||0);
+    const fmt=v=>v>0?v.toFixed(2):'—';
+    const fmtP=v=>v>0?(v*100).toFixed(2)+'%':'—';
+    document.getElementById('usd-mep-bid').textContent=fmt(mepBid);
+    document.getElementById('usd-mep-ask').textContent=fmt(mepAsk);
+    document.getElementById('usd-ccl-bid').textContent=fmt(cclBid);
+    document.getElementById('usd-ccl-ask').textContent=fmt(cclAsk);
+    // CANJE: bid = cclBid/mepAsk - 1 | ask = cclAsk/mepBid - 1
+    const canjeBid=mepAsk>0?cclBid/mepAsk-1:0;
+    const canjeAsk=mepBid>0?cclAsk/mepBid-1:0;
+    document.getElementById('usd-canje-bid').textContent=fmtP(canjeBid);
+    document.getElementById('usd-canje-ask').textContent=fmtP(canjeAsk);
+    const now=new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+    document.getElementById('usd-ts').textContent=now;
+  }catch(e){
+    document.getElementById('usd-ts').textContent='error';
+  }
+}
+usdFetch();
+setInterval(usdFetch,5*60*1000); // auto-refresh cada 5 min
 
 // hook CER into settlement refresh
 const _origUS=updateSettlement;
