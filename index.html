@@ -17,6 +17,23 @@
   --danger:#d47a7a;--danger-dim:#2e1a1a;
   --mono:'DM Mono',monospace;--serif:'Fraunces',serif;
 }
+/* TEMA MEDIO */
+body.theme-mid{
+  --bg:#1e2320;--surface:#262b27;--surface2:#2e342f;
+  --border:#363d37;--border2:#404840;
+  --text:#dde8de;--text2:#8a9e8b;--text3:#5a6b5b;
+  --accent-dim:#1f3320;--warn-dim:#332b15;--info-dim:#162130;--danger-dim:#321f1f;
+}
+/* TEMA CLARO */
+body.theme-light{
+  --bg:#f4f6f4;--surface:#ffffff;--surface2:#eaeeea;
+  --border:#d0d8d0;--border2:#b8c4b8;
+  --text:#1a221a;--text2:#4a5e4a;--text3:#7a8e7a;
+  --accent:#3a8a34;--accent2:#2d6e28;--accent-dim:#d8ecd6;
+  --warn:#a06820;--warn-dim:#fdf0dc;
+  --info:#2a6a94;--info-dim:#dceef8;
+  --danger:#a03030;--danger-dim:#fde8e8;
+}
 *{box-sizing:border-box;margin:0;padding:0;}
 body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13px;min-height:100vh;overflow-x:hidden;}
 
@@ -225,7 +242,14 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 
 <header class="header">
   <div class="logo">bonos<span>AR</span></div>
-  <div class="hdate" id="hoy"></div>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <div class="mode-row" id="theme-switcher">
+      <button class="mode-btn active" id="theme-btn-dark"  onclick="setTheme('dark')" title="Oscuro">◐</button>
+      <button class="mode-btn"        id="theme-btn-mid"   onclick="setTheme('mid')"  title="Medio">◑</button>
+      <button class="mode-btn"        id="theme-btn-light" onclick="setTheme('light')" title="Claro">○</button>
+    </div>
+    <div class="hdate" id="hoy"></div>
+  </div>
 </header>
 
 <nav class="nav">
@@ -4914,6 +4938,25 @@ cerFetchIndex();
 tamarFetchIndex();
 switchTab('breakeven');
 
+// ══════════════════════════════════════════════════════════════ THEME
+function setTheme(t){
+  document.body.classList.remove('theme-mid','theme-light');
+  if(t==='mid')document.body.classList.add('theme-mid');
+  else if(t==='light')document.body.classList.add('theme-light');
+  ['dark','mid','light'].forEach(x=>{
+    const b=document.getElementById('theme-btn-'+x);
+    if(b)b.classList.toggle('active',x===t);
+  });
+  try{localStorage.setItem('bonosAR_theme',t);}catch(e){}
+  // resize charts after theme change
+  [curveChart,beChartTF,beChartCER,cerTabChart,tamarTabChart].forEach(c=>{if(c)c.resize();});
+}
+// restore saved theme
+(function(){
+  const saved=localStorage.getItem('bonosAR_theme')||'dark';
+  if(saved!=='dark')setTheme(saved);
+}());
+
 // ══════════════════════════════════════════════════════════════ USD BAR
 async function usdFetch(){
   try{
@@ -4925,12 +4968,12 @@ async function usdFetch(){
     const al30c = bySymbol.get('AL30C');
     const pb=(o)=>parseFloat(o?.px_bid||0);
     const pa=(o)=>parseFloat(o?.px_ask||0);
-    // MEP: BID = px_ask AL30 / px_bid AL30D | OFFER = px_bid AL30 / px_ask AL30D
-    const mepBid  = pb(al30d)>0 ? pa(al30)/pb(al30d) : 0;
-    const mepAsk  = pa(al30d)>0 ? pb(al30)/pa(al30d) : 0;
-    // CABLE: BID = px_ask AL30 / px_bid AL30C | OFFER = px_bid AL30 / px_ask AL30C
-    const cclBid  = pb(al30c)>0 ? pa(al30)/pb(al30c) : 0;
-    const cclAsk  = pa(al30c)>0 ? pb(al30)/pa(al30c) : 0;
+    // MEP: OFFER = px_ask AL30 / px_bid AL30D | BID = px_bid AL30 / px_ask AL30D
+    const mepAsk  = pb(al30d)>0 ? pa(al30)/pb(al30d) : 0;
+    const mepBid  = pa(al30d)>0 ? pb(al30)/pa(al30d) : 0;
+    // CABLE: OFFER = px_ask AL30 / px_bid AL30C | BID = px_bid AL30 / px_ask AL30C
+    const cclAsk  = pb(al30c)>0 ? pa(al30)/pb(al30c) : 0;
+    const cclBid  = pa(al30c)>0 ? pb(al30)/pa(al30c) : 0;
     // CANJE: BID = CCL_BID / MEP_ASK - 1 | OFFER = CCL_ASK / MEP_BID - 1
     const canjeBid = mepAsk>0 ? cclBid/mepAsk-1 : 0;
     const canjeAsk = mepBid>0 ? cclAsk/mepBid-1 : 0;
