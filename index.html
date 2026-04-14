@@ -52,6 +52,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13
 .auth-btn{display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:4px;border:1px solid var(--border2);background:var(--surface);color:var(--text2);font-family:var(--mono);font-size:11px;cursor:pointer;transition:all .15s;}
 .auth-btn:hover{border-color:var(--accent);color:var(--accent);}
 .auth-avatar{width:22px;height:22px;border-radius:50%;object-fit:cover;}
+.col-resizer{width:5px;cursor:col-resize;background:transparent;flex-shrink:0;transition:background .15s;}
 .col-resizer:hover,.col-resizer.dragging{background:var(--accent-dim);}
 
 /* settlement bar */
@@ -1337,11 +1338,20 @@ async function authInit(){
   });
 }
 
-async function authSetUser(user){
-  SUPA_USER=user;
-  authUpdateUI(user);
-  await supaLoadUserData();
-  await supaLoadSharedData();
+const ADMIN_EMAIL='santosechezarreta5@gmail.com'; // reemplazá con tu email real
+
+function isAdmin(){
+  return SUPA_USER&&SUPA_USER.email===ADMIN_EMAIL;
+}
+
+function authUpdateAdminUI(){
+  const admin=isAdmin();
+  // Solo ocultar botones de agregar nuevos bonos (+ Nueva, + Agregar)
+  document.querySelectorAll(
+    '.pane-toolbar .btn.primary, .btn.primary[onclick*="Modal"], .btn.primary[onclick*="OpenModal"]'
+  ).forEach(el=>{
+    el.style.display=admin?'':'none';
+  });
 }
 
 function authUpdateUI(user){
@@ -1355,8 +1365,16 @@ function authUpdateUI(user){
       ?`<img class="auth-avatar" src="${avatar}"><span>${name.split(' ')[0]}</span><span style="color:var(--text3);font-size:10px">▼</span>`
       :`<span>${name.split(' ')[0]}</span><span style="color:var(--text3);font-size:10px">▼</span>`;
   } else {
-    btn.innerHTML=`<span id="auth-btn-label">Iniciar sesión con Google</span>`;
+    btn.innerHTML=`<span>Iniciar sesión con Google</span>`;
   }
+}
+
+async function authSetUser(user){
+  SUPA_USER=user;
+  authUpdateUI(user);
+  authUpdateAdminUI();
+  await supaLoadUserData();
+  await supaLoadSharedData();
 }
 
 async function authAction(){
@@ -1943,7 +1961,7 @@ function buildRow(r){
     <td>${cellContent('tem')}</td>
     <td><div class="cv no-edit c-muted">${fmtARS(r.vf)}</div></td>
     <td onclick="event.stopPropagation()"><div class="row-act">
-      <button class="rbtn del" title="Eliminar" onclick="deleteRow('${r.ticker}')">✕</button>
+      <button class="rbtn del" title="Eliminar" onclick="deleteRow('${r.ticker}')" style="display:${isAdmin()?'':'none'}">✕</button>
     </div></td>
   </tr>`;
 }
@@ -2943,7 +2961,7 @@ function cerRenderTable(){
       <td>${cercProy(r.tnaProy)}</td>
       <td>${cercProy(r.temProy)}</td>
       <td onclick="event.stopPropagation()"><div class="row-act">
-        <button class="rbtn del" onclick="cerDeleteRow('${r.ticker}')">✕</button>
+        <button class="rbtn del" onclick="cerDeleteRow('${r.ticker}')" style="display:${isAdmin()?'':'none'}">✕</button>
       </div></td>
     </tr>`;
   }).join('');
@@ -4275,7 +4293,7 @@ function tamarRenderTable(){
       <td><div class="cv no-edit c-muted">${f(r.tna)}</div></td>
       <td><div class="cv no-edit c-muted">${f(r.tem,4)}</div></td>
       <td onclick="event.stopPropagation()"><div class="row-act">
-        <button class="rbtn del" onclick="tamarDeleteRow('${r.ticker}')">✕</button>
+        <button class="rbtn del" onclick="tamarDeleteRow('${r.ticker}')" style="display:${isAdmin()?'':'none'}">✕</button>
       </div></td>
     </tr>`;
   }).join('');
