@@ -1325,7 +1325,12 @@ let SUPA_USER=null;
 async function authInit(){
   // Handle OAuth redirect
   const{data:{session}}=await supa.auth.getSession();
-  if(session)await authSetUser(session.user);
+  if(session){
+    await authSetUser(session.user);
+  } else {
+    // No session — apply non-admin UI immediately
+    authUpdateAdminUI();
+  }
 
   // Listen for auth changes
   supa.auth.onAuthStateChange(async(event,session)=>{
@@ -1334,6 +1339,7 @@ async function authInit(){
     } else if(event==='SIGNED_OUT'){
       SUPA_USER=null;
       authUpdateUI(null);
+      authUpdateAdminUI();
     }
   });
 }
