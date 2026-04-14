@@ -6,7 +6,7 @@
 <title>bonosAR — Instrumentos Soberanos ARS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;1,9..144,300&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
 :root{
   --bg:#0d0f0e;--surface:#141715;--surface2:#1a1d1b;
@@ -1318,7 +1318,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 // ══════════════════════════════════════════════════════════════ SUPABASE
 const SUPA_URL='https://hxkxyawsstivjsxmafge.supabase.co';
 const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh4a3h5YXdzc3RpdmpzeG1hZmdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxNTU2NjQsImV4cCI6MjA5MTczMTY2NH0.e7dRO1CeC5WyS0nh0mhI2cHA-kYKjXqiEx9HKHOa3qI';
-const supa=supabase.createClient(SUPA_URL,SUPA_KEY);
+const supa=window.supabase.createClient(SUPA_URL,SUPA_KEY);
 let SUPA_USER=null;
 
 // ── AUTH ──────────────────────────────────────────────────────────────────────
