@@ -1323,6 +1323,9 @@ let SUPA_USER=null;
 
 // ── AUTH ──────────────────────────────────────────────────────────────────────
 async function authInit(){
+  // Cargar datos compartidos siempre (son públicos, no requieren login)
+  await supaLoadSharedData();
+
   // Handle OAuth redirect
   const{data:{session}}=await supa.auth.getSession();
   if(session){
