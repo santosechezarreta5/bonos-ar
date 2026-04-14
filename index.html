@@ -1355,10 +1355,14 @@ function isAdmin(){
 
 function authUpdateAdminUI(){
   const admin=isAdmin();
-  // Solo ocultar botones de agregar nuevos bonos (+ Nueva, + Agregar)
+  // Solo ocultar botones de agregar/eliminar bonos en las toolbars de TF/CER/TAMAR
   document.querySelectorAll(
-    '.pane-toolbar .btn.primary, .btn.primary[onclick*="Modal"], .btn.primary[onclick*="OpenModal"]'
+    '.pane-toolbar .btn.primary'
   ).forEach(el=>{
+    el.style.display=admin?'':'none';
+  });
+  // Ocultar botones de eliminar en tablas
+  document.querySelectorAll('.rbtn.del').forEach(el=>{
     el.style.display=admin?'':'none';
   });
 }
@@ -1427,10 +1431,15 @@ async function supaLoadSharedData(){
         _origSetItem(row.key,JSON.stringify(row.value));
       }catch(e){}
     });
-    // reload portfolio with fresh data
+    // Reload all bond data from localStorage
     loadPortfolio();
     tamarLoadBonds();
-    if(CER_INDEX.length)cerRenderTable();
+    // Re-render current tab
+    if(currentTab==='lecap') renderTable();
+    if(currentTab==='cer'){cerRenderTable();if(CER_INDEX.length)cerRenderTabChart();}
+    if(currentTab==='tamar'){tamarRenderTable();if(TAMAR_INDEX.length)tamarRenderTabChart();}
+    if(currentTab==='breakeven') beInit();
+    if(currentTab==='forwards') fwdRecalc();
   }catch(e){console.warn('supaLoadSharedData:',e);}
 }
 
