@@ -6,6 +6,7 @@
 <title>bonosAR — Instrumentos Soberanos ARS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;1,9..144,300&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
   --bg:#0d0f0e;--surface:#141715;--surface2:#1a1d1b;
@@ -48,7 +49,9 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13
 .nav-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
 .nav-tab.disabled{opacity:.3;cursor:not-allowed;}
 .soon{font-size:9px;background:var(--surface2);color:var(--text3);padding:1px 4px;border-radius:3px;margin-left:4px;vertical-align:middle;}
-.col-resizer{width:5px;cursor:col-resize;background:transparent;flex-shrink:0;transition:background .15s;}
+.auth-btn{display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:4px;border:1px solid var(--border2);background:var(--surface);color:var(--text2);font-family:var(--mono);font-size:11px;cursor:pointer;transition:all .15s;}
+.auth-btn:hover{border-color:var(--accent);color:var(--accent);}
+.auth-avatar{width:22px;height:22px;border-radius:50%;object-fit:cover;}
 .col-resizer:hover,.col-resizer.dragging{background:var(--accent-dim);}
 
 /* settlement bar */
@@ -248,6 +251,9 @@ tbody tr.selected .c-ticker{color:var(--accent);}
       <button class="mode-btn"        id="theme-btn-mid"   onclick="setTheme('mid')"  title="Medio">◑</button>
       <button class="mode-btn"        id="theme-btn-light" onclick="setTheme('light')" title="Claro">○</button>
     </div>
+    <button class="auth-btn" id="auth-btn" onclick="authAction()">
+      <span id="auth-btn-label">Iniciar sesión</span>
+    </button>
     <div class="hdate" id="hoy"></div>
   </div>
 </header>
@@ -1308,6 +1314,124 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script>
+// ══════════════════════════════════════════════════════════════ SUPABASE
+const SUPA_URL='https://hxkxyawsstivjsxmafge.supabase.co';
+const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh4a3h5YXdzc3RpdmpzeG1hZmdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxNTU2NjQsImV4cCI6MjA5MTczMTY2NH0.e7dRO1CeC5WyS0nh0mhI2cHA-kYKjXqiEx9HKHOa3qI';
+const supa=supabase.createClient(SUPA_URL,SUPA_KEY);
+let SUPA_USER=null;
+
+// ── AUTH ──────────────────────────────────────────────────────────────────────
+async function authInit(){
+  // Handle OAuth redirect
+  const{data:{session}}=await supa.auth.getSession();
+  if(session)await authSetUser(session.user);
+
+  // Listen for auth changes
+  supa.auth.onAuthStateChange(async(event,session)=>{
+    if(event==='SIGNED_IN'&&session){
+      await authSetUser(session.user);
+    } else if(event==='SIGNED_OUT'){
+      SUPA_USER=null;
+      authUpdateUI(null);
+    }
+  });
+}
+
+async function authSetUser(user){
+  SUPA_USER=user;
+  authUpdateUI(user);
+  await supaLoadUserData();
+  await supaLoadSharedData();
+}
+
+function authUpdateUI(user){
+  const btn=document.getElementById('auth-btn');
+  const label=document.getElementById('auth-btn-label');
+  if(!btn||!label)return;
+  if(user){
+    const name=user.user_metadata?.name||user.email||'Usuario';
+    const avatar=user.user_metadata?.avatar_url;
+    btn.innerHTML=avatar
+      ?`<img class="auth-avatar" src="${avatar}"><span>${name.split(' ')[0]}</span><span style="color:var(--text3);font-size:10px">▼</span>`
+      :`<span>${name.split(' ')[0]}</span><span style="color:var(--text3);font-size:10px">▼</span>`;
+  } else {
+    btn.innerHTML=`<span id="auth-btn-label">Iniciar sesión con Google</span>`;
+  }
+}
+
+async function authAction(){
+  if(SUPA_USER){
+    // Show logout option
+    if(confirm(`Cerrar sesión de ${SUPA_USER.email}?`)){
+      await supa.auth.signOut();
+    }
+  } else {
+    await supa.auth.signInWithOAuth({
+      provider:'google',
+      options:{redirectTo:window.location.href}
+    });
+  }
+}
+
+// ── SUPABASE DATA SYNC ────────────────────────────────────────────────────────
+// Keys que van a Supabase por usuario
+const SUPA_USER_KEYS=['bonosAR_fwd_v1','bonosAR_cp_v1','bonosAR_breakeven_v1','bonosAR_chart_sel_v1'];
+// Keys que van a Supabase compartidas
+const SUPA_SHARED_KEYS=['bonosAR_lecaps_v1','bonosAR_cer_bonds_v1','bonosAR_tamar_bonds_v1','bonosAR_feriados_extra_v1','bonosAR_proyecciones_v1'];
+
+async function supaLoadUserData(){
+  if(!SUPA_USER)return;
+  try{
+    const{data,error}=await supa.from('user_data').select('key,value').eq('user_id',SUPA_USER.id);
+    if(error)throw error;
+    data.forEach(row=>{
+      try{localStorage.setItem(row.key,JSON.stringify(row.value));}catch(e){}
+    });
+  }catch(e){console.warn('supaLoadUserData:',e);}
+}
+
+async function supaLoadSharedData(){
+  try{
+    const{data,error}=await supa.from('shared_data').select('key,value');
+    if(error)throw error;
+    data.forEach(row=>{
+      try{localStorage.setItem(row.key,JSON.stringify(row.value));}catch(e){}
+    });
+    // reload portfolio with fresh data
+    loadPortfolio();
+    tamarLoadBonds();
+    if(CER_INDEX.length)cerRenderTable();
+  }catch(e){console.warn('supaLoadSharedData:',e);}
+}
+
+async function supaSaveUserKey(key){
+  if(!SUPA_USER)return;
+  try{
+    const raw=localStorage.getItem(key);
+    if(raw==null)return;
+    const value=JSON.parse(raw);
+    await supa.from('user_data').upsert({user_id:SUPA_USER.id,key,value,updated_at:new Date().toISOString()},{onConflict:'user_id,key'});
+  }catch(e){console.warn('supaSaveUserKey:',key,e);}
+}
+
+async function supaSaveSharedKey(key){
+  if(!SUPA_USER)return;
+  try{
+    const raw=localStorage.getItem(key);
+    if(raw==null)return;
+    const value=JSON.parse(raw);
+    await supa.from('shared_data').upsert({key,value,updated_at:new Date().toISOString()},{onConflict:'key'});
+  }catch(e){console.warn('supaSaveSharedKey:',key,e);}
+}
+
+// Patch localStorage saves to also sync to Supabase
+const _origSetItem=localStorage.setItem.bind(localStorage);
+localStorage.setItem=function(key,val){
+  _origSetItem(key,val);
+  if(SUPA_USER_KEYS.includes(key)) supaSaveUserKey(key);
+  else if(SUPA_SHARED_KEYS.includes(key)) supaSaveSharedKey(key);
+};
+
 // ── GLOBAL STATE (declared first to avoid TDZ issues with let/const) ──────────
 let fwdMode='tir';
 const FWD_LS='bonosAR_fwd_v1';
@@ -4937,6 +5061,7 @@ tamarLoadBonds();
 cerFetchIndex();
 tamarFetchIndex();
 switchTab('breakeven');
+authInit();
 
 // ══════════════════════════════════════════════════════════════ THEME
 function setTheme(t){
