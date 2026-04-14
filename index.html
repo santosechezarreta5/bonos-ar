@@ -1403,7 +1403,7 @@ async function supaLoadUserData(){
     const{data,error}=await supa.from('user_data').select('key,value').eq('user_id',SUPA_USER.id);
     if(error)throw error;
     data.forEach(row=>{
-      try{localStorage.setItem(row.key,JSON.stringify(row.value));}catch(e){}
+      try{_origSetItem(row.key,JSON.stringify(row.value));}catch(e){}
     });
   }catch(e){console.warn('supaLoadUserData:',e);}
 }
@@ -1413,7 +1413,10 @@ async function supaLoadSharedData(){
     const{data,error}=await supa.from('shared_data').select('key,value');
     if(error)throw error;
     data.forEach(row=>{
-      try{localStorage.setItem(row.key,JSON.stringify(row.value));}catch(e){}
+      try{
+        // Use _origSetItem to avoid triggering the Supabase sync patch
+        _origSetItem(row.key,JSON.stringify(row.value));
+      }catch(e){}
     });
     // reload portfolio with fresh data
     loadPortfolio();
