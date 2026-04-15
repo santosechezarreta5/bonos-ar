@@ -1426,14 +1426,15 @@ async function supaLoadSharedData(){
     const{data,error}=await supa.from('shared_data').select('key,value');
     if(error)throw error;
     data.forEach(row=>{
-      try{
-        // Use _origSetItem to avoid triggering the Supabase sync patch
-        _origSetItem(row.key,JSON.stringify(row.value));
-      }catch(e){}
+      try{_origSetItem(row.key,JSON.stringify(row.value));}catch(e){}
     });
     // Reload all bond data from localStorage
     loadPortfolio();
     tamarLoadBonds();
+    // Auto-fetch prices for all bonds
+    if(LECAPS.length) fetchPrices();
+    if(CER_BONDS.length) cerFetchPrices();
+    if(TAMAR_BONDS.length) tamarFetchPrices();
     // Re-render current tab
     if(currentTab==='lecap') renderTable();
     if(currentTab==='cer'){cerRenderTable();if(CER_INDEX.length)cerRenderTabChart();}
@@ -1458,7 +1459,11 @@ async function supaSaveSharedKey(key){
   try{
     const raw=localStorage.getItem(key);
     if(raw==null)return;
-    const value=JSON.parse(raw);
+    let value=JSON.parse(raw);
+    // No guardar precios en Supabase — son datos de mercado en tiempo real
+    if(key==='bonosAR_lecaps_v1'||key==='bonosAR_cer_bonds_v1'||key==='bonosAR_tamar_bonds_v1'){
+      value=value.map(b=>({...b,precio:null,pct_change:null}));
+    }
     await supa.from('shared_data').upsert({key,value,updated_at:new Date().toISOString()},{onConflict:'key'});
   }catch(e){console.warn('supaSaveSharedKey:',key,e);}
 }
