@@ -2896,6 +2896,8 @@ async function cerFetchPrices(){
     st.textContent=notFound.length?`${updated} actualizados · sin precio: ${notFound.join(', ')} · ${now}`:`${updated} actualizados · ${now}`;
     st.className=notFound.length?'api-status err':'api-status ok';
     beRefreshIfVisible();
+  }catch(e){
+    document.getElementById('cer-api-status').textContent='error de conexión';
     document.getElementById('cer-api-status').className='api-status err';
   }
 }
