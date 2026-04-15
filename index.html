@@ -964,16 +964,17 @@ tbody tr.selected .c-ticker{color:var(--accent);}
     <!-- COL 2: Pesos Corto Plazo (resizable) -->
     <div id="be-col2" style="width:420px;min-width:200px;overflow-y:auto;padding:1.25rem 1rem;border-right:1px solid var(--border);flex-shrink:0;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem;">
-        <div>
-          <div style="font-family:var(--serif);font-size:16px;font-weight:300;font-style:italic;color:var(--accent)">Pesos Corto Plazo</div>
-          <div style="font-size:10px;color:var(--text3);margin-top:2px">
-            <span style="color:#4ade80">■</span> CER &nbsp;<span style="color:#fbbf24">■</span> TF &nbsp;<span style="color:#38bdf8">■</span> TAMAR
-          </div>
-        </div>
+        <div style="font-family:var(--serif);font-size:16px;font-weight:300;font-style:italic;color:var(--accent)">Pesos Corto Plazo</div>
         <div style="display:flex;gap:4px;">
           <button class="btn primary" style="margin:0;padding:3px 7px;font-size:10px" onclick="beCPRecalc()">↻</button>
           <button class="btn" style="margin:0;padding:3px 7px;font-size:10px" onclick="beCPOpenModal()">+</button>
         </div>
+      </div>
+      <!-- Filtro de tipos -->
+      <div style="display:flex;gap:5px;margin-bottom:.6rem;">
+        <button id="cp-filter-cer"   onclick="beCPToggleFilter('cer')"   style="padding:2px 8px;font-size:10px;font-family:var(--mono);border-radius:3px;cursor:pointer;border:1px solid #4ade80;background:rgba(74,222,128,0.15);color:#4ade80;transition:all .12s">■ CER</button>
+        <button id="cp-filter-tf"    onclick="beCPToggleFilter('tf')"    style="padding:2px 8px;font-size:10px;font-family:var(--mono);border-radius:3px;cursor:pointer;border:1px solid #fbbf24;background:rgba(251,191,36,0.15);color:#fbbf24;transition:all .12s">■ TF</button>
+        <button id="cp-filter-tamar" onclick="beCPToggleFilter('tamar')" style="padding:2px 8px;font-size:10px;font-family:var(--mono);border-radius:3px;cursor:pointer;border:1px solid #38bdf8;background:rgba(56,189,248,0.15);color:#38bdf8;transition:all .12s">■ TAMAR</button>
       </div>
       <table style="border-collapse:collapse;white-space:nowrap;">
         <thead>
@@ -1490,6 +1491,7 @@ let beChartCERExcluded=new Set();
 // Pesos Corto Plazo state
 const LS_CP='bonosAR_cp_v1';
 let CP_BONDS=[];
+let CP_FILTER=new Set(['cer','tf','tamar']);
 const CP_COLORS={
   cer:  {bg:'rgba(74,222,128,0.12)', accent:'#4ade80'},
   tf:   {bg:'rgba(251,191,36,0.12)', accent:'#fbbf24'},
@@ -1875,7 +1877,7 @@ async function fetchPrices(){
       : `${updated} actualizadas · ${now}`;
     statusEl.textContent=msg;
     statusEl.className=notFound.length?'api-status err':'api-status ok';
-    if(currentTab==='breakeven') requestAnimationFrame(()=>{beRenderChartTF();beCPRecalc();});
+    beRefreshIfVisible();
   }catch(e){
     statusEl.textContent='error de conexión';
     statusEl.className='api-status err';
@@ -2893,8 +2895,7 @@ async function cerFetchPrices(){
     const now=new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
     st.textContent=notFound.length?`${updated} actualizados · sin precio: ${notFound.join(', ')} · ${now}`:`${updated} actualizados · ${now}`;
     st.className=notFound.length?'api-status err':'api-status ok';
-  }catch(e){
-    document.getElementById('cer-api-status').textContent='error de conexión';
+    beRefreshIfVisible();
     document.getElementById('cer-api-status').className='api-status err';
   }
 }
@@ -4548,6 +4549,7 @@ async function tamarFetchPrices(){
     const now=new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
     st.textContent=notFound.length?`${updated} actualizados · ${notFound.join(', ')} sin precio · ${now}`:`${updated} actualizados · ${now}`;
     st.className=notFound.length?'api-status err':'api-status ok';
+    beRefreshIfVisible();
   }catch(e){
     document.getElementById('tamar-api-status').textContent='error de conexión';
     document.getElementById('tamar-api-status').className='api-status err';
@@ -4632,6 +4634,17 @@ function beLoadLs(){
 }
 function beSaveLs(){
   try{localStorage.setItem(BE_LS_KEY,JSON.stringify(BE_BONOS));}catch(e){}
+}
+
+function beRefreshIfVisible(){
+  if(currentTab!=='breakeven')return;
+  beRecalc();
+  beTamarRecalc();
+  beCPRecalc();
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    beRenderChartTF();
+    beRenderChartCER();
+  }));
 }
 
 function beInit(){
@@ -5199,6 +5212,21 @@ function beCPLoadLs(){
 function beCPSaveLs(){
   try{localStorage.setItem(LS_CP,JSON.stringify(CP_BONDS));}catch(e){}
 }
+function beCPToggleFilter(tipo){
+  if(CP_FILTER.has(tipo))CP_FILTER.delete(tipo);
+  else CP_FILTER.add(tipo);
+  const colors={cer:'#4ade80',tf:'#fbbf24',tamar:'#38bdf8'};
+  const bgs={cer:'rgba(74,222,128,0.15)',tf:'rgba(251,191,36,0.15)',tamar:'rgba(56,189,248,0.15)'};
+  ['cer','tf','tamar'].forEach(t=>{
+    const btn=document.getElementById('cp-filter-'+t);
+    if(!btn)return;
+    const on=CP_FILTER.has(t);
+    btn.style.background=on?bgs[t]:'var(--surface2)';
+    btn.style.borderColor=on?colors[t]:'var(--border2)';
+    btn.style.color=on?colors[t]:'var(--text3)';
+  });
+  beCPRecalc();
+}
 
 function beCPEnrich(item){
   const {ticker, tipo}=item;
@@ -5259,7 +5287,7 @@ function beCPRecalc(){
     return;
   }
 
-  const sorted=[...CP_BONDS].sort((a,b)=>{
+  const sorted=[...CP_BONDS].filter(b=>CP_FILTER.has(b.tipo)).sort((a,b)=>{
     const bA=[...LECAPS,...CER_BONDS,...TAMAR_BONDS].find(r=>r.ticker===a.ticker);
     const bB=[...LECAPS,...CER_BONDS,...TAMAR_BONDS].find(r=>r.ticker===b.ticker);
     return(bA?.vcto||'').localeCompare(bB?.vcto||'');
