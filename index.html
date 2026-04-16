@@ -30,46 +30,57 @@ body.theme-mid{
 }
 /* TEMA CLARO */
 body.theme-light{
-  --bg:#f0f4f0;--surface:#ffffff;--surface2:#e4ece4;
-  --border:#bccbbc;--border2:#9aaf9a;
-  --text:#0e1a0e;--text2:#2a4a2a;--text3:#4a6a4a;
-  --accent:#1a6e14;--accent2:#145010;--accent-dim:#c8e8c4;
-  --warn:#7a4a00;--warn-dim:#faecd4;
-  --info:#0a4a7a;--info-dim:#cce0f4;
-  --danger:#8a1a1a;--danger-dim:#fad4d4;
+  --bg:#dde4dd;--surface:#f2f6f2;--surface2:#e4ebe4;
+  --border:#9ab09a;--border2:#7a9a7a;
+  --text:#0a140a;--text2:#1e3a1e;--text3:#3a5e3a;
+  --accent:#145e10;--accent2:#0e480a;--accent-dim:#b8d8b4;
+  --warn:#6a3a00;--warn-dim:#f0d8b0;
+  --info:#08406e;--info-dim:#b4d0ec;
+  --danger:#7a1010;--danger-dim:#f0c4c4;
 }
 /* Ajustes específicos tema claro para mejor legibilidad */
-body.theme-light .nav-tab{color:#4a6a4a;}
-body.theme-light .nav-tab.active{color:#1a6e14;border-bottom-color:#1a6e14;}
-body.theme-light .nav-tab:hover{color:#2a4a2a;}
-body.theme-light .sbar{background:#e4ece4;border-color:#bccbbc;}
-body.theme-light .sbar-label{color:#4a6a4a;}
-body.theme-light .sbar-result{color:#0e1a0e;}
-body.theme-light .sbar-input{background:#ffffff;color:#0e1a0e;border-color:#9aaf9a;}
-body.theme-light .btn{background:#e4ece4;border-color:#9aaf9a;color:#2a4a2a;}
-body.theme-light .btn:hover{border-color:#1a6e14;color:#1a6e14;}
-body.theme-light .btn.primary{background:#1a6e14;color:#ffffff;border-color:#1a6e14;}
-body.theme-light .btn.primary:hover{background:#145010;}
-body.theme-light .mode-btn{color:#4a6a4a;border-color:#bccbbc;background:#f0f4f0;}
-body.theme-light .mode-btn.active{color:#1a6e14;border-color:#1a6e14;background:#c8e8c4;}
-body.theme-light .metric-label{color:#4a6a4a;}
-body.theme-light .metric-value{color:#0e1a0e;}
-body.theme-light .panel-body{color:#0e1a0e;}
-body.theme-light table th{color:#4a6a4a;}
-body.theme-light .pane-title{color:#0e1a0e;}
-body.theme-light .api-status{color:#4a6a4a;}
-body.theme-light .api-status.ok{color:#1a6e14;}
-body.theme-light .api-status.err{color:#8a1a1a;}
-body.theme-light #usd-bar{background:#e4ece4;border-color:#bccbbc;}
-body.theme-light .modal{background:#ffffff;border-color:#9aaf9a;}
-body.theme-light .modal-title{color:#0e1a0e;}
-body.theme-light .field label{color:#4a6a4a;}
-body.theme-light .field input,body.theme-light .field select{background:#f0f4f0;color:#0e1a0e;border-color:#9aaf9a;}
-body.theme-light .right-panel{background:#f8fbf8;border-color:#bccbbc;}
-body.theme-light .panel-header{border-color:#bccbbc;}
-body.theme-light .panel-ticker{color:#0e1a0e;}
-body.theme-light .chart-resize-handle{background:#e4ece4;border-color:#bccbbc;}
-body.theme-light .status-bar{background:#e4ece4;color:#4a6a4a;border-color:#bccbbc;}
+body.theme-light .nav-tab{color:#3a5e3a;}
+body.theme-light .nav-tab.active{color:#145e10;border-bottom-color:#145e10;}
+body.theme-light .nav-tab:hover{color:#1e3a1e;}
+body.theme-light .sbar{background:#e4ebe4;border-color:#9ab09a;}
+body.theme-light .sbar-label{color:#3a5e3a;}
+body.theme-light .sbar-result{color:#0a140a;font-weight:500;}
+body.theme-light .sbar-input{background:#f2f6f2;color:#0a140a;border-color:#7a9a7a;}
+body.theme-light .btn{background:#e4ebe4;border-color:#7a9a7a;color:#1e3a1e;}
+body.theme-light .btn:hover{border-color:#145e10;color:#145e10;background:#d4e8d0;}
+body.theme-light .btn.primary{background:#145e10;color:#ffffff;border-color:#0e480a;}
+body.theme-light .btn.primary:hover{background:#0e480a;}
+body.theme-light .mode-btn{color:#3a5e3a;border-color:#9ab09a;background:#dde4dd;}
+body.theme-light .mode-btn.active{color:#145e10;border-color:#145e10;background:#b8d8b4;}
+body.theme-light .metric-label{color:#3a5e3a;}
+body.theme-light .metric-value{color:#0a140a;font-weight:500;}
+body.theme-light .panel-body{color:#0a140a;}
+body.theme-light table th{color:#1e3a1e;background:#d4dcd4;}
+body.theme-light table tr:hover td{background:rgba(0,0,0,0.04);}
+body.theme-light .pane-title{color:#0a140a;font-weight:500;}
+body.theme-light .pane-toolbar{background:#e4ebe4;border-color:#9ab09a;}
+body.theme-light .api-status{color:#3a5e3a;}
+body.theme-light .api-status.ok{color:#145e10;font-weight:500;}
+body.theme-light .api-status.err{color:#7a1010;font-weight:500;}
+body.theme-light #usd-bar{background:#e4ebe4;border-color:#9ab09a;}
+body.theme-light #usd-mep-bid,body.theme-light #usd-mep-ask{color:#145e10;font-weight:500;}
+body.theme-light #usd-ccl-bid,body.theme-light #usd-ccl-ask{color:#6a3a00;font-weight:500;}
+body.theme-light #usd-canje-bid,body.theme-light #usd-canje-ask{color:#08406e;font-weight:500;}
+body.theme-light .modal{background:#f2f6f2;border-color:#7a9a7a;box-shadow:0 4px 24px rgba(0,0,0,0.18);}
+body.theme-light .modal-title{color:#0a140a;font-weight:500;}
+body.theme-light .field label{color:#3a5e3a;font-weight:500;}
+body.theme-light .field input,body.theme-light .field select{background:#ffffff;color:#0a140a;border-color:#7a9a7a;}
+body.theme-light .right-panel{background:#f2f6f2;border-color:#9ab09a;}
+body.theme-light .panel-header{border-color:#9ab09a;background:#e4ebe4;}
+body.theme-light .panel-ticker{color:#0a140a;font-weight:500;}
+body.theme-light .chart-resize-handle{background:#d4dcd4;border-color:#9ab09a;}
+body.theme-light .chart-resize-handle::before{background:#7a9a7a;}
+body.theme-light .status-bar{background:#d4dcd4;color:#3a5e3a;border-color:#9ab09a;}
+body.theme-light .left-pane{border-color:#9ab09a;}
+body.theme-light .workspace{border-color:#9ab09a;}
+body.theme-light .col-resizer:hover{background:#9ab09a;}
+/* Gráficos en tema claro — colores más oscuros */
+body.theme-light canvas{filter:saturate(1.4) brightness(0.7);}
 *{box-sizing:border-box;margin:0;padding:0;}
 body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13px;min-height:100vh;overflow-x:hidden;}
 
@@ -3558,11 +3569,10 @@ async function cerFetchIndex(force=false){
 
     cerRenderIndexStrip();
     // actualizar proyecciones y tabla CER si están cargadas
-    if(PROJ_INFLACION.length){
-      projCalcularCER();
-      projRenderSummary();
-      projRenderPreview();
-    }
+    if(!PROJ_INFLACION.length) projInit(); // auto-init if not loaded yet
+    projDetectarPublicados();
+    projCalcularCER();
+    if(currentTab==='proyecciones'){projRenderSummary();projRenderPreview();}
     if(CER_BONDS.length) cerRenderTable();
     // re-render forwards y gráfico CER si están abiertos
     if(currentTab==='forwards') fwdRecalc();
@@ -4800,6 +4810,11 @@ function beCalcular(cerTicker){
 }
 
 function beRecalc(){
+  // Asegurar que las proyecciones estén calculadas con los datos más recientes
+  if(CER_INDEX.length){
+    if(!PROJ_INFLACION.length) projInit();
+    else { projDetectarPublicados(); projCalcularCER(); }
+  }
   const resultados=BE_BONOS.map(t=>({ticker:t,res:beCalcular(t)}));
 
   // ordenar por vencimiento para calcular Fwd correctamente
