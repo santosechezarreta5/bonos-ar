@@ -1373,12 +1373,16 @@ async function authInit(){
   // Cargar datos compartidos siempre (son públicos, no requieren login)
   await supaLoadSharedData();
 
+  // Limpiar hash de URL después de OAuth redirect (evita loops)
+  if(window.location.hash.includes('access_token')){
+    history.replaceState(null,'',window.location.pathname);
+  }
+
   // Handle OAuth redirect
   const{data:{session}}=await supa.auth.getSession();
   if(session){
     await authSetUser(session.user);
   } else {
-    // No session — apply non-admin UI immediately
     authUpdateAdminUI();
   }
 
@@ -1446,7 +1450,7 @@ async function authAction(){
   } else {
     await supa.auth.signInWithOAuth({
       provider:'google',
-      options:{redirectTo:window.location.href}
+      options:{redirectTo: window.location.origin+window.location.pathname}
     });
   }
 }
