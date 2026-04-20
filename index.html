@@ -5232,6 +5232,14 @@ async function usdFetch(){
 usdFetch();
 setInterval(usdFetch,5*60*1000);
 
+// ── AUTO-REFRESH PRECIOS cada 5 min ──────────────────────────────────────────
+setInterval(async()=>{
+  await fetchPrices();
+  await cerFetchPrices();
+  await tamarFetchPrices();
+  usdFetch();
+}, 5*60*1000);
+
 // hook CER into settlement refresh
 const _origUS=updateSettlement;
 window.updateSettlement=function(){
@@ -5292,21 +5300,24 @@ function beCPEnrich(item){
 
   if(tipo==='tf'){
     const b=LECAPS.find(r=>r.ticker===ticker);
-    if(!b)return null;
+    if(!b||!b.vcto)return null;
+    const liq=G_LIQ||addHabiles(TODAY,1);
+    if(diasACT(liq,parseDate(b.vcto))<=0)return{ticker,tipo,expired:true};
     const calc=calcLecap(b);
     if(!calc)return null;
-    const vctoStr=b.vcto?b.vcto.split('-').reverse().join('/'):'—';
+    const vctoStr=b.vcto.split('-').reverse().join('/');
     return{ticker,tipo,vctoStr,fixing:'N/A',px:b.precio,tirReal:null,tna:calc.tna,tir:calc.tir,tem:calc.tem,bg,ac};
   }
   if(tipo==='cer'){
     const b=CER_BONDS.find(r=>r.ticker===ticker);
-    if(!b)return null;
+    if(!b||!b.vcto)return null;
+    const liq=G_LIQ||addHabiles(TODAY,1);
+    if(diasACT(liq,parseDate(b.vcto))<=0)return{ticker,tipo,expired:true};
     if(!CER_INDEX.length)return{ticker,tipo,error:'Sin índice CER'};
     const e=cerEnrich(b);
-    const vctoStr=b.vcto?b.vcto.split('-').reverse().join('/'):'—';
-    // fixing = restarHabiles(vcto, 10)
-    const fixDate=b.vcto?restarHabiles(parseDate(b.vcto),10):null;
-    const fixStr=fixDate?fmtDate(fixDate).split('-').reverse().join('/'):'—';
+    const vctoStr=b.vcto.split('-').reverse().join('/');
+    const fixDate=restarHabiles(parseDate(b.vcto),10);
+    const fixStr=fmtDate(fixDate).split('-').reverse().join('/');
     return{ticker,tipo,vctoStr,fixing:fixStr,px:b.precio,
       tirReal:isNaN(e.tir)?null:e.tir,
       tna:isNaN(e.tnaProy)?null:e.tnaProy,
@@ -5315,12 +5326,14 @@ function beCPEnrich(item){
   }
   if(tipo==='tamar'){
     const b=TAMAR_BONDS.find(r=>r.ticker===ticker);
-    if(!b)return null;
+    if(!b||!b.vcto)return null;
+    const liq=G_LIQ||addHabiles(TODAY,1);
+    if(diasACT(liq,parseDate(b.vcto))<=0)return{ticker,tipo,expired:true};
     const e=tamarEnrich(b);
-    const vctoStr=b.vcto?b.vcto.split('-').reverse().join('/'):'—';
+    const vctoStr=b.vcto.split('-').reverse().join('/');
     const fixStr=e._debug?e._debug.fixVto.split('-').reverse().join('/'):'—';
     return{ticker,tipo,vctoStr,fixing:fixStr,px:b.precio,
-      tirReal:isNaN(e.margenTNA)?null:e.margenTNA, // margen TNA para TAMAR
+      tirReal:isNaN(e.margenTNA)?null:e.margenTNA,
       tna:isNaN(e.tna)?null:e.tna,
       tir:isNaN(e.tir)?null:e.tir,
       tem:isNaN(e.tem)?null:e.tem,bg,ac};
@@ -5349,9 +5362,10 @@ function beCPRecalc(){
     return(bA?.vcto||'').localeCompare(bB?.vcto||'');
   });
 
-  // enriquecer todos primero para calcular rangos
-  const enriched=sorted.map(item=>({item,r:beCPEnrich(item)}));
-  const valid=enriched.filter(x=>x.r&&!x.r.error);
+  // enriquecer todos primero para calcular rangos (excluir vencidos)
+  const enriched=sorted.map(item=>({item,r:beCPEnrich(item)}))
+    .filter(x=>x.r&&!x.r.expired);
+  const valid=enriched.filter(x=>!x.r.error);
 
   // rangos para heatmap de TNA, TIR, TEM
   const tnaVals=valid.map(x=>x.r.tna).filter(v=>v!=null&&!isNaN(v));
@@ -5370,11 +5384,13 @@ function beCPRecalc(){
     const htna=beCPHeat(r.tna,mnTNA,mxTNA);
     const htir=beCPHeat(r.tir,mnTIR,mxTIR);
     const htem=beCPHeat(r.tem,mnTEM,mxTEM);
+    const pxDisplay=r.px!=null?fmtARS(r.px):'—';
     return`<tr style="background:${r.bg}">
       <td style="${td}text-align:left;color:${r.ac};font-weight:600">${r.ticker}</td>
       <td style="${td}text-align:center;color:var(--text2)">${r.vctoStr}</td>
       <td style="${td}text-align:center;color:var(--text3)">${r.fixing}</td>
-      <td style="${td}">${r.px!=null?fmtARS(r.px):'—'}</td>
+      <td style="${td}cursor:pointer;color:var(--text)" title="Click para editar precio"
+          onclick="beCPEditPx(this,'${item.ticker}','${item.tipo}')">${pxDisplay}</td>
       <td style="${td}color:${r.tipo==='cer'?'var(--accent2)':r.tipo==='tamar'?'var(--warn)':'var(--text3)'}">${f(r.tirReal,4)}</td>
       <td style="${td}${htna}">${f(r.tna)}</td>
       <td style="${td}${htir}">${f(r.tir)}</td>
@@ -5384,6 +5400,33 @@ function beCPRecalc(){
       </td>
     </tr>`;
   }).join('');
+}
+
+// Precio manual override en CP
+const CP_PX_OVERRIDE={}; // {ticker: precio_manual}
+
+function beCPEditPx(td, ticker, tipo){
+  const current=CP_PX_OVERRIDE[ticker]||
+    [...LECAPS,...CER_BONDS,...TAMAR_BONDS].find(r=>r.ticker===ticker)?.precio||'';
+  td.innerHTML=`<input type="number" step="0.01" value="${current}"
+    style="width:80px;background:var(--surface2);color:var(--text);border:1px solid var(--accent);border-radius:3px;padding:2px 4px;font-family:var(--mono);font-size:12px;text-align:right"
+    onblur="beCPCommitPx(this,'${ticker}','${tipo}')"
+    onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){delete CP_PX_OVERRIDE['${ticker}'];beCPRecalc();}"
+    onclick="event.stopPropagation()" autofocus>`;
+  td.querySelector('input').focus();
+  td.querySelector('input').select();
+}
+
+function beCPCommitPx(input, ticker, tipo){
+  const val=parseFloat(input.value);
+  if(!isNaN(val)&&val>0){
+    CP_PX_OVERRIDE[ticker]=val;
+    // apply override to bond array
+    const arr=tipo==='tf'?LECAPS:tipo==='cer'?CER_BONDS:TAMAR_BONDS;
+    const idx=arr.findIndex(r=>r.ticker===ticker);
+    if(idx>=0) arr[idx]={...arr[idx],precio:val,manualOverride:true};
+  }
+  beCPRecalc();
 }
 
 function beCPRemove(ticker, tipo){
