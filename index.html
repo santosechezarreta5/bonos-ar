@@ -3899,10 +3899,9 @@ function projDetectarPublicados(){
     // solo marcar como publicado si el CER real cubre esa fecha de publicación
     if(pubFecha<fechaLimite){
       r.tipo='publicado';
-      // calcular inflación real del mes a partir del CER si no la tiene
-      if(r.infla==null){
-        r.infla=projInflaRealDeMes(r.mes);
-      }
+      // siempre recalcular desde el CER real (sobreescribe proyecciones manuales)
+      const calculada=projInflaRealDeMes(r.mes);
+      if(calculada!=null) r.infla=calculada;
     } else {
       // si ya no es publicado (por cambio de datos), no sobreescribir proyecciones manuales
       if(r.tipo==='publicado') r.tipo='proyectado';
@@ -5791,6 +5790,29 @@ function fwdCellStyle(val, min, max, isDiag){
   return`background:rgba(${r},${g},0,0.45);color:var(--text);`;
 }
 
+function fwdEditPx(td, ticker, tipo){
+  const arr=tipo==='tf'?LECAPS:CER_BONDS;
+  const b=arr.find(r=>r.ticker===ticker);
+  const current=b?.precio||'';
+  td.innerHTML=`<input type="number" step="0.01" value="${current}"
+    style="width:80px;background:var(--surface2);color:var(--text);border:1px solid var(--accent);border-radius:3px;padding:2px 4px;font-family:var(--mono);font-size:11px;text-align:right"
+    onblur="fwdCommitPx(this,'${ticker}','${tipo}')"
+    onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape')fwdRecalc();"
+    onclick="event.stopPropagation()" autofocus>`;
+  td.querySelector('input').focus();
+  td.querySelector('input').select();
+}
+
+function fwdCommitPx(input, ticker, tipo){
+  const val=parseFloat(input.value);
+  if(!isNaN(val)&&val>0){
+    const arr=tipo==='tf'?LECAPS:CER_BONDS;
+    const idx=arr.findIndex(r=>r.ticker===ticker);
+    if(idx>=0) arr[idx]={...arr[idx],precio:val,manualOverride:true};
+  }
+  fwdRecalc();
+}
+
 function fwdBuildTable(bonds, tipo, wrapId){
   const wrap=document.getElementById(wrapId);
   if(!wrap)return;
@@ -5828,8 +5850,10 @@ function fwdBuildTable(bonds, tipo, wrapId){
 
   rows.forEach((ri,i)=>{
     const tasaLabel=ri.tasa!=null?fmtP2(ri.tasa)+'%':'—';
+    const pxDisplay=ri.precio!=null?fmtARS(ri.precio):'—';
     html+=`<tr><td style="${td}text-align:left;color:var(--accent);font-weight:500">${ri.bond.ticker}</td>`;
-    html+=`<td style="${td}text-align:right;color:var(--text2)">${ri.precio!=null?fmtARS(ri.precio):'—'}</td>`;
+    html+=`<td style="${td}text-align:right;color:var(--text2);cursor:pointer" title="Click para editar precio"
+      onclick="fwdEditPx(this,'${ri.bond.ticker}','${tipo}')">${pxDisplay}</td>`;
     rows.forEach((rj,j)=>{
       if(j<i){html+=`<td style="${td}background:var(--bg);"></td>`;}
       else if(j===i){const st=fwdCellStyle(ri.tasa,minV,maxV,true);html+=`<td style="${td}${st}">${tasaLabel}</td>`;}
