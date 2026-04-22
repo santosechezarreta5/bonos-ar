@@ -79,8 +79,14 @@ body.theme-light .status-bar{background:#d4dcd4;color:#3a5e3a;border-color:#9ab0
 body.theme-light .left-pane{border-color:#9ab09a;}
 body.theme-light .workspace{border-color:#9ab09a;}
 body.theme-light .col-resizer:hover{background:#9ab09a;}
-/* Gráficos en tema claro — colores más oscuros */
-body.theme-light canvas{filter:saturate(1.4) brightness(0.7);}
+/* Nombres de bonos en negro/negrita en tema claro — Resumen y Forwards */
+body.theme-light #be-cp-tbody td:first-child,
+body.theme-light #fwd-tf-wrap td:first-child,
+body.theme-light #fwd-cer-wrap td:first-child,
+body.theme-light #be-tbody td:first-child,
+body.theme-light #be-tamar-tbody td:nth-child(2){color:#0a140a!important;font-weight:700!important;}
+/* Labels en gráficos más oscuros en tema claro */
+body.theme-light canvas{filter:saturate(1.6) brightness(0.6) contrast(1.2);}
 *{box-sizing:border-box;margin:0;padding:0;}
 body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13px;min-height:100vh;overflow-x:hidden;}
 
@@ -1914,7 +1920,9 @@ async function fetchPrices(){
         updated++;
         return{...r,precio:px,pct_change:api.pct_change??null,manualOverride:false};
       }
-      notFound.push(r.ticker);
+      // solo reportar sin precio si el bono no está vencido
+      const liq=G_LIQ||addHabiles(TODAY,1);
+      if(r.vcto&&diasACT(liq,parseDate(r.vcto))>0) notFound.push(r.ticker);
       return r;
     });
     DATA=LECAPS.map(enrich);
@@ -2936,7 +2944,9 @@ async function cerFetchPrices(){
     CER_BONDS=CER_BONDS.map(r=>{
       const api=map.get(r.ticker);
       if(api){const px=apiBestPrice(api);if(px>0){updated++;return{...r,precio:px,pct_change:api.pct_change??null,manualOverride:false};}}
-      notFound.push(r.ticker);return r;
+      const liq=G_LIQ||addHabiles(TODAY,1);
+      if(r.vcto&&diasACT(liq,parseDate(r.vcto))>0) notFound.push(r.ticker);
+      return r;
     });
     CER_DATA=CER_BONDS.map(cerEnrich);
     savePortfolio();
@@ -4593,7 +4603,9 @@ async function tamarFetchPrices(){
       const api=map.get(r.ticker);
       const px=apiBestPrice(api);
       if(px){updated++;return{...r,precio:px,pct_change:api.pct_change??null,manualOverride:false};}
-      notFound.push(r.ticker);return r;
+      const liq=G_LIQ||addHabiles(TODAY,1);
+      if(r.vcto&&diasACT(liq,parseDate(r.vcto))>0) notFound.push(r.ticker);
+      return r;
     });
     tamarSaveBonds();tamarRenderTable();
     const now=new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
