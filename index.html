@@ -346,6 +346,15 @@ tbody tr.selected .c-ticker{color:var(--accent);}
   <span style="width:1px;background:var(--border);height:16px;margin:0 12px;flex-shrink:0;"></span>
   <span id="usd-ts" style="color:var(--text3);font-size:10px">—</span>
   <button onclick="usdFetch()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;margin-left:6px;padding:0">↻</button>
+  <span style="width:1px;background:var(--border);height:16px;margin:0 12px;flex-shrink:0;"></span>
+  <!-- A3500 editable -->
+  <span style="color:var(--text3);margin-right:5px;font-size:10px;text-transform:uppercase;letter-spacing:.06em">A3500</span>
+  <input type="number" id="usd-a3500-input" step="0.0001" placeholder="—"
+    style="width:88px;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--accent);font-family:var(--mono);font-size:11px;padding:0 2px;outline:none;text-align:right;"
+    oninput="dlkOnA3500Change(this.value)"
+    title="TC A3500 — editá para override manual en calculadoras DLK">
+  <button onclick="dlkResetA3500()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:10px;margin-left:3px;padding:0" title="Restaurar último cierre">↺</button>
+  <span id="usd-a3500-label" style="color:var(--text3);font-size:10px;margin-left:4px"></span>
 </div>
 
 <!-- SETTLEMENT BAR -->
@@ -3698,6 +3707,10 @@ async function dlkFetchIndex(force=false){
           DLK_INDEX=data;
           if(st){st.textContent=`DLK · ${DLK_INDEX.length} registros (cache)`;st.className='api-status ok';}
           dlkRenderIndexStrip();
+          if(dlkTCOverride==null){
+            const inp=document.getElementById('usd-a3500-input');
+            if(inp&&!inp.value){const last=data[data.length-1];if(last)inp.value=last.valor.toFixed(4);}
+          }
           return true;
         }
       }
@@ -3756,6 +3769,11 @@ async function dlkFetchIndex(force=false){
     if(st){st.textContent=`A3500 ${last.fecha.split('-').reverse().join('/')} = $${last.valor.toFixed(4)} ${varStr} · ${now}`;st.className='api-status ok';}
     dlkRenderIndexStrip();
     if(currentTab==='dlk') dlkRenderPage();
+    // poblar input A3500 en la barra si no hay override manual
+    if(dlkTCOverride==null){
+      const inp=document.getElementById('usd-a3500-input');
+      if(inp&&!inp.value) inp.value=last.valor.toFixed(4);
+    }
     return true;
   }catch(e){
     if(st){st.textContent='DLK: error: '+e.message;st.className='api-status err';}
@@ -6346,17 +6364,12 @@ function dlkRenderPanel(r){
   const tcDisplay=dlkTCOverride!=null?dlkTCOverride:tc;
 
   body.innerHTML=`
-    <!-- TC HOY editable -->
-    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:8px 12px;margin-bottom:10px;">
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-        <span style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">TC A3500</span>
-        <input type="number" id="dlk-tc-input" value="${tcDisplay!=null?tcDisplay.toFixed(4):''}"
-          step="0.0001" placeholder="TC en $/USD"
-          style="width:110px;background:var(--surface);border:1px solid var(--border2);border-radius:3px;padding:3px 7px;font-family:var(--mono);font-size:12px;color:var(--accent);outline:none;"
-          oninput="dlkOnTCChange(this.value)">
-        <button onclick="dlkResetTC()" class="btn" style="padding:2px 7px;font-size:10px">↺ Cierre</button>
-        <span style="font-size:10px;color:var(--text3)" id="dlk-tc-label">${dlkTCOverride!=null?'(manual)':'(último cierre)'}</span>
-      </div>
+    <!-- TC activo (informativo) -->
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;font-size:11px;color:var(--text3)">
+      <span>TC A3500:</span>
+      <span style="color:var(--accent);font-family:var(--mono)">${tcDisplay!=null?'$'+tcDisplay.toFixed(4):'—'}</span>
+      <span>${dlkTCOverride!=null?'<span style="color:var(--warn)">(manual)</span>':'(último cierre)'}</span>
+      <span style="margin-left:4px;font-size:10px">— modificable en la barra superior</span>
     </div>
 
     <!-- Precio + tasas -->
@@ -6407,21 +6420,30 @@ function dlkRenderPanel(r){
     </div>`;
 }
 
-function dlkOnTCChange(val){
+function dlkOnA3500Change(val){
   const v=parseFloat(val);
   dlkTCOverride=(!isNaN(v)&&v>0)?v:null;
-  const lbl=document.getElementById('dlk-tc-label');
-  if(lbl) lbl.textContent=dlkTCOverride!=null?'(manual)':'(último cierre)';
-  dlkRecalcPanel();
+  const lbl=document.getElementById('usd-a3500-label');
+  if(lbl) lbl.textContent=dlkTCOverride!=null?'(manual)':'';
+  // recalcular tabla y panel si están visibles
+  if(currentTab==='dlk'){
+    DLK_DATA=DLK_BONDS.map(dlkEnrich);
+    dlkRenderTable();
+    if(dlkSelectedTicker) dlkRecalcPanel();
+  }
 }
-function dlkResetTC(){
+function dlkResetA3500(){
   dlkTCOverride=null;
-  const inp=document.getElementById('dlk-tc-input');
   const tc=dlkTCHoy();
-  if(inp&&tc) inp.value=tc.toFixed(4);
-  const lbl=document.getElementById('dlk-tc-label');
-  if(lbl) lbl.textContent='(último cierre)';
-  dlkRecalcPanel();
+  const inp=document.getElementById('usd-a3500-input');
+  if(inp) inp.value=tc!=null?tc.toFixed(4):'';
+  const lbl=document.getElementById('usd-a3500-label');
+  if(lbl) lbl.textContent='';
+  if(currentTab==='dlk'){
+    DLK_DATA=DLK_BONDS.map(dlkEnrich);
+    dlkRenderTable();
+    if(dlkSelectedTicker) dlkRecalcPanel();
+  }
 }
 function dlkOnPxChange(val){
   const v=parseFloat(val);
