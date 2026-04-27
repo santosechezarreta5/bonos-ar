@@ -916,64 +916,144 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 
 <!-- ═══════════════════════════════════════════════════════ DLK PAGE -->
 <div id="page-dlk" style="display:none;height:calc(100vh - 164px);overflow:hidden;flex-direction:column;">
-  <div style="display:flex;flex:1;height:100%;gap:0;min-height:0;">
 
-    <div class="left-panel" style="display:flex;flex-direction:column;min-width:0;flex:1;">
+  <!-- DLK INDEX STRIP -->
+  <div id="dlk-index-strip" style="display:none;border-bottom:1px solid var(--border);flex-shrink:0;">
+    <div style="display:flex;align-items:center;gap:12px;padding:5px 1rem;">
+      <span style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">A3500 · BCRA</span>
+      <span style="font-size:13px;color:var(--accent);font-family:var(--mono)" id="dlk-idx-hoy">—</span>
+      <span style="font-size:11px;color:var(--text3)" id="dlk-idx-fecha">—</span>
+      <span class="api-status" id="dlk-data-status" style="margin-left:8px"></span>
+      <button onclick="dlkToggleIndexTable()" id="dlk-toggle-btn" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;margin-left:auto">ver tabla ▾</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border-top:1px solid var(--border);border-bottom:1px solid var(--border);">
+      <div style="background:var(--surface);padding:5px 12px;"><div style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:1px">Último</div><div style="font-size:14px;color:var(--accent);font-family:var(--mono)" id="dlk-m-last">—</div></div>
+      <div style="background:var(--surface);padding:5px 12px;"><div style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:1px">Var. diaria</div><div style="font-size:14px;color:var(--accent2);font-family:var(--mono)" id="dlk-m-var-dia">—</div></div>
+      <div style="background:var(--surface);padding:5px 12px;"><div style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:1px">Var. 30d</div><div style="font-size:14px;color:var(--warn);font-family:var(--mono)" id="dlk-m-var-30d">—</div></div>
+      <div style="background:var(--surface);padding:5px 12px;"><div style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:1px">Var. 12m</div><div style="font-size:14px;color:var(--warn);font-family:var(--mono)" id="dlk-m-var-365d">—</div></div>
+    </div>
+    <div id="dlk-index-table-wrap" style="display:none;max-height:200px;overflow-y:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead style="position:sticky;top:0;background:var(--surface2);z-index:1;">
+          <tr style="border-bottom:1px solid var(--border2)">
+            <th style="text-align:left;padding:4px 8px;font-size:10px;color:var(--text3);font-weight:400;text-transform:uppercase;letter-spacing:.06em">Fecha</th>
+            <th style="text-align:right;padding:4px 8px;font-size:10px;color:var(--accent);font-weight:400;text-transform:uppercase;letter-spacing:.06em">$ / USD</th>
+            <th style="text-align:right;padding:4px 8px;font-size:10px;color:var(--text3);font-weight:400;text-transform:uppercase;letter-spacing:.06em">Var. diaria</th>
+            <th style="text-align:right;padding:4px 8px;font-size:10px;color:var(--warn);font-weight:400;text-transform:uppercase;letter-spacing:.06em">Var. 30d</th>
+          </tr>
+        </thead>
+        <tbody id="dlk-index-tbody"></tbody>
+      </table>
+    </div>
+  </div>
 
-      <!-- DLK INDEX STRIP -->
-      <div id="dlk-index-strip" style="display:none;border-bottom:1px solid var(--border);flex-shrink:0;">
-        <!-- header -->
-        <div style="display:flex;align-items:center;gap:12px;padding:6px 1rem;">
-          <span style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">Tipo de Cambio A3500 · BCRA</span>
-          <span style="font-size:13px;color:var(--accent);font-family:var(--mono)" id="dlk-idx-hoy">—</span>
-          <span style="font-size:11px;color:var(--text3)" id="dlk-idx-fecha">—</span>
-          <span class="api-status" id="dlk-data-status" style="margin-left:8px"></span>
-          <button onclick="dlkToggleIndexTable()" id="dlk-toggle-btn" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;margin-left:auto">ver tabla ▾</button>
+  <!-- BODY: tabla izq + panel der -->
+  <div style="display:flex;flex:1;min-height:0;overflow:hidden;">
+
+    <!-- LEFT: toolbar + tabla bonos -->
+    <div class="left-pane" id="dlk-left-pane">
+      <div class="pane-toolbar">
+        <span class="pane-title">Dollar Linked</span>
+        <button class="btn primary" onclick="dlkOpenModal()" id="dlk-new-btn" style="display:none">+ Nueva</button>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr>
+            <th style="text-align:left">Ticker</th>
+            <th>Vto</th>
+            <th>Días</th>
+            <th>Precio $</th>
+            <th>Var%</th>
+            <th>Paridad</th>
+            <th>TIR</th>
+            <th>TNA</th>
+            <th style="cursor:default;width:40px;"></th>
+          </tr></thead>
+          <tbody id="dlk-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- RIGHT: calculadora -->
+    <div class="right-panel" id="dlk-right-panel">
+      <div class="panel-header">
+        <div style="min-width:0">
+          <div class="panel-ticker" id="dlk-p-ticker">—</div>
+          <div class="panel-meta" id="dlk-p-meta"></div>
         </div>
-        <!-- métricas -->
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border-top:1px solid var(--border);border-bottom:1px solid var(--border);">
-          <div style="background:var(--surface);padding:6px 12px;">
-            <div style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:2px">Último valor</div>
-            <div style="font-size:15px;color:var(--accent);font-family:var(--mono)" id="dlk-m-last">—</div>
-          </div>
-          <div style="background:var(--surface);padding:6px 12px;">
-            <div style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:2px">Var. diaria</div>
-            <div style="font-size:15px;color:var(--accent2);font-family:var(--mono)" id="dlk-m-var-dia">—</div>
-          </div>
-          <div style="background:var(--surface);padding:6px 12px;">
-            <div style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:2px">Var. 30 días</div>
-            <div style="font-size:15px;color:var(--warn);font-family:var(--mono)" id="dlk-m-var-30d">—</div>
-          </div>
-          <div style="background:var(--surface);padding:6px 12px;">
-            <div style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:2px">Var. 12 meses</div>
-            <div style="font-size:15px;color:var(--warn);font-family:var(--mono)" id="dlk-m-var-365d">—</div>
-          </div>
-        </div>
-        <!-- tabla histórica -->
-        <div id="dlk-index-table-wrap" style="display:none;max-height:220px;overflow-y:auto;">
-          <table style="width:100%;border-collapse:collapse;font-size:12px;">
-            <thead style="position:sticky;top:0;background:var(--surface2);z-index:1;">
-              <tr style="border-bottom:1px solid var(--border2)">
-                <th style="text-align:left;padding:5px 8px;font-size:10px;color:var(--text3);font-weight:400;text-transform:uppercase;letter-spacing:.06em">Fecha</th>
-                <th style="text-align:right;padding:5px 8px;font-size:10px;color:var(--accent);font-weight:400;text-transform:uppercase;letter-spacing:.06em">$ / USD</th>
-                <th style="text-align:right;padding:5px 8px;font-size:10px;color:var(--text3);font-weight:400;text-transform:uppercase;letter-spacing:.06em">Var. diaria</th>
-                <th style="text-align:right;padding:5px 8px;font-size:10px;color:var(--warn);font-weight:400;text-transform:uppercase;letter-spacing:.06em">Var. 30d</th>
-              </tr>
-            </thead>
-            <tbody id="dlk-index-tbody"></tbody>
-          </table>
+        <button class="panel-close" onclick="dlkClosePanel()">cerrar ✕</button>
+      </div>
+      <div class="panel-body" id="dlk-panel-body">
+        <div style="color:var(--text3);font-size:12px">Seleccioná un bono para ver la calculadora.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- DLK MODAL -->
+<div class="modal-backdrop" id="dlk-modal">
+  <div class="modal" style="width:520px;">
+    <div class="modal-title">Nuevo bono Dollar Linked</div>
+
+    <div class="field-row cols2">
+      <div class="field"><label>Ticker</label><input type="text" id="dlk-m-ticker" placeholder="Ej: TZV26" style="text-transform:uppercase"></div>
+      <div class="field"><label>Cupón % anual</label><input type="number" id="dlk-m-cupon" step="0.01" placeholder="0 = zero coupon"></div>
+    </div>
+    <div class="field-row cols2">
+      <div class="field"><label>Fecha emisión</label><input type="date" id="dlk-m-emision"></div>
+      <div class="field"><label>Fecha vencimiento</label><input type="date" id="dlk-m-vcto"></div>
+    </div>
+    <div class="field-row cols2">
+      <div class="field"><label>Frec. cupón</label>
+        <select id="dlk-m-freq-cupon">
+          <option value="0">Sin cupón (zero)</option>
+          <option value="1">Mensual</option>
+          <option value="3">Trimestral</option>
+          <option value="6" selected>Semestral</option>
+          <option value="12">Anual</option>
+        </select>
+      </div>
+      <div class="field"><label>Amortización</label>
+        <select id="dlk-m-amort-tipo" onchange="dlkModalAmortChange()">
+          <option value="bullet">Bullet (al vencimiento)</option>
+          <option value="cuotas">Cuotas iguales</option>
+          <option value="custom">Schedule manual</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Cuotas iguales -->
+    <div id="dlk-m-amort-cuotas" style="display:none;">
+      <div class="field-row cols2">
+        <div class="field"><label>N° cuotas</label><input type="number" id="dlk-m-ncuotas" min="2" step="1" placeholder="Ej: 4"></div>
+        <div class="field"><label>Frec. amort.</label>
+          <select id="dlk-m-freq-amort">
+            <option value="1">Mensual</option>
+            <option value="3">Trimestral</option>
+            <option value="6" selected>Semestral</option>
+            <option value="12">Anual</option>
+          </select>
         </div>
       </div>
+      <div class="field"><label>Primer fecha amort.</label><input type="date" id="dlk-m-primer-amort"></div>
+    </div>
 
-      <!-- Placeholder bonos DLK -->
-      <div style="flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:.75rem;color:var(--text3);">
-        <div style="font-family:var(--serif);font-size:22px;font-weight:300;font-style:italic;color:var(--accent2)">Dollar Linked</div>
-        <div style="font-size:12px;text-align:center;max-width:360px;line-height:1.6">
-          Índice A3500 cargado. La tabla de bonos DLK se implementa en la próxima iteración.
-        </div>
-        <div style="font-size:11px;color:var(--text3)" id="dlk-placeholder-status"></div>
-      </div>
+    <!-- Schedule manual -->
+    <div id="dlk-m-amort-custom" style="display:none;">
+      <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Schedule de amortización (% sobre VN, debe sumar 100%)</div>
+      <div id="dlk-m-custom-rows" style="display:flex;flex-direction:column;gap:4px;max-height:160px;overflow-y:auto;margin-bottom:6px;"></div>
+      <button class="btn" style="width:100%;font-size:11px;padding:4px" onclick="dlkModalAddAmortRow()">+ Agregar fecha</button>
+      <div id="dlk-m-custom-sum" style="font-size:11px;color:var(--text3);margin-top:4px;text-align:right"></div>
+    </div>
 
+    <div class="field-row cols2" style="margin-top:8px">
+      <div class="field"><label>Precio inicial $ (opcional)</label><input type="number" id="dlk-m-precio" step="0.01" placeholder="Precio sucio en $"></div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn" onclick="dlkCloseModal()">Cancelar</button>
+      <button class="btn primary" onclick="dlkSaveModal()">Agregar</button>
     </div>
   </div>
 </div>
@@ -2621,6 +2701,12 @@ function switchTab(tab){
     document.getElementById('page-dlk').style.display='flex';
     if(!DLK_INDEX.length) dlkFetchIndex();
     else dlkRenderIndexStrip();
+    DLK_DATA=DLK_BONDS.map(dlkEnrich);
+    dlkRenderTable();
+    if(DLK_BONDS.length) dlkFetchPrices();
+    // mostrar botón + Nueva solo al admin
+    const newBtn=document.getElementById('dlk-new-btn');
+    if(newBtn) newBtn.style.display=isAdmin()?'':'none';
   }
 }
 
@@ -5477,6 +5563,7 @@ tamarLoadBonds();
 cerFetchIndex();
 tamarFetchIndex();
 dlkFetchIndex();
+dlkLoadBonds();
 switchTab('breakeven');
 authInit();
 
@@ -5770,7 +5857,7 @@ function beCPSaveModal(){
 }
 
 // Modal backdrop click-to-close (safe — elements exist by this point)
-;['be-cp-modal','cer-modal','fer-modal','be-modal','tamar-modal','modal'].forEach(id=>{
+;['be-cp-modal','cer-modal','fer-modal','be-modal','tamar-modal','modal','dlk-modal'].forEach(id=>{
   const el=document.getElementById(id);
   if(!el)return;
   const closeFn={
@@ -5780,6 +5867,7 @@ function beCPSaveModal(){
     'be-modal':    ()=>beCloseModal(),
     'tamar-modal': ()=>tamarCloseModal(),
     'modal':       ()=>closeModal(),
+    'dlk-modal':   ()=>dlkCloseModal(),
   }[id];
   if(closeFn) el.addEventListener('click',e=>{if(e.target===e.currentTarget)closeFn();});
 });
@@ -6000,6 +6088,484 @@ function beDrawScatter(canvas,pts,ptColor,ptBorder,yLabel){
     }
   });
 }
+
+
+// ══════════════════════════════════════════════════════════════ DLK BONOS
+const DLK_BONDS_LS='bonosAR_dlk_bonds_v1';
+let DLK_BONDS=[];         // array de bonos definidos por el usuario
+let DLK_DATA=[];          // bonos enriquecidos con precio y tasas
+let dlkSelectedTicker=null;
+let dlkTCOverride=null;   // TC manual ingresado por el usuario
+
+function dlkLoadBonds(){
+  try{const r=localStorage.getItem(DLK_BONDS_LS);if(r)DLK_BONDS=JSON.parse(r)||[];}catch(e){}
+}
+function dlkSaveBonds(){
+  try{localStorage.setItem(DLK_BONDS_LS,JSON.stringify(DLK_BONDS));}catch(e){}
+}
+
+// ── TC efectivo ───────────────────────────────────────────────────────────────
+function dlkTCHoy(){
+  if(dlkTCOverride!=null&&dlkTCOverride>0) return dlkTCOverride;
+  if(!DLK_INDEX.length) return null;
+  // último cierre = penúltimo registro si hay datos de hoy, o último disponible
+  const sorted=[...DLK_INDEX].sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  return sorted[sorted.length-1].valor;
+}
+
+// ── Generador de fechas de cupón ──────────────────────────────────────────────
+// Genera fechas de pago hacia atrás desde vcto cada `freqMeses` meses
+function dlkGenCuponDates(emision, vcto, freqMeses){
+  if(!freqMeses||freqMeses===0) return []; // zero coupon
+  const dates=[];
+  let d=new Date(vcto+'T00:00:00');
+  const em=new Date(emision+'T00:00:00');
+  while(d>em){
+    dates.unshift(new Date(d));
+    d=new Date(d);
+    d.setMonth(d.getMonth()-freqMeses);
+  }
+  return dates;
+}
+
+// ── Generador de schedule de amortización ────────────────────────────────────
+// Devuelve [{fecha:'YYYY-MM-DD', pct: number}] donde pct es % de VN (0-100)
+function dlkGenAmortSchedule(bond){
+  const{vcto,amortTipo,amortNCuotas,amortFreqMeses,amortPrimerFecha,amortCustom}=bond;
+  if(amortTipo==='bullet'||!amortTipo){
+    return[{fecha:vcto,pct:100}];
+  }
+  if(amortTipo==='cuotas'){
+    const n=parseInt(amortNCuotas)||1;
+    const pctCuota=100/n;
+    const dates=[];
+    let d=new Date(amortPrimerFecha+'T00:00:00');
+    for(let i=0;i<n;i++){
+      dates.push({fecha:fmtDate(d),pct:pctCuota});
+      d=new Date(d);
+      d.setMonth(d.getMonth()+(parseInt(amortFreqMeses)||6));
+    }
+    return dates;
+  }
+  if(amortTipo==='custom'){
+    return(amortCustom||[]).filter(r=>r.fecha&&r.pct>0);
+  }
+  return[{fecha:vcto,pct:100}];
+}
+
+// ── Construcción del FF Real (en USD, base VN=100) ───────────────────────────
+function dlkBuildFF(bond, liq){
+  const{emision,vcto,cupon,freqCuponMeses}=bond;
+  const liqDate=liq||addHabiles(TODAY,1);
+  const vctoDate=new Date(vcto+'T00:00:00');
+  const emDate=new Date(emision+'T00:00:00');
+
+  const amortSched=dlkGenAmortSchedule(bond);
+  // fechas de cupón futuras (desde liq en adelante)
+  const cuponDates=dlkGenCuponDates(emision,vcto,parseInt(freqCuponMeses)||0)
+    .filter(d=>d>liqDate);
+
+  // Construir mapa VN residual: arranca en 100, se reduce con cada amort
+  // Las amortizaciones futuras (desde liq) reducen el VN residual
+  const futAmort=amortSched.filter(r=>new Date(r.fecha+'T00:00:00')>liqDate);
+  const pastAmort=amortSched.filter(r=>new Date(r.fecha+'T00:00:00')<=liqDate);
+  const vnResidual=pastAmort.reduce((vn,r)=>vn-r.pct,100);
+
+  // Unir todos los eventos futuros con fecha
+  const eventos=[];
+
+  // Amortizaciones futuras
+  futAmort.forEach(r=>{
+    eventos.push({fecha:r.fecha,amort:r.pct,interes:0});
+  });
+
+  // Cupones (sobre VN residual *antes* de la amort de esa fecha)
+  if(cupon>0&&parseInt(freqCuponMeses)>0){
+    // construir serie completa de cupones para calcular VN en cada fecha
+    const allAmort=amortSched.map(r=>({...r,date:new Date(r.fecha+'T00:00:00')})).sort((a,b)=>a.date-b.date);
+    let vnAcc=100;
+    let prevDate=emDate;
+    cuponDates.forEach(cd=>{
+      // VN al inicio del período = vnAcc antes de amorts en este cupón
+      const amortEnEstaFecha=allAmort.filter(a=>a.date<=cd&&a.date>prevDate);
+      const vnAntes=vnAcc; // interés se cobra sobre VN antes de la amort del mismo día
+      amortEnEstaFecha.forEach(a=>{vnAcc-=a.pct;});
+      // días del período (base 30/360: meses completos × 30 + días)
+      const diasPeriodo=dias360(prevDate,cd);
+      const interes=vnAntes*(cupon/100)*(diasPeriodo/360);
+      // agregar al evento
+      const fechaStr=fmtDate(cd);
+      const ev=eventos.find(e=>e.fecha===fechaStr);
+      if(ev) ev.interes=interes;
+      else eventos.push({fecha:fechaStr,amort:0,interes});
+      prevDate=cd;
+    });
+  }
+
+  // Ordenar por fecha
+  eventos.sort((a,b)=>a.fecha.localeCompare(b.fecha));
+
+  // Calcular VN residual acumulado para cada evento (para mostrar en FF)
+  let vn=vnResidual;
+  const ff=[];
+  eventos.forEach(ev=>{
+    const cfUSD=(ev.amort+ev.interes); // en USD sobre base 100
+    const diasDesdeliq=diasACT(liqDate,new Date(ev.fecha+'T00:00:00'));
+    ff.push({fecha:ev.fecha,amort:ev.amort,interes:ev.interes,cf:cfUSD,dias:diasDesdeliq,vnAntes:vn});
+    vn-=ev.amort;
+  });
+
+  return{ff,vnResidual};
+}
+
+// base 30/360 entre dos fechas
+function dias360(d1,d2){
+  const y1=d1.getFullYear(),m1=d1.getMonth()+1,dd1=Math.min(d1.getDate(),30);
+  const y2=d2.getFullYear(),m2=d2.getMonth()+1,dd2=Math.min(d2.getDate(),30);
+  return(y2-y1)*360+(m2-m1)*30+(dd2-dd1);
+}
+
+// ── TIR por Newton-Raphson ────────────────────────────────────────────────────
+function dlkCalcTIR(precioPesos, bond, liq, tc){
+  if(!tc||tc<=0) return null;
+  const precioUSD=precioPesos/tc;
+  const{ff}=dlkBuildFF(bond,liq);
+  if(!ff.length) return null;
+
+  // f(r) = -precioUSD + sum( cf_i / (1+r)^(dias_i/365) )  con base días reales
+  // usamos días ACT para descontar
+  let r=0.05; // semilla
+  for(let iter=0;iter<100;iter++){
+    let f=-precioUSD, df=0;
+    ff.forEach(ev=>{
+      const t=ev.dias/365;
+      const disc=Math.pow(1+r,t);
+      f+=ev.cf/disc;
+      df-=t*ev.cf/Math.pow(1+r,t+1);
+    });
+    if(Math.abs(df)<1e-12) break;
+    const rNew=r-f/df;
+    if(Math.abs(rNew-r)<1e-8){r=rNew;break;}
+    r=rNew;
+    if(r<-0.999) r=-0.999;
+  }
+  return r*100; // en %
+}
+
+// ── TNA según fórmula provista ────────────────────────────────────────────────
+function dlkCalcTNA(tir, diasResid){
+  if(tir==null||isNaN(tir)) return null;
+  const r=tir/100;
+  if(diasResid>180){
+    return((Math.pow(1+r,182.5/365)-1)*360/180)*100;
+  } else {
+    return((Math.pow(1+r,diasResid/365)-1)*365/diasResid)*100;
+  }
+}
+
+// ── Paridad ───────────────────────────────────────────────────────────────────
+function dlkCalcParidad(precioPesos, tc){
+  // paridad = precio en USD / 100
+  if(!tc||tc<=0||!precioPesos) return null;
+  return(precioPesos/tc); // precio en USD (base 100)
+}
+
+// ── Enrich ────────────────────────────────────────────────────────────────────
+function dlkEnrich(bond){
+  const liq=G_LIQ||addHabiles(TODAY,1);
+  const tc=dlkTCHoy();
+  const vctoDate=parseDate(bond.vcto);
+  const dias=vctoDate?diasACT(liq,vctoDate):0;
+  const tir=bond.precio&&tc?dlkCalcTIR(bond.precio,bond,liq,tc):null;
+  const tna=tir!=null?dlkCalcTNA(tir,dias):null;
+  const paridad=bond.precio&&tc?dlkCalcParidad(bond.precio,tc):null;
+  return{...bond,dias,tir,tna,paridad,tc};
+}
+
+// ── Tabla ─────────────────────────────────────────────────────────────────────
+function dlkRenderTable(){
+  authUpdateAdminUI();
+  DLK_DATA=DLK_BONDS.map(dlkEnrich);
+  const tbody=document.getElementById('dlk-table-body');
+  if(!tbody)return;
+  if(!DLK_BONDS.length){
+    tbody.innerHTML=`<tr><td colspan="9" class="no-rows">Agregá bonos DLK con + Nueva.</td></tr>`;
+    return;
+  }
+  const liq=G_LIQ||addHabiles(TODAY,1);
+  const rows=DLK_DATA.filter(r=>r.dias>0).sort((a,b)=>a.vcto.localeCompare(b.vcto));
+  const f2=(v,s='%')=>v==null||isNaN(v)?'—':v.toFixed(2)+s;
+  tbody.innerHTML=rows.map(r=>{
+    const vctoStr=r.vcto?r.vcto.split('-').reverse().join('/'):'—';
+    const chg=r.pct_change;
+    const chgStr=chg==null?'':`<span class="${chg>=0?'c-chg-pos':'c-chg-neg'}">${chg>=0?'+':''}${chg.toFixed(2)}%</span>`;
+    const parStr=r.paridad!=null?r.paridad.toFixed(2)+'%':'—';
+    return`<tr onclick="dlkOpenPanel('${r.ticker}')" style="cursor:pointer">
+      <td class="ticker-cell"><div class="cv left no-edit"><span class="c-ticker">${r.ticker}</span></div></td>
+      <td><div class="cv no-edit c-date">${vctoStr}</div></td>
+      <td><div class="cv no-edit c-muted">${r.dias}</div></td>
+      <td><div class="cv no-edit c-green">${r.precio!=null?fmtARS(r.precio):'—'}</div></td>
+      <td><div class="cv no-edit">${chgStr}</div></td>
+      <td><div class="cv no-edit c-amber">${parStr}</div></td>
+      <td><div class="cv no-edit c-blue">${f2(r.tir)}</div></td>
+      <td><div class="cv no-edit c-amber">${f2(r.tna)}</div></td>
+      <td onclick="event.stopPropagation()"><div class="row-act">
+        <button class="rbtn del" onclick="dlkDeleteRow('${r.ticker}')" style="display:${isAdmin()?'':'none'}">✕</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Panel calculadora ─────────────────────────────────────────────────────────
+function dlkOpenPanel(ticker){
+  dlkSelectedTicker=ticker;
+  const r=DLK_DATA.find(x=>x.ticker===ticker)||dlkEnrich(DLK_BONDS.find(x=>x.ticker===ticker));
+  if(!r) return;
+  const panel=document.getElementById('dlk-right-panel');
+  const pTicker=document.getElementById('dlk-p-ticker');
+  const pMeta=document.getElementById('dlk-p-meta');
+  if(!panel)return;
+  panel.classList.add('open');
+  if(pTicker) pTicker.textContent=ticker;
+  if(pMeta) pMeta.innerHTML=`Vto: ${r.vcto?r.vcto.split('-').reverse().join('/'):'—'} · Cupón: ${r.cupon||0}% · ${r.amortTipo||'bullet'}`;
+
+  dlkRenderPanel(r);
+}
+
+function dlkRenderPanel(r){
+  const body=document.getElementById('dlk-panel-body');
+  if(!body)return;
+  const tc=dlkTCHoy();
+  const liq=G_LIQ||addHabiles(TODAY,1);
+  const{ff,vnResidual}=dlkBuildFF(r,liq);
+  const diasResid=r.dias||0;
+  const f4=v=>v==null||isNaN(v)?'—':v.toFixed(4);
+  const f2=v=>v==null||isNaN(v)?'—':v.toFixed(2);
+
+  // TC editable
+  const tcDisplay=dlkTCOverride!=null?dlkTCOverride:tc;
+
+  body.innerHTML=`
+    <!-- TC HOY editable -->
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:8px 12px;margin-bottom:10px;">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">TC A3500</span>
+        <input type="number" id="dlk-tc-input" value="${tcDisplay!=null?tcDisplay.toFixed(4):''}"
+          step="0.0001" placeholder="TC en $/USD"
+          style="width:110px;background:var(--surface);border:1px solid var(--border2);border-radius:3px;padding:3px 7px;font-family:var(--mono);font-size:12px;color:var(--accent);outline:none;"
+          oninput="dlkOnTCChange(this.value)">
+        <button onclick="dlkResetTC()" class="btn" style="padding:2px 7px;font-size:10px">↺ Cierre</button>
+        <span style="font-size:10px;color:var(--text3)" id="dlk-tc-label">${dlkTCOverride!=null?'(manual)':'(último cierre)'}</span>
+      </div>
+    </div>
+
+    <!-- Precio + tasas -->
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:100px;">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:3px">Precio $</div>
+        <input type="number" id="dlk-px-input" value="${r.precio!=null?r.precio:''}"
+          step="0.01" placeholder="Precio sucio $"
+          style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:3px;padding:4px 8px;font-family:var(--mono);font-size:13px;color:var(--text);outline:none;"
+          oninput="dlkOnPxChange(this.value)">
+      </div>
+      <div style="flex:1;min-width:80px;">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:3px">Paridad USD</div>
+        <div style="font-size:16px;color:var(--warn);font-family:var(--mono);padding:4px 0" id="dlk-r-paridad">${r.paridad!=null?f2(r.paridad)+'%':'—'}</div>
+      </div>
+    </div>
+
+    <div class="section-label">Tasas implícitas</div>
+    <table class="res-table" style="margin-bottom:10px">
+      <tr class="bl"><td>TIR (anual, base ACT/365)</td><td id="dlk-r-tir">${f2(r.tir)}%</td></tr>
+      <tr class="wa"><td>TNA (base 30/360)</td><td id="dlk-r-tna">${f2(r.tna)}%</td></tr>
+      <tr class="mu"><td>Días residuales</td><td>${diasResid}</td></tr>
+      <tr class="mu"><td>VN residual</td><td>${f2(vnResidual)}%</td></tr>
+    </table>
+
+    <div class="section-label">Flujo de Fondos Real (USD · base VN=100)</div>
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:11px;">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border2)">
+            <th style="text-align:left;padding:3px 6px;color:var(--text3);font-weight:400">Fecha</th>
+            <th style="text-align:right;padding:3px 6px;color:var(--text3);font-weight:400">Días</th>
+            <th style="text-align:right;padding:3px 6px;color:var(--text3);font-weight:400">Amort</th>
+            <th style="text-align:right;padding:3px 6px;color:var(--text3);font-weight:400">Interés</th>
+            <th style="text-align:right;padding:3px 6px;color:var(--accent);font-weight:400">CF Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${ff.map(ev=>`<tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:3px 6px;color:var(--text2);font-family:var(--mono)">${ev.fecha.split('-').reverse().join('/')}</td>
+            <td style="padding:3px 6px;text-align:right;color:var(--text3)">${ev.dias}</td>
+            <td style="padding:3px 6px;text-align:right;color:var(--warn)">${ev.amort>0?f2(ev.amort):'—'}</td>
+            <td style="padding:3px 6px;text-align:right;color:var(--text2)">${ev.interes>0?f4(ev.interes):'—'}</td>
+            <td style="padding:3px 6px;text-align:right;color:var(--accent);font-weight:600">${f4(ev.cf)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function dlkOnTCChange(val){
+  const v=parseFloat(val);
+  dlkTCOverride=(!isNaN(v)&&v>0)?v:null;
+  const lbl=document.getElementById('dlk-tc-label');
+  if(lbl) lbl.textContent=dlkTCOverride!=null?'(manual)':'(último cierre)';
+  dlkRecalcPanel();
+}
+function dlkResetTC(){
+  dlkTCOverride=null;
+  const inp=document.getElementById('dlk-tc-input');
+  const tc=dlkTCHoy();
+  if(inp&&tc) inp.value=tc.toFixed(4);
+  const lbl=document.getElementById('dlk-tc-label');
+  if(lbl) lbl.textContent='(último cierre)';
+  dlkRecalcPanel();
+}
+function dlkOnPxChange(val){
+  const v=parseFloat(val);
+  if(isNaN(v)||v<=0) return;
+  // actualizar precio en el bond
+  const idx=DLK_BONDS.findIndex(b=>b.ticker===dlkSelectedTicker);
+  if(idx>=0){DLK_BONDS[idx]={...DLK_BONDS[idx],precio:v,manualOverride:true};dlkSaveBonds();}
+  DLK_DATA=DLK_BONDS.map(dlkEnrich);
+  dlkRecalcPanel();
+  dlkRenderTable();
+}
+function dlkRecalcPanel(){
+  if(!dlkSelectedTicker)return;
+  const r=dlkEnrich(DLK_BONDS.find(b=>b.ticker===dlkSelectedTicker));
+  if(!r)return;
+  // actualizar solo los valores calculados sin re-renderizar todo
+  const s=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+  const f2=v=>v==null||isNaN(v)?'—':v.toFixed(2)+'%';
+  s('dlk-r-tir',f2(r.tir));
+  s('dlk-r-tna',f2(r.tna));
+  s('dlk-r-paridad',r.paridad!=null?r.paridad.toFixed(2)+'%':'—');
+  // re-renderizar FF
+  dlkRenderPanel(r);
+}
+
+function dlkClosePanel(){
+  dlkSelectedTicker=null;
+  const panel=document.getElementById('dlk-right-panel');
+  if(panel){panel.classList.remove('open');}
+}
+function dlkDeleteRow(ticker){
+  DLK_BONDS=DLK_BONDS.filter(b=>b.ticker!==ticker);
+  dlkSaveBonds();
+  DLK_DATA=DLK_BONDS.map(dlkEnrich);
+  dlkRenderTable();
+  if(dlkSelectedTicker===ticker) dlkClosePanel();
+}
+
+// ── Fetch precios desde API ───────────────────────────────────────────────────
+async function dlkFetchPrices(){
+  if(!DLK_BONDS.length) return;
+  try{
+    const ts=Date.now();
+    const[rN,rB]=await Promise.all([
+      fetch(`https://data912.com/live/arg_notes?_=${ts}`,{cache:'no-store'}).then(r=>r.json()),
+      fetch(`https://data912.com/live/arg_bonds?_=${ts}`,{cache:'no-store'}).then(r=>r.json()),
+    ]);
+    const map=new Map([...rN,...rB].map(x=>[x.symbol,x]));
+    DLK_BONDS=DLK_BONDS.map(b=>{
+      const api=map.get(b.ticker);
+      const px=apiBestPrice(api);
+      if(px) return{...b,precio:px,pct_change:api.pct_change??null,manualOverride:false};
+      return b;
+    });
+    dlkSaveBonds();
+    DLK_DATA=DLK_BONDS.map(dlkEnrich);
+    dlkRenderTable();
+    if(dlkSelectedTicker) dlkRecalcPanel();
+  }catch(e){console.warn('dlkFetchPrices error:',e);}
+}
+
+// ── Modal ─────────────────────────────────────────────────────────────────────
+function dlkOpenModal(){
+  ['dlk-m-ticker','dlk-m-cupon','dlk-m-emision','dlk-m-vcto','dlk-m-precio','dlk-m-ncuotas','dlk-m-primer-amort'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.value='';
+  });
+  document.getElementById('dlk-m-freq-cupon').value='6';
+  document.getElementById('dlk-m-amort-tipo').value='bullet';
+  document.getElementById('dlk-m-amort-cuotas').style.display='none';
+  document.getElementById('dlk-m-amort-custom').style.display='none';
+  document.getElementById('dlk-m-custom-rows').innerHTML='';
+  document.getElementById('dlk-modal').classList.add('open');
+}
+function dlkCloseModal(){document.getElementById('dlk-modal').classList.remove('open');}
+
+function dlkModalAmortChange(){
+  const tipo=document.getElementById('dlk-m-amort-tipo').value;
+  document.getElementById('dlk-m-amort-cuotas').style.display=tipo==='cuotas'?'block':'none';
+  document.getElementById('dlk-m-amort-custom').style.display=tipo==='custom'?'block':'none';
+}
+
+function dlkModalAddAmortRow(){
+  const wrap=document.getElementById('dlk-m-custom-rows');
+  const row=document.createElement('div');
+  row.style.cssText='display:flex;gap:6px;align-items:center;';
+  row.innerHTML=`
+    <input type="date" style="flex:1;background:var(--surface2);border:1px solid var(--border2);border-radius:3px;padding:3px 6px;font-family:var(--mono);font-size:11px;color:var(--text);outline:none;">
+    <input type="number" step="0.01" placeholder="%" style="width:70px;background:var(--surface2);border:1px solid var(--border2);border-radius:3px;padding:3px 6px;font-family:var(--mono);font-size:11px;color:var(--text);outline:none;text-align:right;" oninput="dlkModalUpdateSum()">
+    <button onclick="this.parentElement.remove();dlkModalUpdateSum()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:0 3px">✕</button>`;
+  wrap.appendChild(row);
+}
+function dlkModalUpdateSum(){
+  const rows=document.getElementById('dlk-m-custom-rows').querySelectorAll('input[type=number]');
+  const sum=[...rows].reduce((s,i)=>s+(parseFloat(i.value)||0),0);
+  const el=document.getElementById('dlk-m-custom-sum');
+  if(el) el.innerHTML=`Total: <span style="color:${Math.abs(sum-100)<0.01?'var(--accent2)':'var(--danger)'}">${sum.toFixed(2)}%</span>`;
+}
+
+function dlkSaveModal(){
+  const ticker=(document.getElementById('dlk-m-ticker').value||'').toUpperCase().trim();
+  const cupon=parseFloat(document.getElementById('dlk-m-cupon').value)||0;
+  const emision=document.getElementById('dlk-m-emision').value;
+  const vcto=document.getElementById('dlk-m-vcto').value;
+  const freqCuponMeses=parseInt(document.getElementById('dlk-m-freq-cupon').value)||0;
+  const amortTipo=document.getElementById('dlk-m-amort-tipo').value;
+  const precioRaw=document.getElementById('dlk-m-precio').value;
+  const precio=precioRaw?parseFloat(precioRaw):null;
+
+  if(!ticker){alert('Ingresá un ticker.');return;}
+  if(!vcto){alert('Ingresá fecha de vencimiento.');return;}
+  if(!emision){alert('Ingresá fecha de emisión.');return;}
+  if(DLK_BONDS.find(b=>b.ticker===ticker)){alert('Ya existe ese ticker.');return;}
+
+  const bond={ticker,cupon,emision,vcto,freqCuponMeses,amortTipo,precio,pct_change:null,manualOverride:false};
+
+  if(amortTipo==='cuotas'){
+    bond.amortNCuotas=parseInt(document.getElementById('dlk-m-ncuotas').value)||2;
+    bond.amortFreqMeses=parseInt(document.getElementById('dlk-m-freq-amort').value)||6;
+    bond.amortPrimerFecha=document.getElementById('dlk-m-primer-amort').value;
+    if(!bond.amortPrimerFecha){alert('Ingresá la primera fecha de amortización.');return;}
+  }
+  if(amortTipo==='custom'){
+    const rows=document.getElementById('dlk-m-custom-rows').querySelectorAll('div');
+    const schedule=[];
+    rows.forEach(row=>{
+      const inputs=row.querySelectorAll('input');
+      const fecha=inputs[0]?.value;
+      const pct=parseFloat(inputs[1]?.value);
+      if(fecha&&!isNaN(pct)&&pct>0) schedule.push({fecha,pct});
+    });
+    const sum=schedule.reduce((s,r)=>s+r.pct,0);
+    if(Math.abs(sum-100)>0.01){alert(`El schedule suma ${sum.toFixed(2)}%, debe ser 100%.`);return;}
+    bond.amortCustom=schedule;
+  }
+
+  DLK_BONDS.push(bond);
+  dlkSaveBonds();
+  dlkCloseModal();
+  DLK_DATA=DLK_BONDS.map(dlkEnrich);
+  dlkRenderTable();
+  if(bond.precio) dlkOpenPanel(ticker);
+  dlkFetchPrices();
+}
+
 
 function fwdLoadLs(){
   try{
