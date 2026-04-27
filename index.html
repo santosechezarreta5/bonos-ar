@@ -3641,6 +3641,26 @@ async function dlkFetchIndex(force=false){
       .map(r=>({fecha:(r.fecha||'').split('T')[0],valor:parseFloat(r.valor)}))
       .filter(r=>r.fecha&&!isNaN(r.valor))
       .sort((a,b)=>a.fecha.localeCompare(b.fecha));
+
+    // DEBUG — loguear estructura cruda y primeros registros procesados
+    console.log('[DLK] primer registro crudo:', JSON.stringify(allResults[0]));
+    console.log('[DLK] total crudos:', allResults.length);
+    console.log('[DLK] total procesados:', DLK_INDEX.length);
+    console.log('[DLK] primeros 3 procesados:', JSON.stringify(DLK_INDEX.slice(0,3)));
+    console.log('[DLK] últimos 3 procesados:', JSON.stringify(DLK_INDEX.slice(-3)));
+
+    // mostrar debug en el placeholder visual
+    const dbg=document.getElementById('dlk-placeholder-status');
+    if(dbg) dbg.innerHTML=`
+      <div style="font-family:var(--mono);font-size:11px;color:var(--text2);background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:8px 12px;text-align:left;max-width:500px;">
+        <div style="color:var(--text3);margin-bottom:4px">DEBUG — abrí la consola (F12) para más detalle</div>
+        <div>Registros crudos: <span style="color:var(--accent)">${allResults.length}</span></div>
+        <div>Registros procesados: <span style="color:var(--accent)">${DLK_INDEX.length}</span></div>
+        <div style="margin-top:4px;color:var(--text3)">Primer registro crudo:</div>
+        <pre style="color:var(--warn);margin:2px 0;white-space:pre-wrap">${JSON.stringify(allResults[0],null,2)}</pre>
+        <div style="color:var(--text3)">Último procesado:</div>
+        <pre style="color:var(--accent2);margin:2px 0">${JSON.stringify(DLK_INDEX[DLK_INDEX.length-1])}</pre>
+      </div>`;
     try{localStorage.setItem(DLK_CACHE_KEY,JSON.stringify({ts:Date.now(),data:DLK_INDEX}));}catch(e){}
     const last=DLK_INDEX[DLK_INDEX.length-1];
     const prev=DLK_INDEX[DLK_INDEX.length-2];
