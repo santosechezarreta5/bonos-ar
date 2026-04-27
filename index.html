@@ -3686,9 +3686,12 @@ function dlkRenderIndexStrip(){
   const prev=sorted[sorted.length-2];
   const varDia=prev?(last.valor-prev.valor):null;
   const varStr=varDia!=null?(varDia>=0?'+':'')+varDia.toFixed(4):'';
-  const hace30=sorted.find(r=>r.fecha<=fmtDate(new Date(parseDate(last.fecha).getTime()-30*86400000)));
+  const fecha30=fmtDate(new Date(parseDate(last.fecha).getTime()-30*86400000));
+  const fecha365=fmtDate(new Date(parseDate(last.fecha).getTime()-365*86400000));
+  let hace30=null,hace365=null;
+  for(let i=sorted.length-1;i>=0;i--){if(sorted[i].fecha<=fecha30){hace30=sorted[i];break;}}
+  for(let i=sorted.length-1;i>=0;i--){if(sorted[i].fecha<=fecha365){hace365=sorted[i];break;}}
   const var30=hace30?(last.valor/hace30.valor-1)*100:null;
-  const hace365=sorted.find(r=>r.fecha<=fmtDate(new Date(parseDate(last.fecha).getTime()-365*86400000)));
   const var365=hace365?(last.valor/hace365.valor-1)*100:null;
   const el=id=>document.getElementById(id);
   const fmtPct=(v,d=2)=>v!=null?(v>=0?'+':'')+v.toFixed(d)+'%':'—';
@@ -3707,7 +3710,9 @@ function dlkRenderIndexStrip(){
     const varD=p?(r.valor-p.valor):null;
     const clrD=varD==null?'color:var(--text3)':varD>=0?'color:var(--accent2)':'color:var(--danger)';
     const varDStr=varD!=null?(varD>=0?'+':'')+varD.toFixed(4):'—';
-    const p30=sorted.find(x=>x.fecha<=fmtDate(new Date(parseDate(r.fecha).getTime()-30*86400000)));
+    const fecha30r=fmtDate(new Date(parseDate(r.fecha).getTime()-30*86400000));
+    let p30=null;
+    for(let j=sorted.length-1;j>=0;j--){if(sorted[j].fecha<=fecha30r){p30=sorted[j];break;}}
     const v30=p30?(r.valor/p30.valor-1)*100:null;
     const esHoy=i===0;
     return`<tr style="border-bottom:1px solid var(--border)${esHoy?';background:var(--accent-dim)':''}">
