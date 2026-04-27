@@ -317,7 +317,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
   <button class="nav-tab" id="nav-lecap" onclick="switchTab('lecap')">Tasa Fija</button>
   <button class="nav-tab" id="nav-cer" onclick="switchTab('cer')">CER</button>
   <button class="nav-tab" id="nav-tamar" onclick="switchTab('tamar')">TAMAR</button>
-  <button class="nav-tab disabled">DLK <span class="soon">pronto</span></button>
+  <button class="nav-tab" id="nav-dlk" onclick="switchTab('dlk')">DLK</button>
   <button class="nav-tab disabled">Sintético ARS <span class="soon">pronto</span></button>
   <button class="nav-tab" id="nav-proyecciones" onclick="switchTab('proyecciones')">Proyecciones</button>
   <button class="nav-tab" id="nav-feriados" onclick="switchTab('feriados')" style="margin-left:auto">Feriados</button>
@@ -373,6 +373,11 @@ tbody tr.selected .c-ticker{color:var(--accent);}
   <div style="display:flex;align-items:center;gap:8px;">
     <button class="btn" style="padding:3px 9px;font-size:11px;margin:0;" onclick="tamarFetchIndex(true)">↻ TAMAR</button>
     <span class="api-status" id="g-tamar-status">sin datos</span>
+  </div>
+  <div class="sbar-sep"></div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <button class="btn" style="padding:3px 9px;font-size:11px;margin:0;" onclick="dlkFetchIndex(true)">↻ DLK</button>
+    <span class="api-status" id="g-dlk-status">sin datos</span>
   </div>
   <div class="sbar-sep"></div>
   <div style="display:flex;align-items:center;gap:6px;">
@@ -905,6 +910,70 @@ tbody tr.selected .c-ticker{color:var(--accent);}
     <div class="modal-actions">
       <button class="btn" onclick="tamarCloseModal()">Cancelar</button>
       <button class="btn primary" onclick="tamarSaveModal()">Agregar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ DLK PAGE -->
+<div id="page-dlk" style="display:none;height:calc(100vh - 164px);overflow:hidden;flex-direction:column;">
+  <div style="display:flex;flex:1;height:100%;gap:0;min-height:0;">
+
+    <div class="left-panel" style="display:flex;flex-direction:column;min-width:0;flex:1;">
+
+      <!-- DLK INDEX STRIP -->
+      <div id="dlk-index-strip" style="display:none;border-bottom:1px solid var(--border);flex-shrink:0;">
+        <!-- header -->
+        <div style="display:flex;align-items:center;gap:12px;padding:6px 1rem;">
+          <span style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">Tipo de Cambio A3500 · BCRA</span>
+          <span style="font-size:13px;color:var(--accent);font-family:var(--mono)" id="dlk-idx-hoy">—</span>
+          <span style="font-size:11px;color:var(--text3)" id="dlk-idx-fecha">—</span>
+          <span class="api-status" id="dlk-data-status" style="margin-left:8px"></span>
+          <button onclick="dlkToggleIndexTable()" id="dlk-toggle-btn" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;margin-left:auto">ver tabla ▾</button>
+        </div>
+        <!-- métricas -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);border-top:1px solid var(--border);border-bottom:1px solid var(--border);">
+          <div style="background:var(--surface);padding:6px 12px;">
+            <div style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:2px">Último valor</div>
+            <div style="font-size:15px;color:var(--accent);font-family:var(--mono)" id="dlk-m-last">—</div>
+          </div>
+          <div style="background:var(--surface);padding:6px 12px;">
+            <div style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:2px">Var. diaria</div>
+            <div style="font-size:15px;color:var(--accent2);font-family:var(--mono)" id="dlk-m-var-dia">—</div>
+          </div>
+          <div style="background:var(--surface);padding:6px 12px;">
+            <div style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:2px">Var. 30 días</div>
+            <div style="font-size:15px;color:var(--warn);font-family:var(--mono)" id="dlk-m-var-30d">—</div>
+          </div>
+          <div style="background:var(--surface);padding:6px 12px;">
+            <div style="font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:2px">Var. 12 meses</div>
+            <div style="font-size:15px;color:var(--warn);font-family:var(--mono)" id="dlk-m-var-365d">—</div>
+          </div>
+        </div>
+        <!-- tabla histórica -->
+        <div id="dlk-index-table-wrap" style="display:none;max-height:220px;overflow-y:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:12px;">
+            <thead style="position:sticky;top:0;background:var(--surface2);z-index:1;">
+              <tr style="border-bottom:1px solid var(--border2)">
+                <th style="text-align:left;padding:5px 8px;font-size:10px;color:var(--text3);font-weight:400;text-transform:uppercase;letter-spacing:.06em">Fecha</th>
+                <th style="text-align:right;padding:5px 8px;font-size:10px;color:var(--accent);font-weight:400;text-transform:uppercase;letter-spacing:.06em">$ / USD</th>
+                <th style="text-align:right;padding:5px 8px;font-size:10px;color:var(--text3);font-weight:400;text-transform:uppercase;letter-spacing:.06em">Var. diaria</th>
+                <th style="text-align:right;padding:5px 8px;font-size:10px;color:var(--warn);font-weight:400;text-transform:uppercase;letter-spacing:.06em">Var. 30d</th>
+              </tr>
+            </thead>
+            <tbody id="dlk-index-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Placeholder bonos DLK -->
+      <div style="flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:.75rem;color:var(--text3);">
+        <div style="font-family:var(--serif);font-size:22px;font-weight:300;font-style:italic;color:var(--accent2)">Dollar Linked</div>
+        <div style="font-size:12px;text-align:center;max-width:360px;line-height:1.6">
+          Índice A3500 cargado. La tabla de bonos DLK se implementa en la próxima iteración.
+        </div>
+        <div style="font-size:11px;color:var(--text3)" id="dlk-placeholder-status"></div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -2518,6 +2587,7 @@ function switchTab(tab){
   document.getElementById('page-breakeven').style.display='none';
   document.getElementById('page-tamar').style.display='none';
   document.getElementById('page-forwards').style.display='none';
+  document.getElementById('page-dlk').style.display='none';
 
   if(tab==='lecap'){
     lecapWorkspace.style.display='flex';
@@ -2547,6 +2617,10 @@ function switchTab(tab){
     else tamarRenderIndexStrip();
     tamarRenderTable();
     tamarRenderTabChart();
+  } else if(tab==='dlk'){
+    document.getElementById('page-dlk').style.display='flex';
+    if(!DLK_INDEX.length) dlkFetchIndex();
+    else dlkRenderIndexStrip();
   }
 }
 
@@ -3418,6 +3492,12 @@ const TAMAR_CACHE_KEY='bonosAR_tamar_v2';
 const TAMAR_CACHE_TTL=23*60*60*1000;
 let TAMAR_INDEX=[];  // [{fecha:'YYYY-MM-DD', valor:number}] — TNA % diaria
 
+// ── DLK (Tipo de Cambio Mayorista A3500) ──────────────────────────────────────
+const DLK_ID=272; // idVariable en la API del BCRA
+const DLK_CACHE_KEY='bonosAR_dlk_v1';
+const DLK_CACHE_TTL=23*60*60*1000;
+let DLK_INDEX=[];  // [{fecha:'YYYY-MM-DD', valor:number}] — $/USD mayorista
+
 function tamarIndexGet(dateStr){
   // busca el valor exacto o el último anterior
   if(!dateStr||!TAMAR_INDEX.length)return null;
@@ -3496,6 +3576,139 @@ async function tamarFetchIndex(force=false){
     if(st){st.textContent='TAMAR: error: '+e.message;st.className='api-status err';}
     return false;
   }
+}
+
+
+// ── DLK INDEX — BCRA vía Cloudflare Worker (id=272) ──────────────────────────
+function dlkIndexGet(dateStr){
+  if(!dateStr||!DLK_INDEX.length)return null;
+  const exact=DLK_INDEX.find(r=>r.fecha===dateStr);
+  if(exact)return exact.valor;
+  for(let i=DLK_INDEX.length-1;i>=0;i--){
+    if(DLK_INDEX[i].fecha<=dateStr)return DLK_INDEX[i].valor;
+  }
+  return null;
+}
+
+async function dlkFetchPage(desde,limit,offset){
+  const url=`${WORKER_URL}?id=${DLK_ID}&desde=${desde}&limit=${limit}&offset=${offset}`;
+  const res=await fetch(url,{signal:AbortSignal.timeout(15000)});
+  if(!res.ok)return null;
+  const json=await res.json();
+  if(json.results&&json.results[0]&&json.results[0].detalle){
+    return{results:json.results[0].detalle,metadata:json.metadata};
+  }
+  return json;
+}
+
+async function dlkFetchIndex(force=false){
+  const st=document.getElementById('g-dlk-status');
+  if(!force){
+    try{
+      const cached=localStorage.getItem(DLK_CACHE_KEY);
+      if(cached){
+        const{ts,data}=JSON.parse(cached);
+        if(Date.now()-ts<DLK_CACHE_TTL&&data?.length){
+          DLK_INDEX=data;
+          if(st){st.textContent=`DLK · ${DLK_INDEX.length} registros (cache)`;st.className='api-status ok';}
+          dlkRenderIndexStrip();
+          return true;
+        }
+      }
+    }catch(e){}
+  }
+  if(st){st.textContent='DLK: cargando…';st.className='api-status loading';}
+  try{
+    const DESDE='2003-01-01';
+    const allResults=[];
+    let offset=0;
+    const LIMIT=3000;
+    while(true){
+      const page=await dlkFetchPage(DESDE,LIMIT,offset);
+      if(!page)break;
+      const items=page.results||[];
+      allResults.push(...items);
+      const total=page.metadata?.resultset?.count||0;
+      if(!items.length||allResults.length>=total)break;
+      offset+=LIMIT;
+    }
+    if(!allResults.length){
+      if(st){st.textContent='DLK: sin datos';st.className='api-status err';}
+      return false;
+    }
+    DLK_INDEX=allResults
+      .filter(r=>r.fecha&&r.valor!=null)
+      .map(r=>({fecha:(r.fecha||'').split('T')[0],valor:parseFloat(r.valor)}))
+      .filter(r=>r.fecha&&!isNaN(r.valor))
+      .sort((a,b)=>a.fecha.localeCompare(b.fecha));
+    try{localStorage.setItem(DLK_CACHE_KEY,JSON.stringify({ts:Date.now(),data:DLK_INDEX}));}catch(e){}
+    const last=DLK_INDEX[DLK_INDEX.length-1];
+    const prev=DLK_INDEX[DLK_INDEX.length-2];
+    const now=new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+    const varDia=prev?(last.valor-prev.valor):null;
+    const varStr=varDia!=null?(varDia>=0?'+':'')+varDia.toFixed(4):'';
+    if(st){st.textContent=`A3500 ${last.fecha.split('-').reverse().join('/')} = $${last.valor.toFixed(4)} ${varStr} · ${now}`;st.className='api-status ok';}
+    dlkRenderIndexStrip();
+    if(currentTab==='dlk') dlkRenderPage();
+    return true;
+  }catch(e){
+    if(st){st.textContent='DLK: error: '+e.message;st.className='api-status err';}
+    return false;
+  }
+}
+
+function dlkRenderIndexStrip(){
+  const strip=document.getElementById('dlk-index-strip');
+  if(!strip||!DLK_INDEX.length)return;
+  strip.style.display='block';
+  const sorted=[...DLK_INDEX].sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  const last=sorted[sorted.length-1];
+  const prev=sorted[sorted.length-2];
+  const varDia=prev?(last.valor-prev.valor):null;
+  const varStr=varDia!=null?(varDia>=0?'+':'')+varDia.toFixed(4):'';
+  const hace30=sorted.find(r=>r.fecha<=fmtDate(new Date(parseDate(last.fecha).getTime()-30*86400000)));
+  const var30=hace30?(last.valor/hace30.valor-1)*100:null;
+  const hace365=sorted.find(r=>r.fecha<=fmtDate(new Date(parseDate(last.fecha).getTime()-365*86400000)));
+  const var365=hace365?(last.valor/hace365.valor-1)*100:null;
+  const el=id=>document.getElementById(id);
+  const fmtPct=(v,d=2)=>v!=null?(v>=0?'+':'')+v.toFixed(d)+'%':'—';
+  if(el('dlk-idx-hoy'))el('dlk-idx-hoy').textContent=`$${last.valor.toFixed(4)}  ${varStr}`;
+  if(el('dlk-idx-fecha'))el('dlk-idx-fecha').textContent=last.fecha.split('-').reverse().join('/');
+  if(el('dlk-m-last'))el('dlk-m-last').textContent=`$${last.valor.toFixed(4)}`;
+  if(el('dlk-m-var-dia'))el('dlk-m-var-dia').textContent=varDia!=null?(varDia>=0?'+':'')+varDia.toFixed(4):'—';
+  if(el('dlk-m-var-30d'))el('dlk-m-var-30d').textContent=fmtPct(var30);
+  if(el('dlk-m-var-365d'))el('dlk-m-var-365d').textContent=fmtPct(var365);
+  const tbody=document.getElementById('dlk-index-tbody');
+  if(!tbody)return;
+  const rows=sorted.slice(-30).reverse();
+  tbody.innerHTML=rows.map((r,i)=>{
+    const idx=sorted.length-1-i;
+    const p=idx>0?sorted[idx-1]:null;
+    const varD=p?(r.valor-p.valor):null;
+    const clrD=varD==null?'color:var(--text3)':varD>=0?'color:var(--accent2)':'color:var(--danger)';
+    const varDStr=varD!=null?(varD>=0?'+':'')+varD.toFixed(4):'—';
+    const p30=sorted.find(x=>x.fecha<=fmtDate(new Date(parseDate(r.fecha).getTime()-30*86400000)));
+    const v30=p30?(r.valor/p30.valor-1)*100:null;
+    const esHoy=i===0;
+    return`<tr style="border-bottom:1px solid var(--border)${esHoy?';background:var(--accent-dim)':''}">
+      <td style="padding:4px 8px;font-size:12px;color:${esHoy?'var(--accent)':'var(--text2)'};font-family:var(--mono)">${r.fecha.split('-').reverse().join('/')}</td>
+      <td style="padding:4px 8px;text-align:right;font-size:12px;color:${esHoy?'var(--accent)':'var(--text)'};font-family:var(--mono)">$${r.valor.toFixed(4)}</td>
+      <td style="padding:4px 8px;text-align:right;font-size:12px;${clrD}">${varDStr}</td>
+      <td style="padding:4px 8px;text-align:right;font-size:12px;color:${v30!=null?(v30>=0?'var(--accent2)':'var(--danger)'):'var(--text3)'}">${v30!=null?(v30>=0?'+':'')+v30.toFixed(2)+'%':'—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function dlkToggleIndexTable(){
+  const wrap=document.getElementById('dlk-index-table-wrap');
+  const btn=document.getElementById('dlk-toggle-btn');
+  const hidden=wrap.style.display==='none';
+  wrap.style.display=hidden?'block':'none';
+  if(btn)btn.textContent=hidden?'ocultar ▴':'ver tabla ▾';
+}
+
+function dlkRenderPage(){
+  dlkRenderIndexStrip();
 }
 
 function cerIndexGet(dateStr){
@@ -5238,6 +5451,7 @@ loadPortfolio();
 tamarLoadBonds();
 cerFetchIndex();
 tamarFetchIndex();
+dlkFetchIndex();
 switchTab('breakeven');
 authInit();
 
