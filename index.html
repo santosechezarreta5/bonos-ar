@@ -1629,7 +1629,7 @@ async function authAction(){
 // Keys que van a Supabase por usuario
 const SUPA_USER_KEYS=['bonosAR_fwd_v1','bonosAR_cp_v1','bonosAR_breakeven_v1','bonosAR_chart_sel_v1'];
 // Keys que van a Supabase compartidas
-const SUPA_SHARED_KEYS=['bonosAR_lecaps_v1','bonosAR_cer_bonds_v1','bonosAR_tamar_bonds_v1','bonosAR_feriados_extra_v1','bonosAR_proyecciones_v1'];
+const SUPA_SHARED_KEYS=['bonosAR_lecaps_v1','bonosAR_cer_bonds_v1','bonosAR_tamar_bonds_v1','bonosAR_dlk_bonds_v1','bonosAR_feriados_extra_v1','bonosAR_proyecciones_v1'];
 
 async function supaLoadUserData(){
   if(!SUPA_USER)return;
@@ -1652,14 +1652,17 @@ async function supaLoadSharedData(){
     // Reload all bond data from localStorage
     loadPortfolio();
     tamarLoadBonds();
+    dlkLoadBonds();
     // Auto-fetch prices for all bonds
     if(LECAPS.length) fetchPrices();
     if(CER_BONDS.length) cerFetchPrices();
     if(TAMAR_BONDS.length) tamarFetchPrices();
+    if(DLK_BONDS.length) dlkFetchPrices();
     // Re-render current tab
     if(currentTab==='lecap') renderTable();
     if(currentTab==='cer'){cerRenderTable();if(CER_INDEX.length)cerRenderTabChart();}
     if(currentTab==='tamar'){tamarRenderTable();if(TAMAR_INDEX.length)tamarRenderTabChart();}
+    if(currentTab==='dlk'){DLK_DATA=DLK_BONDS.map(dlkEnrich);dlkRenderTable();}
     if(currentTab==='breakeven') beInit();
     if(currentTab==='forwards') fwdRecalc();
   }catch(e){console.warn('supaLoadSharedData:',e);}
@@ -1682,7 +1685,7 @@ async function supaSaveSharedKey(key){
     if(raw==null)return;
     let value=JSON.parse(raw);
     // No guardar precios en Supabase — son datos de mercado en tiempo real
-    if(key==='bonosAR_lecaps_v1'||key==='bonosAR_cer_bonds_v1'||key==='bonosAR_tamar_bonds_v1'){
+    if(key==='bonosAR_lecaps_v1'||key==='bonosAR_cer_bonds_v1'||key==='bonosAR_tamar_bonds_v1'||key==='bonosAR_dlk_bonds_v1'){
       value=value.map(b=>({...b,precio:null,pct_change:null}));
     }
     await supa.from('shared_data').upsert({key,value,updated_at:new Date().toISOString()},{onConflict:'key'});
