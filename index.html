@@ -5271,7 +5271,7 @@ function beRenderTabla(resultados){
       <td style="padding:6px 10px;font-family:var(--mono);font-size:12px;color:var(--text2)">${promStr}</td>
       <td style="padding:6px 10px;text-align:center;font-size:12px;color:var(--text2);font-family:var(--mono)">${hmLabel}${nStr}</td>
       <td style="padding:6px 10px;text-align:center;font-family:var(--mono);font-size:13px;color:var(--accent);font-weight:700">
-        <span style="color:var(--text3);font-size:11px;font-weight:400;margin-right:4px">${ticker}</span>${fmtP2(res.inflaBE)}%${tfLabel}
+        <span style="color:var(--text2);font-size:11px;font-weight:400;margin-right:4px">${ticker}</span>${fmtP2(res.inflaBE)}%${tfLabel}
       </td>
       <td style="padding:6px 10px;text-align:center;font-family:var(--mono);font-size:12px">${difStr}</td>
       <td style="padding:6px 10px;text-align:center">${fwdStr}</td>
@@ -5385,7 +5385,7 @@ function beTamarToggleSelector(){
 function beTamarRenderChips(){
   const chipsEl=document.getElementById('be-tamar-chips');
   if(!chipsEl)return;
-  const bonds=[...TAMAR_BONDS].filter(b=>b.vcto&&b.precio).sort((a,b)=>a.vcto.localeCompare(b.vcto));
+  const bonds=[...TAMAR_BONDS].filter(b=>b.vcto).sort((a,b)=>a.vcto.localeCompare(b.vcto));
   chipsEl.innerHTML=bonds.map(b=>{
     const active=!BE_TAMAR_EXCLUDED.has(b.ticker);
     return`<button onclick="beTamarToggleBond('${b.ticker}')"
@@ -5419,7 +5419,7 @@ function beTamarRecalc(){
 
   // ordenar por vencimiento, aplicar exclusiones
   const bondsOrdenados=[...TAMAR_BONDS]
-    .filter(b=>b.vcto&&b.precio&&!BE_TAMAR_EXCLUDED.has(b.ticker))
+    .filter(b=>b.vcto&&!BE_TAMAR_EXCLUDED.has(b.ticker))
     .sort((a,b)=>a.vcto.localeCompare(b.vcto));
 
   if(!bondsOrdenados.length){
