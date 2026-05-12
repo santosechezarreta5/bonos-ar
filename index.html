@@ -1679,16 +1679,19 @@ async function supaSaveUserKey(key){
 }
 
 async function supaSaveSharedKey(key){
-  if(!SUPA_USER)return;
+  if(!SUPA_USER){console.warn('[Supa] supaSaveSharedKey: sin usuario, abortando',key);return;}
   try{
     const raw=localStorage.getItem(key);
-    if(raw==null)return;
+    if(raw==null){console.warn('[Supa] supaSaveSharedKey: localStorage vacío para',key);return;}
     let value=JSON.parse(raw);
     // No guardar precios en Supabase — son datos de mercado en tiempo real
     if(key==='bonosAR_lecaps_v1'||key==='bonosAR_cer_bonds_v1'||key==='bonosAR_tamar_bonds_v1'||key==='bonosAR_dlk_bonds_v1'){
       value=value.map(b=>({...b,precio:null,pct_change:null}));
     }
-    await supa.from('shared_data').upsert({key,value,updated_at:new Date().toISOString()},{onConflict:'key'});
+    console.log(`[Supa] guardando ${key} → ${value.length ?? JSON.stringify(value).length} items`,value);
+    const{error}=await supa.from('shared_data').upsert({key,value,updated_at:new Date().toISOString()},{onConflict:'key'});
+    if(error) console.error('[Supa] error al guardar',key,error);
+    else console.log('[Supa] guardado OK',key);
   }catch(e){console.warn('supaSaveSharedKey:',key,e);}
 }
 
