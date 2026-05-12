@@ -2008,8 +2008,8 @@ function updateSettlement(){
 function dias360(d1,d2){
   let y1=d1.getFullYear(),m1=d1.getMonth()+1,dd1=d1.getDate();
   let y2=d2.getFullYear(),m2=d2.getMonth()+1,dd2=d2.getDate();
-  if(dd1===31)dd1=30;
-  if(dd2===31&&dd1===30)dd2=30;
+  if(dd1===31) dd1=30;
+  if(dd2===31) dd2=30;
   return(y2-y1)*360+(m2-m1)*30+(dd2-dd1);
 }
 function diasACT(a,b){return Math.round((b-a)/86400000);}
@@ -6244,8 +6244,10 @@ function dlkBuildFF(bond, liq){
 
 // base 30/360 entre dos fechas
 function dias360(d1,d2){
-  const y1=d1.getFullYear(),m1=d1.getMonth()+1,dd1=Math.min(d1.getDate(),30);
-  const y2=d2.getFullYear(),m2=d2.getMonth()+1,dd2=Math.min(d2.getDate(),30);
+  const y1=d1.getFullYear(),m1=d1.getMonth()+1;let dd1=d1.getDate();
+  const y2=d2.getFullYear(),m2=d2.getMonth()+1;let dd2=d2.getDate();
+  if(dd1===31) dd1=30;
+  if(dd2===31) dd2=30;
   return(y2-y1)*360+(m2-m1)*30+(dd2-dd1);
 }
 
