@@ -1653,6 +1653,7 @@ async function supaLoadSharedData(){
     loadPortfolio();
     tamarLoadBonds();
     dlkLoadBonds();
+    projLoadLs();
     // Auto-fetch prices for all bonds
     if(LECAPS.length) fetchPrices();
     if(CER_BONDS.length) cerFetchPrices();
