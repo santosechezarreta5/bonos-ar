@@ -1116,7 +1116,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
   <div id="be-columns" style="display:flex;height:100%;gap:0;min-height:0;">
 
     <!-- COL 1: BE Inflación + BE TAMAR (resizable) -->
-    <div id="be-col1" style="width:420px;min-width:160px;overflow-y:auto;overflow-x:auto;padding:1.25rem 1rem;display:flex;flex-direction:column;gap:1.25rem;border-right:1px solid var(--border);flex-shrink:0;">
+    <div id="be-col1" style="width:430px;min-width:160px;overflow-y:auto;overflow-x:auto;padding:1.25rem 1rem;display:flex;flex-direction:column;gap:1.25rem;border-right:1px solid var(--border);flex-shrink:0;">
 
       <!-- BE Inflación -->
       <div>
@@ -1178,7 +1178,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
     <div class="col-resizer" onmousedown="beStartResize(event,'be-col1')"></div>
 
     <!-- COL 2: Pesos Corto Plazo (resizable) -->
-    <div id="be-col2" style="width:560px;min-width:200px;overflow-y:auto;overflow-x:auto;padding:1.25rem 1rem;border-right:1px solid var(--border);flex-shrink:0;">
+    <div id="be-col2" style="width:450px;min-width:200px;overflow-y:auto;overflow-x:auto;padding:1.25rem 1rem;border-right:1px solid var(--border);flex-shrink:0;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem;">
         <div style="font-family:var(--serif);font-size:16px;font-weight:300;font-style:italic;color:var(--accent)">Resumen</div>
         <div style="display:flex;gap:4px;">
@@ -5077,10 +5077,6 @@ function beInit(){
   beLoadLs();
   beCPLoadLs();
   beChartSelLoadLs();
-  ['be-col1','be-col2'].forEach(id=>{
-    const w=localStorage.getItem('beColW_'+id);
-    if(w){const el=document.getElementById(id);if(el)el.style.width=w+'px';}
-  });
   beRecalc();
   beTamarRecalc();
   beCPRecalc();
@@ -5928,7 +5924,6 @@ function beStartResize(e, colId){
     document.body.style.userSelect='';
     document.removeEventListener('mousemove',onMove);
     document.removeEventListener('mouseup',onUp);
-    localStorage.setItem('beColW_'+colId, col.offsetWidth);
   }
   document.addEventListener('mousemove',onMove);
   document.addEventListener('mouseup',onUp);
