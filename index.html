@@ -5077,6 +5077,10 @@ function beInit(){
   beLoadLs();
   beCPLoadLs();
   beChartSelLoadLs();
+  ['be-col1','be-col2'].forEach(id=>{
+    const w=localStorage.getItem('beColW_'+id);
+    if(w){const el=document.getElementById(id);if(el)el.style.width=w+'px';}
+  });
   beRecalc();
   beTamarRecalc();
   beCPRecalc();
@@ -5924,6 +5928,7 @@ function beStartResize(e, colId){
     document.body.style.userSelect='';
     document.removeEventListener('mousemove',onMove);
     document.removeEventListener('mouseup',onUp);
+    localStorage.setItem('beColW_'+colId, col.offsetWidth);
   }
   document.addEventListener('mousemove',onMove);
   document.addEventListener('mouseup',onUp);
