@@ -1116,7 +1116,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
   <div id="be-columns" style="display:flex;height:100%;gap:0;min-height:0;">
 
     <!-- COL 1: BE Inflación + BE TAMAR (resizable) -->
-    <div id="be-col1" style="width:320px;min-width:160px;overflow-y:auto;padding:1.25rem 1rem;display:flex;flex-direction:column;gap:1.25rem;border-right:1px solid var(--border);flex-shrink:0;">
+    <div id="be-col1" style="width:380px;min-width:160px;overflow-y:auto;padding:1.25rem 1rem;display:flex;flex-direction:column;gap:1.25rem;border-right:1px solid var(--border);flex-shrink:0;">
 
       <!-- BE Inflación -->
       <div>
@@ -1165,6 +1165,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
             <tr style="border-bottom:1px solid var(--border2)">
               <th style="text-align:left;padding:4px 6px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Fecha últ.</th>
               <th style="text-align:center;padding:4px 6px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Bono</th>
+              <th style="text-align:center;padding:4px 6px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">TF Par</th>
               <th style="text-align:right;padding:4px 6px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--warn);font-weight:400">TAMAR TNA</th>
             </tr>
           </thead>
@@ -1178,9 +1179,9 @@ tbody tr.selected .c-ticker{color:var(--accent);}
     <div class="col-resizer" onmousedown="beStartResize(event,'be-col1')"></div>
 
     <!-- COL 2: Pesos Corto Plazo (resizable) -->
-    <div id="be-col2" style="width:420px;min-width:200px;overflow-y:auto;padding:1.25rem 1rem;border-right:1px solid var(--border);flex-shrink:0;">
+    <div id="be-col2" style="width:500px;min-width:200px;overflow-y:auto;padding:1.25rem 1rem;border-right:1px solid var(--border);flex-shrink:0;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem;">
-        <div style="font-family:var(--serif);font-size:16px;font-weight:300;font-style:italic;color:var(--accent)">Pesos Corto Plazo</div>
+        <div style="font-family:var(--serif);font-size:16px;font-weight:300;font-style:italic;color:var(--accent)">Resumen</div>
         <div style="display:flex;gap:4px;">
           <button class="btn primary" style="margin:0;padding:3px 7px;font-size:10px" onclick="beCPRecalc()">↻</button>
           <button class="btn" style="margin:0;padding:3px 7px;font-size:10px" onclick="beCPOpenModal()">+</button>
@@ -1271,7 +1272,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 <!-- CP MODAL -->
 <div class="modal-backdrop" id="be-cp-modal">
   <div class="modal">
-    <div class="modal-title">Agregar bono · Pesos Corto Plazo</div>
+    <div class="modal-title">Agregar bono · Resumen</div>
     <div class="field-row cols2">
       <div class="field"><label>Tipo</label>
         <select id="be-cp-tipo" onchange="beCPModalUpdateList()">
@@ -5417,7 +5418,7 @@ function beTamarRecalc(){
   if(!tbody)return;
 
   if(!TAMAR_BONDS.length){
-    tbody.innerHTML=`<tr><td colspan="3" style="padding:2rem;text-align:center;color:var(--text3);font-size:12px">Agregá bonos en la tab TAMAR primero.</td></tr>`;
+    tbody.innerHTML=`<tr><td colspan="4" style="padding:2rem;text-align:center;color:var(--text3);font-size:12px">Agregá bonos en la tab TAMAR primero.</td></tr>`;
     return;
   }
 
@@ -5427,7 +5428,7 @@ function beTamarRecalc(){
     .sort((a,b)=>a.vcto.localeCompare(b.vcto));
 
   if(!bondsOrdenados.length){
-    tbody.innerHTML=`<tr><td colspan="3" style="padding:1rem;text-align:center;color:var(--text3);font-size:12px">Sin bonos seleccionados.</td></tr>`;
+    tbody.innerHTML=`<tr><td colspan="4" style="padding:1rem;text-align:center;color:var(--text3);font-size:12px">Sin bonos seleccionados.</td></tr>`;
     return;
   }
 
@@ -5437,13 +5438,14 @@ function beTamarRecalc(){
       return`<tr style="border-bottom:1px solid var(--border)">
         <td style="padding:5px 6px;color:var(--text3);font-size:11px;white-space:nowrap">—</td>
         <td style="padding:5px 6px;text-align:center;font-family:var(--mono);font-size:12px;color:var(--accent);white-space:nowrap">${bond.ticker}</td>
-        <td style="padding:5px 6px;text-align:right;color:var(--danger);font-size:11px;white-space:nowrap">${res?.error||'—'}</td>
+        <td colspan="2" style="padding:5px 6px;text-align:right;color:var(--danger);font-size:11px;white-space:nowrap">${res?.error||'—'}</td>
       </tr>`;
     }
     const fixDisp=res.fixVto.split('-').reverse().join('/');
     return`<tr style="border-bottom:1px solid var(--border)">
       <td style="padding:5px 6px;font-family:var(--mono);font-size:11px;color:var(--text2);white-space:nowrap">${fixDisp}</td>
       <td style="padding:5px 6px;text-align:center;font-family:var(--mono);font-size:12px;color:var(--accent);font-weight:600;white-space:nowrap">${bond.ticker}</td>
+      <td style="padding:5px 6px;text-align:center;font-family:var(--mono);font-size:10px;color:var(--text3);white-space:nowrap">${res.tfTicker||'—'}</td>
       <td style="padding:5px 6px;text-align:right;font-family:var(--mono);font-size:13px;color:var(--warn);font-weight:600;white-space:nowrap">${fmtP2(res.tamar_be_tna)}%</td>
     </tr>`;
   }).join('');
@@ -5859,12 +5861,16 @@ function beCPCloseModal(){document.getElementById('be-cp-modal').classList.remov
 function beCPModalUpdateList(){
   const tipo=document.getElementById('be-cp-tipo').value;
   const sel=document.getElementById('be-cp-ticker');
-  let pool=[];
-  if(tipo==='tf')pool=LECAPS.map(r=>r.ticker);
-  else if(tipo==='cer')pool=CER_BONDS.map(r=>r.ticker);
-  else pool=TAMAR_BONDS.map(r=>r.ticker);
+  const liq=G_LIQ||addHabiles(TODAY,1);
+  let src=[];
+  if(tipo==='tf')src=LECAPS;
+  else if(tipo==='cer')src=CER_BONDS;
+  else src=TAMAR_BONDS;
+  const vigentes=src
+    .filter(b=>b.vcto&&diasACT(liq,parseDate(b.vcto))>0)
+    .sort((a,b)=>a.vcto.localeCompare(b.vcto));
   const already=new Set(CP_BONDS.filter(b=>b.tipo===tipo).map(b=>b.ticker));
-  const available=pool.filter(t=>!already.has(t));
+  const available=vigentes.map(b=>b.ticker).filter(t=>!already.has(t));
   sel.innerHTML=available.length
     ?available.map(t=>`<option value="${t}">${t}</option>`).join('')
     :`<option disabled>Sin bonos disponibles</option>`;
