@@ -4723,12 +4723,17 @@ function tamarRenderTable(){
     const chg=r.pct_change;
     const chgStr=chg==null?'':`<span class="${chg>=0?'c-chg-pos':'c-chg-neg'}">${chg>=0?'+':''}${chg.toFixed(2)}%</span>`;
     const f=(val,d=2)=>isNaN(val)||val==null?'—':val.toFixed(d)+'%';
-    return`<tr onclick="tamarOpenPanel('${r.ticker}')" style="cursor:pointer">
+    const pxEditing=tamarEditingCell?.ticker===r.ticker;
+    const pxOverride=!!r.manualOverride&&!v;
+    const pxCell=pxEditing
+      ?`<input class="cell-input" id="tamar-ci-input" type="number" step="0.01" value="${r.precio!=null?r.precio.toFixed(4):''}" onblur="tamarCommitCell()" onkeydown="tamarCellKey(event)" autofocus>`
+      :`<div class="cv editable c-green ${pxOverride?'override':''}" onclick="tamarStartCell(event,'${r.ticker}')">${r.precio!=null?fmtARS(r.precio):'—'}</div>`;
+    return`<tr onclick="tamarRowClick(event,'${r.ticker}')" style="cursor:pointer">
       <td class="ticker-cell"><div class="cv left no-edit"><span class="c-ticker">${r.ticker}</span></div></td>
       <td><div class="cv no-edit c-date">${vctoStr}</div></td>
       <td><div class="cv no-edit c-muted">${v?'<span style="color:var(--text3)">vencida</span>':r.dias}</div></td>
       <td><div class="cv no-edit c-muted">${isNaN(r.modDuration)?'—':r.modDuration.toFixed(2)}</div></td>
-      <td><div class="cv no-edit c-green">${r.precio!=null?fmtARS(r.precio):'—'}</div></td>
+      <td>${pxCell}</td>
       <td><div class="cv no-edit">${chgStr}</div></td>
       <td><div class="cv no-edit c-amber">${f(r.margenTNA)}</div></td>
       <td><div class="cv no-edit c-amber">${f(r.tir)}</div></td>
@@ -4745,6 +4750,39 @@ function tamarRenderTable(){
 // ── PANEL CALCULADORA TAMAR ───────────────────────────────────────────────────
 let tamarSelectedTicker=null;
 let tamarPanelMode='precio'; // 'precio' | 'tir'
+let tamarEditingCell=null;
+
+function tamarRowClick(e,ticker){
+  if(e.target.tagName==='INPUT'||e.target.tagName==='BUTTON')return;
+  if(tamarEditingCell){tamarCommitCell();return;}
+  tamarOpenPanel(ticker);
+}
+function tamarStartCell(e,ticker){
+  e.stopPropagation();
+  tamarEditingCell={ticker};
+  tamarRenderTable();
+  setTimeout(()=>{const inp=document.getElementById('tamar-ci-input');if(inp)inp.focus();},10);
+}
+function tamarCellKey(e){
+  if(e.key==='Enter')tamarCommitCell();
+  if(e.key==='Escape'){tamarEditingCell=null;tamarRenderTable();}
+}
+function tamarCommitCell(){
+  if(!tamarEditingCell)return;
+  const inp=document.getElementById('tamar-ci-input');
+  const val=inp?parseFloat(inp.value):NaN;
+  const {ticker}=tamarEditingCell;
+  tamarEditingCell=null;
+  if(isNaN(val)||val<=0){tamarRenderTable();return;}
+  const idx=TAMAR_BONDS.findIndex(r=>r.ticker===ticker);
+  if(idx<0){tamarRenderTable();return;}
+  TAMAR_BONDS[idx]={...TAMAR_BONDS[idx],precio:val,manualOverride:true};
+  tamarSaveBonds();
+  TAMAR_DATA=TAMAR_BONDS.map(tamarEnrich);
+  tamarRenderTable();
+  if(tamarSelectedTicker===ticker)tamarOpenPanel(ticker);
+  beRefreshIfVisible();
+}
 
 function tamarPanelRecalc(){
   if(!tamarSelectedTicker)return;
