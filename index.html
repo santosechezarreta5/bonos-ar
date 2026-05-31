@@ -533,7 +533,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 </div><!-- end workspace-top -->
 
 <!-- CHART -->
-<div class="chart-area" id="chart-area" style="height:210px;">
+<div class="chart-area" id="chart-area" style="height:calc((100vh - 164px) / 2);">
   <div class="chart-resize-handle" id="chart-resize-handle"></div>
   <div class="chart-toolbar">
     <span class="chart-title">Curva de tasas</span>
@@ -779,7 +779,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
   </div><!-- end cer-workspace -->
 
   <!-- CER CHART: curva TIR real debajo -->
-  <div id="cer-chart-area" style="height:200px;border-top:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;">
+  <div id="cer-chart-area" style="height:calc((100vh - 164px) / 2);border-top:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;">
     <div class="chart-resize-handle" id="cer-chart-resize-handle"></div>
     <div style="display:flex;align-items:center;gap:8px;padding:.3rem 1rem;border-bottom:1px solid var(--border);flex-shrink:0;">
       <span style="font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em">Curva CER · TIR Real</span>
@@ -889,7 +889,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
   </div>
 
   <!-- TAMAR CHART: curva Margen TNA debajo -->
-  <div id="tamar-chart-area" style="height:200px;border-top:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;">
+  <div id="tamar-chart-area" style="height:calc((100vh - 164px) / 2);border-top:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;">
     <div class="chart-resize-handle" id="tamar-chart-resize-handle"></div>
     <div style="display:flex;align-items:center;padding:.3rem 1rem;border-bottom:1px solid var(--border);flex-shrink:0;">
       <span style="font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em">Curva TAMAR · Margen TNA</span>
@@ -1006,9 +1006,12 @@ tbody tr.selected .c-ticker{color:var(--accent);}
   </div>
 
   <!-- DLK CHART -->
-  <div style="border-top:1px solid var(--border);flex-shrink:0;height:220px;padding:.4rem 1rem .5rem;display:flex;flex-direction:column;min-height:0;">
-    <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Curva DLK · TIR %</div>
-    <div style="flex:1;min-height:0;">
+  <div id="dlk-chart-area" style="height:calc((100vh - 164px) / 2);border-top:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;">
+    <div class="chart-resize-handle" id="dlk-chart-resize-handle"></div>
+    <div style="display:flex;align-items:center;padding:.3rem 1rem;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <span style="font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em">Curva DLK · TIR %</span>
+    </div>
+    <div style="flex:1;min-height:0;padding:.2rem .5rem;">
       <canvas id="dlk-curve-chart" style="width:100%;height:100%"></canvas>
     </div>
   </div>
@@ -2677,6 +2680,18 @@ function renderChart(){
   handle.addEventListener('mousedown',e=>{dragging=true;startY=e.clientY;startH=area.offsetHeight;document.body.style.cursor='ns-resize';document.body.style.userSelect='none';e.preventDefault();});
   document.addEventListener('mousemove',e=>{if(!dragging)return;const newH=Math.min(MAX_H,Math.max(MIN_H,startH+(startY-e.clientY)));area.style.height=newH+'px';if(tamarTabChart)tamarTabChart.resize();});
   document.addEventListener('mouseup',()=>{if(!dragging)return;dragging=false;document.body.style.cursor='';document.body.style.userSelect='';if(tamarTabChart)tamarTabChart.resize();});
+}());
+
+// DLK chart resize
+(function(){
+  const handle=document.getElementById('dlk-chart-resize-handle');
+  const area=document.getElementById('dlk-chart-area');
+  if(!handle||!area)return;
+  const MIN_H=100,MAX_H=600;
+  let dragging=false,startY=0,startH=0;
+  handle.addEventListener('mousedown',e=>{dragging=true;startY=e.clientY;startH=area.offsetHeight;document.body.style.cursor='ns-resize';document.body.style.userSelect='none';e.preventDefault();});
+  document.addEventListener('mousemove',e=>{if(!dragging)return;const newH=Math.min(MAX_H,Math.max(MIN_H,startH+(startY-e.clientY)));area.style.height=newH+'px';if(dlkTabChart)dlkTabChart.resize();});
+  document.addEventListener('mouseup',()=>{if(!dragging)return;dragging=false;document.body.style.cursor='';document.body.style.userSelect='';if(dlkTabChart)dlkTabChart.resize();});
 }());
 
 // ══════════════════════════════════════════════════════════════ TAB SWITCHER
@@ -5657,7 +5672,7 @@ function setTheme(t){
   });
   try{localStorage.setItem('bonosAR_theme',t);}catch(e){}
   // resize charts after theme change
-  [curveChart,beChartTF,beChartCER,cerTabChart,tamarTabChart].forEach(c=>{if(c)c.resize();});
+  [curveChart,beChartTF,beChartCER,cerTabChart,tamarTabChart,dlkTabChart].forEach(c=>{if(c)c.resize();});
 }
 // restore saved theme
 (function(){
