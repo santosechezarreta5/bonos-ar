@@ -7102,8 +7102,8 @@ function sintCalcular(bond,precioFuturo){
   // g. PRECIO FUTURO AJUSTADO
   const precioFuturoAjustado=Math.pow(1+tasaDirectaFuturo,diasFechaFixing/diasFuturo)*a3500;
 
-  // h. TASA DIRECTA
-  const tasaDirecta=(precioFuturoAjustado/bond.precio)-1;
+  // h. TASA DIRECTA — precio del bono es cada 100 VN
+  const tasaDirecta=(precioFuturoAjustado/(bond.precio/100))-1;
 
   // i. TNA
   const tna=(tasaDirecta/diasFechaFixing)*365;
@@ -7146,7 +7146,7 @@ function sintRenderResults(res,bond){
     <table class="res-table" style="margin-bottom:16px">
       <tr class="mu"><td>A3500 (TC spot)</td><td>$${res.a3500.toFixed(4)}</td></tr>
       <tr class="mu"><td>Precio Futuro ROFEX</td><td>$${res.precioFuturo.toFixed(2)}</td></tr>
-      <tr class="mu"><td>Precio Bono DLK</td><td>$${bond.precio.toFixed(4)}</td></tr>
+      <tr class="mu"><td>Precio Bono DLK (c/100 VN)</td><td>$${bond.precio.toFixed(4)}</td></tr>
     </table>
 
     <div class="section-label">Fechas y días</div>
