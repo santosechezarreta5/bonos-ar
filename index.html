@@ -318,7 +318,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
   <button class="nav-tab" id="nav-cer" onclick="switchTab('cer')">CER</button>
   <button class="nav-tab" id="nav-tamar" onclick="switchTab('tamar')">TAMAR</button>
   <button class="nav-tab" id="nav-dlk" onclick="switchTab('dlk')">DLK</button>
-  <button class="nav-tab disabled">Sintético ARS <span class="soon">pronto</span></button>
+  <button class="nav-tab" id="nav-sintetico" onclick="switchTab('sintetico')">Sintético ARS</button>
   <button class="nav-tab" id="nav-proyecciones" onclick="switchTab('proyecciones')">Proyecciones</button>
   <button class="nav-tab" id="nav-feriados" onclick="switchTab('feriados')" style="margin-left:auto">Feriados</button>
 </nav>
@@ -1016,6 +1016,69 @@ tbody tr.selected .c-ticker{color:var(--accent);}
     </div>
   </div>
 
+</div>
+
+<!-- SINTETICOS PAGE -->
+<div id="page-sintetico" style="display:none;height:calc(100vh - 164px);overflow:hidden;flex-direction:column;">
+
+  <!-- Toolbar -->
+  <div class="pane-toolbar" style="border-bottom:1px solid var(--border);flex-shrink:0;">
+    <span class="pane-title">Sintético DLK + ROFEX</span>
+    <span style="font-size:10px;color:var(--text3);margin-left:auto;margin-right:4px">A3500</span>
+    <span id="sint-a3500-display" style="font-family:var(--mono);font-size:12px;color:var(--accent)">—</span>
+    <span class="api-status" id="sint-rofex-status" style="margin-left:8px"></span>
+  </div>
+
+  <!-- Content -->
+  <div style="display:flex;flex:1;min-height:0;overflow:hidden;">
+
+    <!-- LEFT: inputs -->
+    <div style="width:360px;min-width:280px;flex-shrink:0;border-right:1px solid var(--border);overflow-y:auto;padding:1.25rem 1rem;">
+
+      <div class="section-label">Bono DLK</div>
+      <select id="sint-bond-select" onchange="sintOnBondChange()"
+        style="width:100%;background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:6px 8px;border-radius:3px;font-family:var(--mono);font-size:13px;margin-bottom:10px;outline:none;box-sizing:border-box;">
+        <option value="">Seleccioná un bono...</option>
+      </select>
+
+      <div id="sint-bond-info" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:8px 10px;margin-bottom:14px;font-size:11px;">
+        <div style="display:flex;gap:14px;flex-wrap:wrap;">
+          <div><span style="color:var(--text3)">Vto:</span> <span id="sint-bi-vcto" style="font-family:var(--mono);color:var(--accent)">—</span></div>
+          <div><span style="color:var(--text3)">Precio:</span> <span id="sint-bi-precio" style="font-family:var(--mono)">—</span></div>
+          <div><span style="color:var(--text3)">Días:</span> <span id="sint-bi-dias" style="font-family:var(--mono)">—</span></div>
+        </div>
+      </div>
+
+      <div class="section-label">Futuro ROFEX</div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:8px 10px;margin-bottom:14px;font-size:11px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+          <span style="color:var(--text3)">Contrato:</span>
+          <span id="sint-futuro-sym" style="font-family:var(--mono);color:var(--warn);font-weight:600">—</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;">
+          <span style="color:var(--text3)">Vto. futuro:</span>
+          <span id="sint-futuro-vcto" style="font-family:var(--mono);color:var(--text2)">—</span>
+        </div>
+      </div>
+
+      <div style="margin-bottom:16px;">
+        <label style="display:block;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:4px;">Precio Futuro ROFEX ($ / USD)</label>
+        <input type="number" id="sint-futuro-precio" step="0.5" placeholder="Ej: 1850.0"
+          style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:3px;padding:6px 8px;font-family:var(--mono);font-size:14px;color:var(--text);outline:none;box-sizing:border-box;"
+          oninput="sintRecalc()">
+        <div style="font-size:10px;color:var(--text3);margin-top:3px">Precio del contrato ROFEX para el mes del bono.</div>
+      </div>
+
+      <button class="btn primary" onclick="sintRecalc()" style="width:100%;padding:7px">↻ Calcular</button>
+
+    </div>
+
+    <!-- RIGHT: results -->
+    <div id="sint-results-panel" style="flex:1;overflow-y:auto;padding:1.25rem 1.5rem;">
+      <div style="color:var(--text3);font-size:12px">Seleccioná un bono DLK e ingresá el precio del futuro para calcular el sintético.</div>
+    </div>
+
+  </div>
 </div>
 
 <!-- DLK MODAL -->
@@ -2715,6 +2778,7 @@ function switchTab(tab){
   document.getElementById('page-tamar').style.display='none';
   document.getElementById('page-forwards').style.display='none';
   document.getElementById('page-dlk').style.display='none';
+  document.getElementById('page-sintetico').style.display='none';
 
   if(tab==='lecap'){
     lecapWorkspace.style.display='flex';
@@ -2754,6 +2818,9 @@ function switchTab(tab){
     // mostrar botón + Nueva solo al admin
     const newBtn=document.getElementById('dlk-new-btn');
     if(newBtn) newBtn.style.display=isAdmin()?'':'none';
+  } else if(tab==='sintetico'){
+    document.getElementById('page-sintetico').style.display='flex';
+    sintInit();
   }
 }
 
@@ -6939,6 +7006,169 @@ function fwdRecalc(){
   fwdRenderChips(allCER,fwdCERExcluded,'fwd-cer-chips','fwdToggleCER');
   fwdBuildTable(allTF.filter(r=>!fwdTFExcluded.has(r.ticker)),'tf','fwd-tf-wrap');
   fwdBuildTable(allCER.filter(r=>!fwdCERExcluded.has(r.ticker)),'cer','fwd-cer-wrap');
+}
+
+// ═══════════════════════════════════════════════════════ SINTETICOS
+let ROFEX_DATA=[];
+
+function sintInit(){
+  sintPopulateBonds();
+  const el=document.getElementById('sint-a3500-display');
+  if(el){const tc=dlkTCHoy();el.textContent=tc!=null?'$'+tc.toFixed(4):'—';}
+}
+
+function sintPopulateBonds(){
+  const sel=document.getElementById('sint-bond-select');
+  if(!sel)return;
+  const liq=G_LIQ||addHabiles(TODAY,1);
+  const vigentes=DLK_BONDS
+    .filter(b=>b.vcto&&diasACT(liq,parseDate(b.vcto))>0)
+    .sort((a,b)=>a.vcto.localeCompare(b.vcto));
+  const prev=sel.value;
+  sel.innerHTML='<option value="">Seleccioná un bono...</option>'+
+    vigentes.map(b=>`<option value="${b.ticker}">${b.ticker} · ${b.vcto.split('-').reverse().join('/')}</option>`).join('');
+  if(prev)sel.value=prev;
+}
+
+function sintSymbolFromVcto(vcto){
+  const MESES=['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
+  const d=parseDate(vcto);
+  return`DLR/${MESES[d.getMonth()]}${String(d.getFullYear()).slice(-2)}M`;
+}
+
+function sintLastBizDay(year,month){
+  // último día hábil del mes (month es 0-indexed)
+  const d=new Date(year,month+1,0);
+  while(d.getDay()===0||d.getDay()===6||esFeriado(d))d.setDate(d.getDate()-1);
+  return d;
+}
+
+function sintOnBondChange(){
+  const ticker=document.getElementById('sint-bond-select')?.value;
+  const bondInfo=document.getElementById('sint-bond-info');
+  const symEl=document.getElementById('sint-futuro-sym');
+  const vctoEl=document.getElementById('sint-futuro-vcto');
+  if(!ticker){
+    if(bondInfo)bondInfo.style.display='none';
+    if(symEl)symEl.textContent='—';
+    if(vctoEl)vctoEl.textContent='—';
+    sintRenderResults(null);
+    return;
+  }
+  const bond=DLK_BONDS.find(b=>b.ticker===ticker);
+  if(!bond)return;
+  const liq=G_LIQ||addHabiles(TODAY,1);
+  const dias=bond.vcto?diasACT(liq,parseDate(bond.vcto)):null;
+  if(bondInfo)bondInfo.style.display='';
+  document.getElementById('sint-bi-vcto').textContent=bond.vcto?bond.vcto.split('-').reverse().join('/'):'—';
+  document.getElementById('sint-bi-precio').textContent=bond.precio!=null?fmtARS(bond.precio):'—';
+  document.getElementById('sint-bi-dias').textContent=dias!=null?dias:'—';
+  if(bond.vcto){
+    const sym=sintSymbolFromVcto(bond.vcto);
+    const d=parseDate(bond.vcto);
+    const lastBiz=sintLastBizDay(d.getFullYear(),d.getMonth());
+    if(symEl)symEl.textContent=sym;
+    if(vctoEl)vctoEl.textContent=fmtDate(lastBiz).split('-').reverse().join('/');
+    // auto-completar precio si hay dato ROFEX
+    const match=ROFEX_DATA.find(r=>{const rv=parseDate(r.vcto);return rv.getFullYear()===d.getFullYear()&&rv.getMonth()===d.getMonth();});
+    if(match){const inp=document.getElementById('sint-futuro-precio');if(inp&&!inp.value)inp.value=match.precio;}
+  }
+  sintRecalc();
+}
+
+function sintCalcular(bond,precioFuturo){
+  const liq=G_LIQ||addHabiles(TODAY,1);
+  const a3500=dlkTCHoy();
+  if(!a3500||!precioFuturo||!bond.vcto||!bond.precio)return null;
+  const d=parseDate(bond.vcto);
+  const fechaVctoFuturo=sintLastBizDay(d.getFullYear(),d.getMonth());
+
+  // c. CIERRE TRADE = T-3 hábiles desde vencimiento futuro
+  const fechaFixing=new Date(fechaVctoFuturo);
+  let cnt=0;
+  while(cnt<3){fechaFixing.setDate(fechaFixing.getDate()-1);if(esHabil(fechaFixing))cnt++;}
+
+  // d. TASA DIRECTA FUTURO
+  const tasaDirectaFuturo=(a3500/precioFuturo)-1;
+
+  // e. DIAS FUTURO (liq → vcto futuro)
+  const diasFuturo=diasACT(liq,fechaVctoFuturo);
+
+  // f. DIAS FECHA FIXING (liq → fechaFixing)
+  const diasFechaFixing=diasACT(liq,fechaFixing);
+
+  if(diasFuturo<=0||diasFechaFixing<=0)return null;
+
+  // g. PRECIO FUTURO AJUSTADO
+  const precioFuturoAjustado=Math.pow(1+tasaDirectaFuturo,diasFechaFixing/diasFuturo)*a3500;
+
+  // h. TASA DIRECTA
+  const tasaDirecta=(precioFuturoAjustado/bond.precio)-1;
+
+  // i. TNA
+  const tna=(tasaDirecta/diasFechaFixing)*365;
+
+  // j. TEA
+  const tea=Math.pow(1+tasaDirecta,365/diasFechaFixing)-1;
+
+  return{
+    a3500,precioFuturo,
+    fechaVctoFuturo:fmtDate(fechaVctoFuturo),
+    fechaFixing:fmtDate(fechaFixing),
+    tasaDirectaFuturo,diasFuturo,diasFechaFixing,
+    precioFuturoAjustado,tasaDirecta,tna,tea
+  };
+}
+
+function sintRecalc(){
+  const ticker=document.getElementById('sint-bond-select')?.value;
+  const precioFuturo=parseFloat(document.getElementById('sint-futuro-precio')?.value);
+  if(!ticker){sintRenderResults(null);return;}
+  const bond=DLK_BONDS.find(b=>b.ticker===ticker);
+  if(!bond){sintRenderResults(null);return;}
+  const res=(!isNaN(precioFuturo)&&precioFuturo>0)?sintCalcular(bond,precioFuturo):null;
+  sintRenderResults(res,bond);
+}
+
+function sintRenderResults(res,bond){
+  const panel=document.getElementById('sint-results-panel');
+  if(!panel)return;
+  if(!res){
+    panel.innerHTML=`<div style="color:var(--text3);font-size:12px">Seleccioná un bono DLK e ingresá el precio del futuro para calcular el sintético.</div>`;
+    return;
+  }
+  const f2=v=>v==null||isNaN(v)?'—':(v*100).toFixed(2)+'%';
+  const fFecha=s=>s?s.split('-').reverse().join('/'):'—';
+  panel.innerHTML=`
+    <div style="font-family:var(--serif);font-size:18px;font-weight:300;font-style:italic;color:var(--accent);margin-bottom:1rem">${bond.ticker} · Sintético</div>
+
+    <div class="section-label">Parámetros de mercado</div>
+    <table class="res-table" style="margin-bottom:16px">
+      <tr class="mu"><td>A3500 (TC spot)</td><td>$${res.a3500.toFixed(4)}</td></tr>
+      <tr class="mu"><td>Precio Futuro ROFEX</td><td>$${res.precioFuturo.toFixed(2)}</td></tr>
+      <tr class="mu"><td>Precio Bono DLK</td><td>$${bond.precio.toFixed(4)}</td></tr>
+    </table>
+
+    <div class="section-label">Fechas y días</div>
+    <table class="res-table" style="margin-bottom:16px">
+      <tr class="mu"><td>Vto. Futuro ROFEX</td><td>${fFecha(res.fechaVctoFuturo)}</td></tr>
+      <tr class="bl"><td>Fecha Fixing (CIERRE TRADE)</td><td>${fFecha(res.fechaFixing)}</td></tr>
+      <tr class="mu"><td>Días Futuro</td><td>${res.diasFuturo}</td></tr>
+      <tr class="mu"><td>Días Fecha Fixing</td><td>${res.diasFechaFixing}</td></tr>
+    </table>
+
+    <div class="section-label">Cálculo</div>
+    <table class="res-table" style="margin-bottom:16px">
+      <tr class="mu"><td>Tasa Directa Futuro</td><td>${f2(res.tasaDirectaFuturo)}</td></tr>
+      <tr class="mu"><td>Precio Futuro Ajustado</td><td>$${res.precioFuturoAjustado.toFixed(4)}</td></tr>
+      <tr class="mu"><td>Tasa Directa</td><td>${f2(res.tasaDirecta)}</td></tr>
+    </table>
+
+    <div class="section-label">Rendimiento sintético</div>
+    <table class="res-table">
+      <tr class="wa"><td style="font-weight:600">TNA</td><td style="color:var(--warn);font-size:16px;font-weight:700">${f2(res.tna)}</td></tr>
+      <tr class="bl"><td style="font-weight:600">TEA</td><td style="color:var(--accent2);font-size:15px;font-weight:700">${f2(res.tea)}</td></tr>
+    </table>`;
 }
 </script>
 </body>
