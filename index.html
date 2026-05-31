@@ -7089,7 +7089,7 @@ function sintCalcular(bond,precioFuturo){
   while(cnt<3){fechaFixing.setDate(fechaFixing.getDate()-1);if(esHabil(fechaFixing))cnt++;}
 
   // d. TASA DIRECTA FUTURO
-  const tasaDirectaFuturo=(a3500/precioFuturo)-1;
+  const tasaDirectaFuturo=(precioFuturo/a3500)-1;
 
   // e. DIAS FUTURO (liq → vcto futuro)
   const diasFuturo=diasACT(liq,fechaVctoFuturo);
