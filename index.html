@@ -6154,7 +6154,7 @@ function beRenderChartSintChips(){
   const el=document.getElementById('be-chart-sint-chips');
   if(!el)return;
   let bonds=[];
-  try{bonds=SINT_BONDS||[];}catch(e){}
+  try{if(!SINT_BONDS.length)sintLoadBonds();bonds=SINT_BONDS||[];}catch(e){}
   if(!bonds.length){el.innerHTML='<span style="font-size:10px;color:var(--text3)">Sin sintéticos creados</span>';return;}
   el.innerHTML=bonds.map(sb=>{
     let name=sb.ticker;
@@ -6282,11 +6282,17 @@ function beRenderChartTF(){
   // Puntos sintéticos (excluir los del selector)
   let sintPts=[];
   try{
+    if(!SINT_BONDS.length)sintLoadBonds();
     sintPts=(SINT_BONDS||[]).filter(sb=>!beChartSintExcluded.has(sb.ticker)).map(sb=>{
       const r=sintEnrich(sb);
-      if(!r||!r.tna||!r.diasFechaFixing||r.diasFechaFixing<=0)return null;
+      if(!r||!r.diasFechaFixing||r.diasFechaFixing<=0)return null;
+      // Valor Y según modo del gráfico
+      const val=beChartTFMode==='tir'?(r.tea!=null?r.tea*100:null)
+               :beChartTFMode==='tem'?(r.tem!=null?r.tem*100:null)
+               :(r.tna!=null?r.tna*100:null);
+      if(val==null)return null;
       const name=r.dlkBond?.vcto?sintNameFromVcto(r.dlkBond.vcto):sb.ticker;
-      return{ticker:name,dias:r.diasFechaFixing,val:r.tna*100};
+      return{ticker:name,dias:r.diasFechaFixing,val};
     }).filter(Boolean);
   }catch(e){}
 
