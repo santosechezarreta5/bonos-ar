@@ -5895,34 +5895,38 @@ function beCPEnrich(item){
       tem:isNaN(e.tem)?null:e.tem,bg,ac};
   }
   if(tipo==='dlk'){
-    const b=DLK_BONDS.find(r=>r.ticker===ticker);
-    if(!b||!b.vcto)return null;
-    const liq=G_LIQ||addHabiles(TODAY,1);
-    if(diasACT(liq,parseDate(b.vcto))<=0)return{ticker,tipo,expired:true};
-    const e=dlkEnrich(b);
-    const vctoStr=b.vcto.split('-').reverse().join('/');
-    return{ticker,tipo,vctoStr,fixing:'—',px:b.precio,
-      tirReal:e.paridad!=null?e.paridad:null,
-      tna:e.tna,tir:e.tir,tem:null,bg,ac};
+    try{
+      const b=DLK_BONDS.find(r=>r.ticker===ticker);
+      if(!b||!b.vcto)return null;
+      const liq=G_LIQ||addHabiles(TODAY,1);
+      if(diasACT(liq,parseDate(b.vcto))<=0)return{ticker,tipo,expired:true};
+      const e=dlkEnrich(b);
+      const vctoStr=b.vcto.split('-').reverse().join('/');
+      return{ticker,tipo,vctoStr,fixing:'—',px:b.precio,
+        tirReal:e.paridad!=null?e.paridad:null,
+        tna:e.tna,tir:e.tir,tem:null,bg,ac};
+    }catch(e){return null;}
   }
   if(tipo==='sint'){
-    const sb=SINT_BONDS.find(b=>b.ticker===ticker);
-    if(!sb)return null;
-    const r=sintEnrich(sb);
-    const dlkBond=r.dlkBond;
-    if(!dlkBond?.vcto)return null;
-    const liq=G_LIQ||addHabiles(TODAY,1);
-    if(diasACT(liq,parseDate(dlkBond.vcto))<=0)return{ticker,tipo,expired:true};
-    const displayTicker=sintNameFromVcto(dlkBond.vcto);
-    const vctoStr=dlkBond.vcto.split('-').reverse().join('/');
-    const fixStr=r.fechaFixing?r.fechaFixing.split('-').reverse().join('/'):'—';
-    const spread=r.tea!=null&&r.teaTF!=null?r.tea*100-r.teaTF:null;
-    return{ticker:displayTicker,tipo,vctoStr,fixing:fixStr,
-      px:sb.precioFuturo,
-      tirReal:spread,
-      tna:r.tna!=null?r.tna*100:null,
-      tir:r.tea!=null?r.tea*100:null,
-      tem:null,bg,ac};
+    try{
+      const sb=SINT_BONDS.find(b=>b.ticker===ticker);
+      if(!sb)return null;
+      const r=sintEnrich(sb);
+      const dlkBond=r.dlkBond;
+      if(!dlkBond?.vcto)return null;
+      const liq=G_LIQ||addHabiles(TODAY,1);
+      if(diasACT(liq,parseDate(dlkBond.vcto))<=0)return{ticker,tipo,expired:true};
+      const displayTicker=sintNameFromVcto(dlkBond.vcto);
+      const vctoStr=dlkBond.vcto.split('-').reverse().join('/');
+      const fixStr=r.fechaFixing?r.fechaFixing.split('-').reverse().join('/'):'—';
+      const spread=r.tea!=null&&r.teaTF!=null?r.tea*100-r.teaTF:null;
+      return{ticker:displayTicker,tipo,vctoStr,fixing:fixStr,
+        px:sb.precioFuturo,
+        tirReal:spread,
+        tna:r.tna!=null?r.tna*100:null,
+        tir:r.tea!=null?r.tea*100:null,
+        tem:null,bg,ac};
+    }catch(e){return null;}
   }
   return null;
 }
@@ -5943,7 +5947,8 @@ function beCPRecalc(){
   }
 
   const sorted=[...CP_BONDS].filter(b=>CP_FILTER.has(b.tipo)).sort((a,b)=>{
-    const allBonds=[...LECAPS,...CER_BONDS,...TAMAR_BONDS,...DLK_BONDS];
+    let _dlk=[];try{_dlk=DLK_BONDS||[];}catch(e){}
+    const allBonds=[...LECAPS,...CER_BONDS,...TAMAR_BONDS,..._dlk];
     const bA=allBonds.find(r=>r.ticker===a.ticker);
     const bB=allBonds.find(r=>r.ticker===b.ticker);
     return(bA?.vcto||'').localeCompare(bB?.vcto||'');
@@ -6231,12 +6236,15 @@ function beRenderChartTF(){
   if(!pts.length)return;
   beChartTF=beDrawScatter(canvas,pts,'#a8d5a2','#6eb868',beChartTFMode.toUpperCase()+' (%)');
   // Agregar puntos de sintéticos en naranja
-  const sintPts=SINT_BONDS.map(sb=>{
-    const r=sintEnrich(sb);
-    if(!r.tna||!r.diasFechaFixing||r.diasFechaFixing<=0)return null;
-    const name=r.dlkBond?.vcto?sintNameFromVcto(r.dlkBond.vcto):sb.ticker;
-    return{x:r.diasFechaFixing,y:r.tna*100,ticker:name};
-  }).filter(Boolean);
+  let sintPts=[];
+  try{
+    sintPts=(SINT_BONDS||[]).map(sb=>{
+      const r=sintEnrich(sb);
+      if(!r||!r.tna||!r.diasFechaFixing||r.diasFechaFixing<=0)return null;
+      const name=r.dlkBond?.vcto?sintNameFromVcto(r.dlkBond.vcto):sb.ticker;
+      return{x:r.diasFechaFixing,y:r.tna*100,ticker:name};
+    }).filter(Boolean);
+  }catch(e){}
   if(sintPts.length&&beChartTF){
     beChartTF.data.datasets.push({
       label:'Sintéticos',
