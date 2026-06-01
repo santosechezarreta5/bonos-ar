@@ -1305,7 +1305,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
         <div style="display:flex;align-items:center;gap:8px;padding:.4rem 1rem;flex-shrink:0;border-bottom:1px solid var(--border);">
           <span style="font-size:11px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em">Curva Tasa Fija</span>
           <button class="btn" style="padding:2px 6px;font-size:10px" onclick="beToggleChartSelector('tf')">bonos ▾</button>
-          <button id="be-chart-sint-btn" class="btn" style="padding:2px 6px;font-size:10px;border-color:#f59e0b;background:rgba(245,158,11,0.15);color:#f59e0b" onclick="beToggleChartSint()">■ Sint</button>
+          <button class="btn" style="padding:2px 6px;font-size:10px" onclick="beToggleChartSintSelector()">sint ▾</button>
           <div class="mode-row" style="margin-left:auto">
             <button class="mode-btn active" id="be-chart-tf-tna" onclick="beChartTFSetMode('tna')">TNA</button>
             <button class="mode-btn" id="be-chart-tf-tir" onclick="beChartTFSetMode('tir')">TIR</button>
@@ -1314,6 +1314,9 @@ tbody tr.selected .c-ticker{color:var(--accent);}
         </div>
         <div id="be-chart-tf-selector" style="display:none;padding:.4rem 1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;">
           <div id="be-chart-tf-chips" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
+        </div>
+        <div id="be-chart-sint-selector" style="display:none;padding:.4rem 1rem;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;">
+          <div id="be-chart-sint-chips" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
         </div>
         <div style="flex:1;min-height:0;padding:.25rem .5rem;">
           <canvas id="be-chart-tf" style="width:100%;height:100%"></canvas>
@@ -1803,6 +1806,7 @@ let dlkTabChart=null;
 let beChartTFMode='tna';
 let beChartTFExcluded=new Set();
 let beChartSintVisible=true;
+let beChartSintExcluded=new Set();
 let beChartCERExcluded=new Set();
 // Pesos Corto Plazo state
 const LS_CP='bonosAR_cp_v1';
@@ -6134,15 +6138,30 @@ function beChartTFSetMode(m){
   beRenderChartTF();
 }
 
-function beToggleChartSint(){
-  beChartSintVisible=!beChartSintVisible;
-  const btn=document.getElementById('be-chart-sint-btn');
-  if(btn){
-    btn.style.background=beChartSintVisible?'rgba(245,158,11,0.15)':'var(--surface2)';
-    btn.style.borderColor=beChartSintVisible?'#f59e0b':'var(--border2)';
-    btn.style.color=beChartSintVisible?'#f59e0b':'var(--text3)';
-  }
+function beToggleChartSintSelector(){
+  const sel=document.getElementById('be-chart-sint-selector');
+  if(sel)sel.style.display=sel.style.display==='none'?'flex':'none';
+}
+
+function beToggleChartSintBond(ticker){
+  if(beChartSintExcluded.has(ticker))beChartSintExcluded.delete(ticker);
+  else beChartSintExcluded.add(ticker);
+  beRenderChartSintChips();
   beRenderChartTF();
+}
+
+function beRenderChartSintChips(){
+  const el=document.getElementById('be-chart-sint-chips');
+  if(!el)return;
+  let bonds=[];
+  try{bonds=SINT_BONDS||[];}catch(e){}
+  if(!bonds.length){el.innerHTML='<span style="font-size:10px;color:var(--text3)">Sin sintéticos creados</span>';return;}
+  el.innerHTML=bonds.map(sb=>{
+    let name=sb.ticker;
+    try{const dlkB=DLK_BONDS.find(d=>d.ticker===sb.ticker);if(dlkB?.vcto)name=sintNameFromVcto(dlkB.vcto);}catch(e){}
+    const on=!beChartSintExcluded.has(sb.ticker);
+    return`<button onclick="beToggleChartSintBond('${sb.ticker}')" style="padding:2px 8px;font-size:10px;border-radius:3px;cursor:pointer;font-family:var(--mono);border:1px solid ${on?'#f59e0b':'var(--border2)'};background:${on?'rgba(245,158,11,0.15)':'var(--surface2)'};color:${on?'#f59e0b':'var(--text3)'};">${name}</button>`;
+  }).join('');
 }
 
 // ── CER TAB CHART ─────────────────────────────────────────────────────────────
@@ -6246,7 +6265,11 @@ function beRenderChartTF(){
   const canvas=document.getElementById('be-chart-tf');
   if(!canvas)return;
   const liq=G_LIQ||addHabiles(TODAY,1);
-  const pts=LECAPS.filter(r=>!beChartTFExcluded.has(r.ticker)).map(r=>{
+
+  beRenderChartSintChips();
+
+  // Puntos TF
+  const tfPts=LECAPS.filter(r=>!beChartTFExcluded.has(r.ticker)).map(r=>{
     const vctoDate=r.vcto?parseDate(r.vcto):null;
     if(!vctoDate)return null;
     const dias=diasACT(liq,vctoDate);
@@ -6255,44 +6278,74 @@ function beRenderChartTF(){
     if(!calc)return null;
     return{ticker:r.ticker,dias,val:calc[beChartTFMode]};
   }).filter(Boolean).sort((a,b)=>a.dias-b.dias);
-  if(beChartTF){beChartTF.destroy();beChartTF=null;}
-  if(!pts.length)return;
-  beChartTF=beDrawScatter(canvas,pts,'#a8d5a2','#6eb868',beChartTFMode.toUpperCase()+' (%)');
-  // Agregar puntos de sintéticos en naranja (solo si visible)
+
+  // Puntos sintéticos (excluir los del selector)
   let sintPts=[];
-  if(beChartSintVisible){
-    try{
-      sintPts=(SINT_BONDS||[]).map(sb=>{
-        const r=sintEnrich(sb);
-        if(!r||!r.tna||!r.diasFechaFixing||r.diasFechaFixing<=0)return null;
-        const name=r.dlkBond?.vcto?sintNameFromVcto(r.dlkBond.vcto):sb.ticker;
-        return{x:r.diasFechaFixing,y:r.tna*100,ticker:name};
-      }).filter(Boolean);
-    }catch(e){}
+  try{
+    sintPts=(SINT_BONDS||[]).filter(sb=>!beChartSintExcluded.has(sb.ticker)).map(sb=>{
+      const r=sintEnrich(sb);
+      if(!r||!r.tna||!r.diasFechaFixing||r.diasFechaFixing<=0)return null;
+      const name=r.dlkBond?.vcto?sintNameFromVcto(r.dlkBond.vcto):sb.ticker;
+      return{ticker:name,dias:r.diasFechaFixing,val:r.tna*100};
+    }).filter(Boolean);
+  }catch(e){}
+
+  if(beChartTF){beChartTF.destroy();beChartTF=null;}
+  if(!tfPts.length&&!sintPts.length)return;
+
+  // Tendencia log-lineal sobre puntos TF
+  const datasets=[];
+  if(tfPts.length>=2){
+    const xV=tfPts.map(p=>p.dias),yV=tfPts.map(p=>p.val);
+    const lx=xV.map(x=>Math.log(x));
+    const n=xV.length;
+    const slx=lx.reduce((s,v)=>s+v,0),sy=yV.reduce((s,v)=>s+v,0);
+    const slx2=lx.reduce((s,v)=>s+v*v,0),slxy=lx.reduce((s,v,i)=>s+v*yV[i],0);
+    const den=n*slx2-slx*slx;
+    const b=den!==0?(n*slxy-slx*sy)/den:0,a=(sy-b*slx)/n;
+    const xMin=Math.min(...xV),xMax=Math.max(...xV);
+    const trend=[];
+    for(let i=0;i<=100;i++){const x=xMin+(xMax-xMin)*i/100;trend.push({x:Math.round(x),y:a+b*Math.log(x)});}
+    datasets.push({label:'Tendencia',data:trend,type:'line',borderColor:'rgba(168,213,162,0.4)',borderWidth:1.5,pointRadius:0,fill:false,tension:0.4,order:1,datalabels:{display:false}});
   }
-  if(sintPts.length&&beChartTF){
-    beChartTF.data.datasets.push({
+
+  datasets.push({
+    label:beChartTFMode.toUpperCase()+' (%)',
+    data:tfPts.map(p=>({x:p.dias,y:p.val,ticker:p.ticker})),
+    backgroundColor:'#a8d5a2',borderColor:'#6eb868',pointRadius:5,pointHoverRadius:7,order:2
+  });
+
+  if(sintPts.length){
+    datasets.push({
       label:'Sintéticos',
-      data:sintPts,
-      backgroundColor:'#f59e0b',
-      borderColor:'#d97706',
-      pointRadius:6,
-      pointStyle:'triangle',
-      pointHoverRadius:8,
-      order:3
+      data:sintPts.map(p=>({x:p.dias,y:p.val,ticker:p.ticker})),
+      backgroundColor:'#f59e0b',borderColor:'#d97706',pointRadius:6,pointStyle:'triangle',pointHoverRadius:8,order:3
     });
-    // Extender datalabels para mostrar tickers de sintéticos
-    const dl=beChartTF.options.plugins.datalabels;
-    const origDisplay=dl.display;
-    const origFormatter=dl.formatter;
-    dl.display=ctx=>ctx.datasetIndex===1||ctx.datasetIndex===2;
-    dl.formatter=(v,ctx)=>{
-      const d=ctx.chart.data.datasets[ctx.datasetIndex]?.data[ctx.dataIndex];
-      return d?.ticker||'';
-    };
-    dl.color=ctx=>ctx.datasetIndex===2?'#f59e0b':'#a8d5a2';
-    beChartTF.update();
   }
+
+  if(window.ChartDataLabels)Chart.register(ChartDataLabels);
+  beChartTF=new Chart(canvas,{
+    type:'scatter',
+    data:{datasets},
+    options:{
+      responsive:true,maintainAspectRatio:false,animation:{duration:0},
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>ctx.raw.ticker?`${ctx.raw.ticker}: ${ctx.raw.y.toFixed(2)}%`:`${ctx.raw.y.toFixed(2)}%`}},
+        datalabels:{
+          display:ctx=>!!ctx.dataset.data[ctx.dataIndex]?.ticker,
+          formatter:(v,ctx)=>ctx.dataset.data[ctx.dataIndex]?.ticker||'',
+          color:ctx=>ctx.dataset.label==='Sintéticos'?'#f59e0b':'#a8d5a2',
+          font:{size:11,family:'DM Mono,monospace',weight:'500'},
+          anchor:'end',align:'top',offset:3,clamp:true,clip:false,overlap:false
+        }
+      },
+      scales:{
+        x:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#6b7c6b',font:{size:9}},title:{display:true,text:'Días',color:'#6b7c6b',font:{size:9}}},
+        y:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#6b7c6b',font:{size:9},callback:v=>v.toFixed(1)+'%'},title:{display:true,text:beChartTFMode.toUpperCase()+' (%)',color:'#6b7c6b',font:{size:9}}}
+      }
+    }
+  });
 }
 
 function beRenderChartCER(){
