@@ -1034,6 +1034,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
         <table>
           <thead><tr>
             <th style="text-align:left">Nombre</th>
+            <th style="text-align:left">Bono DLK</th>
             <th>Vto</th>
             <th>Cierre Trade</th>
             <th>Px Futuro</th>
@@ -1358,6 +1359,8 @@ tbody tr.selected .c-ticker{color:var(--accent);}
           <option value="tf">Tasa Fija</option>
           <option value="cer">CER</option>
           <option value="tamar">TAMAR</option>
+          <option value="dlk">Dollar Linked</option>
+          <option value="sint">Sintético</option>
         </select>
       </div>
       <div class="field"><label>Bono</label><select id="be-cp-ticker" style="width:100%"></select></div>
@@ -1799,11 +1802,13 @@ let beChartCERExcluded=new Set();
 // Pesos Corto Plazo state
 const LS_CP='bonosAR_cp_v1';
 let CP_BONDS=[];
-let CP_FILTER=new Set(['cer','tf','tamar']);
+let CP_FILTER=new Set(['cer','tf','tamar','dlk','sint']);
 const CP_COLORS={
   cer:  {bg:'rgba(74,222,128,0.12)', accent:'#4ade80'},
   tf:   {bg:'rgba(251,191,36,0.12)', accent:'#fbbf24'},
   tamar:{bg:'rgba(56,189,248,0.12)', accent:'#38bdf8'},
+  dlk:  {bg:'rgba(168,85,247,0.10)', accent:'#a855f7'},
+  sint: {bg:'rgba(245,158,11,0.10)', accent:'#f59e0b'},
 };
 const LS_CHART_SEL='bonosAR_chart_sel_v1';
 
@@ -5889,6 +5894,36 @@ function beCPEnrich(item){
       tir:isNaN(e.tir)?null:e.tir,
       tem:isNaN(e.tem)?null:e.tem,bg,ac};
   }
+  if(tipo==='dlk'){
+    const b=DLK_BONDS.find(r=>r.ticker===ticker);
+    if(!b||!b.vcto)return null;
+    const liq=G_LIQ||addHabiles(TODAY,1);
+    if(diasACT(liq,parseDate(b.vcto))<=0)return{ticker,tipo,expired:true};
+    const e=dlkEnrich(b);
+    const vctoStr=b.vcto.split('-').reverse().join('/');
+    return{ticker,tipo,vctoStr,fixing:'—',px:b.precio,
+      tirReal:e.paridad!=null?e.paridad:null,
+      tna:e.tna,tir:e.tir,tem:null,bg,ac};
+  }
+  if(tipo==='sint'){
+    const sb=SINT_BONDS.find(b=>b.ticker===ticker);
+    if(!sb)return null;
+    const r=sintEnrich(sb);
+    const dlkBond=r.dlkBond;
+    if(!dlkBond?.vcto)return null;
+    const liq=G_LIQ||addHabiles(TODAY,1);
+    if(diasACT(liq,parseDate(dlkBond.vcto))<=0)return{ticker,tipo,expired:true};
+    const displayTicker=sintNameFromVcto(dlkBond.vcto);
+    const vctoStr=dlkBond.vcto.split('-').reverse().join('/');
+    const fixStr=r.fechaFixing?r.fechaFixing.split('-').reverse().join('/'):'—';
+    const spread=r.tea!=null&&r.teaTF!=null?r.tea*100-r.teaTF:null;
+    return{ticker:displayTicker,tipo,vctoStr,fixing:fixStr,
+      px:sb.precioFuturo,
+      tirReal:spread,
+      tna:r.tna!=null?r.tna*100:null,
+      tir:r.tea!=null?r.tea*100:null,
+      tem:null,bg,ac};
+  }
   return null;
 }
 
@@ -5908,8 +5943,9 @@ function beCPRecalc(){
   }
 
   const sorted=[...CP_BONDS].filter(b=>CP_FILTER.has(b.tipo)).sort((a,b)=>{
-    const bA=[...LECAPS,...CER_BONDS,...TAMAR_BONDS].find(r=>r.ticker===a.ticker);
-    const bB=[...LECAPS,...CER_BONDS,...TAMAR_BONDS].find(r=>r.ticker===b.ticker);
+    const allBonds=[...LECAPS,...CER_BONDS,...TAMAR_BONDS,...DLK_BONDS];
+    const bA=allBonds.find(r=>r.ticker===a.ticker);
+    const bB=allBonds.find(r=>r.ticker===b.ticker);
     return(bA?.vcto||'').localeCompare(bB?.vcto||'');
   });
 
@@ -5995,18 +6031,29 @@ function beCPModalUpdateList(){
   const tipo=document.getElementById('be-cp-tipo').value;
   const sel=document.getElementById('be-cp-ticker');
   const liq=G_LIQ||addHabiles(TODAY,1);
-  let src=[];
-  if(tipo==='tf')src=LECAPS;
-  else if(tipo==='cer')src=CER_BONDS;
-  else src=TAMAR_BONDS;
-  const vigentes=src
-    .filter(b=>b.vcto&&diasACT(liq,parseDate(b.vcto))>0)
-    .sort((a,b)=>a.vcto.localeCompare(b.vcto));
   const already=new Set(CP_BONDS.filter(b=>b.tipo===tipo).map(b=>b.ticker));
-  const available=vigentes.map(b=>b.ticker).filter(t=>!already.has(t));
-  sel.innerHTML=available.length
-    ?available.map(t=>`<option value="${t}">${t}</option>`).join('')
-    :`<option disabled>Sin bonos disponibles</option>`;
+  let options=[];
+  if(tipo==='tf'||tipo==='cer'||tipo==='tamar'){
+    const src=tipo==='tf'?LECAPS:tipo==='cer'?CER_BONDS:TAMAR_BONDS;
+    const vigentes=src.filter(b=>b.vcto&&diasACT(liq,parseDate(b.vcto))>0).sort((a,b)=>a.vcto.localeCompare(b.vcto));
+    options=vigentes.map(b=>b.ticker).filter(t=>!already.has(t)).map(t=>`<option value="${t}">${t}</option>`);
+  } else if(tipo==='dlk'){
+    const vigentes=DLK_BONDS.filter(b=>b.vcto&&diasACT(liq,parseDate(b.vcto))>0).sort((a,b)=>a.vcto.localeCompare(b.vcto));
+    options=vigentes.map(b=>b.ticker).filter(t=>!already.has(t)).map(t=>`<option value="${t}">${t} · ${b=>b.vcto?.split('-').reverse().join('/')}</option>`);
+    // rebuild with full object
+    options=vigentes.filter(b=>!already.has(b.ticker)).map(b=>`<option value="${b.ticker}">${b.ticker} · ${b.vcto?.split('-').reverse().join('/')}</option>`);
+  } else if(tipo==='sint'){
+    const vigentes=SINT_BONDS.filter(b=>{
+      const dlk=DLK_BONDS.find(d=>d.ticker===b.ticker);
+      return dlk?.vcto&&diasACT(liq,parseDate(dlk.vcto))>0;
+    });
+    options=vigentes.filter(b=>!already.has(b.ticker)).map(b=>{
+      const dlk=DLK_BONDS.find(d=>d.ticker===b.ticker);
+      const name=dlk?.vcto?sintNameFromVcto(dlk.vcto):b.ticker;
+      return`<option value="${b.ticker}">${name} (${b.ticker})</option>`;
+    });
+  }
+  sel.innerHTML=options.length?options.join(''):`<option disabled>Sin bonos disponibles</option>`;
 }
 
 function beCPSaveModal(){
@@ -6183,6 +6230,36 @@ function beRenderChartTF(){
   if(beChartTF){beChartTF.destroy();beChartTF=null;}
   if(!pts.length)return;
   beChartTF=beDrawScatter(canvas,pts,'#a8d5a2','#6eb868',beChartTFMode.toUpperCase()+' (%)');
+  // Agregar puntos de sintéticos en naranja
+  const sintPts=SINT_BONDS.map(sb=>{
+    const r=sintEnrich(sb);
+    if(!r.tna||!r.diasFechaFixing||r.diasFechaFixing<=0)return null;
+    const name=r.dlkBond?.vcto?sintNameFromVcto(r.dlkBond.vcto):sb.ticker;
+    return{x:r.diasFechaFixing,y:r.tna*100,ticker:name};
+  }).filter(Boolean);
+  if(sintPts.length&&beChartTF){
+    beChartTF.data.datasets.push({
+      label:'Sintéticos',
+      data:sintPts,
+      backgroundColor:'#f59e0b',
+      borderColor:'#d97706',
+      pointRadius:6,
+      pointStyle:'triangle',
+      pointHoverRadius:8,
+      order:3
+    });
+    // Extender datalabels para mostrar tickers de sintéticos
+    const dl=beChartTF.options.plugins.datalabels;
+    const origDisplay=dl.display;
+    const origFormatter=dl.formatter;
+    dl.display=ctx=>ctx.datasetIndex===1||ctx.datasetIndex===2;
+    dl.formatter=(v,ctx)=>{
+      const d=ctx.chart.data.datasets[ctx.datasetIndex]?.data[ctx.dataIndex];
+      return d?.ticker||'';
+    };
+    dl.color=ctx=>ctx.datasetIndex===2?'#f59e0b':'#a8d5a2';
+    beChartTF.update();
+  }
 }
 
 function beRenderChartCER(){
@@ -7038,6 +7115,12 @@ function sintSymbolFromVcto(vcto){
   return`DLR/${MESES[d.getMonth()]}${String(d.getFullYear()).slice(-2)}M`;
 }
 
+function sintNameFromVcto(vcto){
+  const MESES=['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
+  const d=parseDate(vcto);
+  return`Sint${MESES[d.getMonth()]}${String(d.getFullYear()).slice(-2)}`;
+}
+
 function sintMatchLecap(dlkBond){
   if(!dlkBond?.vcto||!LECAPS.length)return null;
   const liq=G_LIQ||addHabiles(TODAY,1);
@@ -7093,7 +7176,7 @@ function sintRenderTable(){
   const tbody=document.getElementById('sint-table-body');
   if(!tbody)return;
   if(!SINT_DATA.length){
-    tbody.innerHTML=`<tr><td colspan="9" style="padding:12px;color:var(--text3);font-size:12px;text-align:center">Sin sintéticos. Usá + Agregar para comenzar.</td></tr>`;
+    tbody.innerHTML=`<tr><td colspan="10" style="padding:12px;color:var(--text3);font-size:12px;text-align:center">Sin sintéticos. Usá + Agregar para comenzar.</td></tr>`;
     return;
   }
   const f2p=v=>v==null||isNaN(v)?'—':(v*100).toFixed(2)+'%';
@@ -7102,12 +7185,14 @@ function sintRenderTable(){
   tbody.innerHTML=SINT_DATA.map(r=>{
     const isEd=sintEditingCell?.ticker===r.ticker;
     const isSel=sintSelectedTicker===r.ticker;
+    const sintName=r.dlkBond?.vcto?sintNameFromVcto(r.dlkBond.vcto):r.ticker;
     const vctoDisp=r.dlkBond?.vcto?r.dlkBond.vcto.split('-').reverse().join('/'):'—';
     const pxCell=isEd
       ?`<input class="cell-input" id="sint-ci-input" type="number" step="0.5" value="${r.precioFuturo!=null?r.precioFuturo:''}" onblur="sintCommitCell()" onkeydown="sintCellKey(event)" autofocus>`
       :`<div class="cv editable ${r.precioFuturo?'c-green':''}" onclick="sintStartCell(event,'${r.ticker}')">${r.precioFuturo!=null?'$'+r.precioFuturo.toFixed(2):'—'}</div>`;
     return`<tr style="${isSel?'background:var(--surface)':''}" onclick="sintRowClick(event,'${r.ticker}')">
-      <td style="text-align:left;font-weight:500;color:var(--accent)">${r.ticker}</td>
+      <td style="text-align:left;font-weight:500;color:var(--accent)">${sintName}</td>
+      <td style="text-align:left;font-family:var(--mono);font-size:11px;color:var(--text2)">${r.ticker}</td>
       <td style="font-family:var(--mono);font-size:11px">${vctoDisp}</td>
       <td style="font-family:var(--mono);font-size:11px;color:var(--text2)">${fFecha(r.fechaFixing)}</td>
       <td>${pxCell}</td>
@@ -7270,6 +7355,35 @@ function sintConfirmAdd(){
   sintRenderTable();
   sintCloseModal();
 }
+
+// ═══ CHART COLLAPSE WHEN PANEL OPENS ══════════════════════════════════════════
+(function(){
+  const MAP={
+    'right-panel':      {chart:'chart-area',       getChart:()=>curveChart},
+    'cer-right-panel':  {chart:'cer-chart-area',   getChart:()=>cerTabChart},
+    'tamar-right-panel':{chart:'tamar-chart-area', getChart:()=>tamarTabChart},
+    'dlk-right-panel':  {chart:'dlk-chart-area',   getChart:()=>dlkTabChart},
+  };
+  Object.entries(MAP).forEach(([panelId,{chart,getChart}])=>{
+    const panel=document.getElementById(panelId);
+    if(!panel)return;
+    new MutationObserver(()=>{
+      const chartEl=document.getElementById(chart);
+      if(!chartEl)return;
+      if(panel.classList.contains('open')){
+        if(chartEl.dataset.ph===undefined)chartEl.dataset.ph=chartEl.style.height||'';
+        chartEl.style.height='0';
+        chartEl.style.overflow='hidden';
+      }else{
+        chartEl.style.height=chartEl.dataset.ph||'';
+        chartEl.style.overflow='';
+        delete chartEl.dataset.ph;
+        const c=getChart();
+        if(c)setTimeout(()=>c.resize(),120);
+      }
+    }).observe(panel,{attributes:true,attributeFilter:['class']});
+  });
+}());
 </script>
 </body>
 </html>
