@@ -1248,6 +1248,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
               <th style="text-align:left;padding:4px 6px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Fecha últ.</th>
               <th style="text-align:center;padding:4px 6px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Bono</th>
               <th style="text-align:right;padding:4px 6px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--warn);font-weight:400">TAMAR TNA</th>
+              <th style="text-align:right;padding:4px 6px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--accent2);font-weight:400">TAMAR REAL</th>
             </tr>
           </thead>
           <tbody id="be-tamar-tbody"></tbody>
@@ -5467,6 +5468,40 @@ function beRenderDetalle(resultados){
 // ── FIN BREAKEVEN ─────────────────────────────────────────────────────────────
 
 // ══════════════════════════════════════════════════════════════ TAMAR BREAKEVEN
+
+// Retorna {valor: inflaBE mensual en %, tickers: string} o null
+function beTamarGetCERBE(tamarVcto){
+  if(!CER_INDEX.length||!PROJ_INFLACION.length)return null;
+  const liq=G_LIQ||addHabiles(TODAY,1);
+  const cerSorted=CER_BONDS
+    .filter(b=>b.vcto&&b.precio&&diasACT(liq,parseDate(b.vcto))>0)
+    .sort((a,b)=>a.vcto.localeCompare(b.vcto));
+  if(!cerSorted.length)return null;
+
+  const getInflaBE=b=>{
+    if(!b)return null;
+    const r=beCalcular(b.ticker);
+    return(r&&!r.error)?{valor:r.inflaBE,ticker:b.ticker}:null;
+  };
+
+  // Coincidencia exacta de vencimiento
+  const exact=cerSorted.find(b=>b.vcto===tamarVcto);
+  if(exact){
+    const res=getInflaBE(exact);
+    return res?{valor:res.valor,tickers:res.ticker}:null;
+  }
+
+  // Inmediato anterior e inmediato posterior
+  const prevBond=cerSorted.filter(b=>b.vcto<tamarVcto).slice(-1)[0]||null;
+  const nextBond=cerSorted.find(b=>b.vcto>tamarVcto)||null;
+  const resP=getInflaBE(prevBond), resN=getInflaBE(nextBond);
+
+  if(resP&&resN) return{valor:(resP.valor+resN.valor)/2, tickers:`${resP.ticker} + ${resN.ticker}`};
+  if(resP) return{valor:resP.valor, tickers:resP.ticker};
+  if(resN) return{valor:resN.valor, tickers:resN.ticker};
+  return null;
+}
+
 function beTamarCalcular(tamarTicker){
   const r=TAMAR_DATA.length?TAMAR_DATA.find(x=>x.ticker===tamarTicker):null;
   const bond=TAMAR_BONDS.find(x=>x.ticker===tamarTicker);
@@ -5517,11 +5552,22 @@ function beTamarCalcular(tamarTicker){
   // Fecha último TAMAR = fixVto del bono
   const fixVto=d.fixVto;
 
+  // TAMAR REAL: ((1+TAMAR_BE_TEM)/(1+BE_CER))^12-1
+  const tamar_be_tna_dec=tamar_be_tna/100;
+  const tamar_be_tem=Math.pow(Math.pow(1+tamar_be_tna_dec*32/365,365/32),1/12)-1;
+  const cerBE=beTamarGetCERBE(bond.vcto);
+  const be_cer=cerBE!=null?cerBE.valor/100:null;
+  const be_cer_tickers=cerBE?.tickers||null;
+  const tamar_real=be_cer!=null
+    ?(Math.pow((1+tamar_be_tem)/(1+be_cer),12)-1)*100
+    :null;
+
   return{
     ticker:tamarTicker,tfTicker:tfBond.ticker,
     fixVto,valor_final,tem_capitalizar:tem_capitalizar*100,
     tem_proy_be:tem_proy_be*100,tna_proy_be:tna_proy_be*100,
-    tamar_be_tna,
+    tamar_be_tna,tamar_be_tem:tamar_be_tem*100,
+    tamar_real,be_cer_tickers,
     dias_liq_vto_tf,dias_liq_vto_tamar,
   };
 }
@@ -5565,7 +5611,7 @@ function beTamarRecalc(){
   if(!tbody)return;
 
   if(!TAMAR_BONDS.length){
-    tbody.innerHTML=`<tr><td colspan="3" style="padding:2rem;text-align:center;color:var(--text3);font-size:12px">Agregá bonos en la tab TAMAR primero.</td></tr>`;
+    tbody.innerHTML=`<tr><td colspan="4" style="padding:2rem;text-align:center;color:var(--text3);font-size:12px">Agregá bonos en la tab TAMAR primero.</td></tr>`;
     return;
   }
 
@@ -5575,7 +5621,7 @@ function beTamarRecalc(){
     .sort((a,b)=>a.vcto.localeCompare(b.vcto));
 
   if(!bondsOrdenados.length){
-    tbody.innerHTML=`<tr><td colspan="3" style="padding:1rem;text-align:center;color:var(--text3);font-size:12px">Sin bonos seleccionados.</td></tr>`;
+    tbody.innerHTML=`<tr><td colspan="4" style="padding:1rem;text-align:center;color:var(--text3);font-size:12px">Sin bonos seleccionados.</td></tr>`;
     return;
   }
 
@@ -5585,15 +5631,22 @@ function beTamarRecalc(){
       return`<tr style="border-bottom:1px solid var(--border)">
         <td style="padding:5px 6px;color:var(--text3);font-size:11px;white-space:nowrap">—</td>
         <td style="padding:5px 6px;text-align:center;font-family:var(--mono);font-size:12px;color:var(--accent);white-space:nowrap">${bond.ticker}</td>
-        <td style="padding:5px 6px;text-align:right;color:var(--danger);font-size:11px;white-space:nowrap">${res?.error||'—'}</td>
+        <td colspan="2" style="padding:5px 6px;text-align:right;color:var(--danger);font-size:11px;white-space:nowrap">${res?.error||'—'}</td>
       </tr>`;
     }
     const fixDisp=res.fixVto.split('-').reverse().join('/');
     const tfLabel=res.tfTicker?`<span style="color:var(--text3);font-size:10px;display:block;margin-top:1px">par: ${res.tfTicker}</span>`:'';
+    const realCell=res.tamar_real!=null
+      ?`<td style="padding:5px 6px;text-align:right;font-family:var(--mono);white-space:nowrap">
+          <span style="font-size:12px;color:${res.tamar_real>=0?'var(--accent2)':'var(--danger)'};font-weight:600">${fmtP2(res.tamar_real)}%</span>
+          ${res.be_cer_tickers?`<span style="color:var(--text3);font-size:10px;display:block;margin-top:1px">${res.be_cer_tickers}</span>`:''}
+        </td>`
+      :`<td style="padding:5px 6px;text-align:right;color:var(--text3);font-size:11px">—</td>`;
     return`<tr style="border-bottom:1px solid var(--border)">
       <td style="padding:5px 6px;font-family:var(--mono);font-size:11px;color:var(--text2);white-space:nowrap">${fixDisp}</td>
       <td style="padding:5px 6px;text-align:center;font-family:var(--mono);font-size:12px;color:var(--accent);font-weight:600;white-space:nowrap">${bond.ticker}${tfLabel}</td>
       <td style="padding:5px 6px;text-align:right;font-family:var(--mono);font-size:13px;color:var(--warn);font-weight:600;white-space:nowrap">${fmtP2(res.tamar_be_tna)}%</td>
+      ${realCell}
     </tr>`;
   }).join('');
 }
