@@ -1040,6 +1040,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
             <th>Px Futuro</th>
             <th>TNA</th>
             <th>TEA</th>
+            <th>TEM</th>
             <th>TEA TF</th>
             <th>Spread</th>
             <th style="width:28px;cursor:default"></th>
@@ -1272,6 +1273,8 @@ tbody tr.selected .c-ticker{color:var(--accent);}
         <button id="cp-filter-cer"   onclick="beCPToggleFilter('cer')"   style="padding:2px 8px;font-size:10px;font-family:var(--mono);border-radius:3px;cursor:pointer;border:1px solid #4ade80;background:rgba(74,222,128,0.15);color:#4ade80;transition:all .12s">■ CER</button>
         <button id="cp-filter-tf"    onclick="beCPToggleFilter('tf')"    style="padding:2px 8px;font-size:10px;font-family:var(--mono);border-radius:3px;cursor:pointer;border:1px solid #fbbf24;background:rgba(251,191,36,0.15);color:#fbbf24;transition:all .12s">■ TF</button>
         <button id="cp-filter-tamar" onclick="beCPToggleFilter('tamar')" style="padding:2px 8px;font-size:10px;font-family:var(--mono);border-radius:3px;cursor:pointer;border:1px solid #38bdf8;background:rgba(56,189,248,0.15);color:#38bdf8;transition:all .12s">■ TAMAR</button>
+        <button id="cp-filter-dlk"   onclick="beCPToggleFilter('dlk')"   style="padding:2px 8px;font-size:10px;font-family:var(--mono);border-radius:3px;cursor:pointer;border:1px solid #a855f7;background:rgba(168,85,247,0.15);color:#a855f7;transition:all .12s">■ DLK</button>
+        <button id="cp-filter-sint"  onclick="beCPToggleFilter('sint')"  style="padding:2px 8px;font-size:10px;font-family:var(--mono);border-radius:3px;cursor:pointer;border:1px solid #f59e0b;background:rgba(245,158,11,0.15);color:#f59e0b;transition:all .12s">■ SINT ARS</button>
       </div>
       <table style="border-collapse:collapse;white-space:nowrap;">
         <thead>
@@ -1302,6 +1305,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
         <div style="display:flex;align-items:center;gap:8px;padding:.4rem 1rem;flex-shrink:0;border-bottom:1px solid var(--border);">
           <span style="font-size:11px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em">Curva Tasa Fija</span>
           <button class="btn" style="padding:2px 6px;font-size:10px" onclick="beToggleChartSelector('tf')">bonos ▾</button>
+          <button id="be-chart-sint-btn" class="btn" style="padding:2px 6px;font-size:10px;border-color:#f59e0b;background:rgba(245,158,11,0.15);color:#f59e0b" onclick="beToggleChartSint()">■ Sint</button>
           <div class="mode-row" style="margin-left:auto">
             <button class="mode-btn active" id="be-chart-tf-tna" onclick="beChartTFSetMode('tna')">TNA</button>
             <button class="mode-btn" id="be-chart-tf-tir" onclick="beChartTFSetMode('tir')">TIR</button>
@@ -1798,6 +1802,7 @@ let tamarTabChart=null;
 let dlkTabChart=null;
 let beChartTFMode='tna';
 let beChartTFExcluded=new Set();
+let beChartSintVisible=true;
 let beChartCERExcluded=new Set();
 // Pesos Corto Plazo state
 const LS_CP='bonosAR_cp_v1';
@@ -5835,9 +5840,9 @@ function beCPSaveLs(){
 function beCPToggleFilter(tipo){
   if(CP_FILTER.has(tipo))CP_FILTER.delete(tipo);
   else CP_FILTER.add(tipo);
-  const colors={cer:'#4ade80',tf:'#fbbf24',tamar:'#38bdf8'};
-  const bgs={cer:'rgba(74,222,128,0.15)',tf:'rgba(251,191,36,0.15)',tamar:'rgba(56,189,248,0.15)'};
-  ['cer','tf','tamar'].forEach(t=>{
+  const colors={cer:'#4ade80',tf:'#fbbf24',tamar:'#38bdf8',dlk:'#a855f7',sint:'#f59e0b'};
+  const bgs={cer:'rgba(74,222,128,0.15)',tf:'rgba(251,191,36,0.15)',tamar:'rgba(56,189,248,0.15)',dlk:'rgba(168,85,247,0.15)',sint:'rgba(245,158,11,0.15)'};
+  ['cer','tf','tamar','dlk','sint'].forEach(t=>{
     const btn=document.getElementById('cp-filter-'+t);
     if(!btn)return;
     const on=CP_FILTER.has(t);
@@ -5902,9 +5907,16 @@ function beCPEnrich(item){
       if(diasACT(liq,parseDate(b.vcto))<=0)return{ticker,tipo,expired:true};
       const e=dlkEnrich(b);
       const vctoStr=b.vcto.split('-').reverse().join('/');
-      return{ticker,tipo,vctoStr,fixing:'—',px:b.precio,
-        tirReal:e.paridad!=null?e.paridad:null,
-        tna:e.tna,tir:e.tir,tem:null,bg,ac};
+      // Fixing: T-3 hábiles desde el último día hábil del mes de vencimiento
+      const d=parseDate(b.vcto);
+      const lastBiz=sintLastBizDay(d.getFullYear(),d.getMonth());
+      const fixDate=new Date(lastBiz);
+      let cnt=0;
+      while(cnt<3){fixDate.setDate(fixDate.getDate()-1);if(esHabil(fixDate))cnt++;}
+      const fixStr=fmtDate(fixDate).split('-').reverse().join('/');
+      return{ticker,tipo,vctoStr,fixing:fixStr,px:b.precio,
+        tirReal:e.tir,  // TIR en col TIR R/MGN
+        tna:null,tir:null,tem:null,bg,ac};
     }catch(e){return null;}
   }
   if(tipo==='sint'){
@@ -5919,13 +5931,13 @@ function beCPEnrich(item){
       const displayTicker=sintNameFromVcto(dlkBond.vcto);
       const vctoStr=dlkBond.vcto.split('-').reverse().join('/');
       const fixStr=r.fechaFixing?r.fechaFixing.split('-').reverse().join('/'):'—';
-      const spread=r.tea!=null&&r.teaTF!=null?r.tea*100-r.teaTF:null;
+      const tnaP=r.tna!=null?r.tna*100:null;
+      const tirP=r.tea!=null?r.tea*100:null;
+      const temP=r.tea!=null?(Math.pow(1+r.tea,1/12)-1)*100:null;
       return{ticker:displayTicker,tipo,vctoStr,fixing:fixStr,
         px:sb.precioFuturo,
-        tirReal:spread,
-        tna:r.tna!=null?r.tna*100:null,
-        tir:r.tea!=null?r.tea*100:null,
-        tem:null,bg,ac};
+        tirReal:null,  // TIR R/MGN vacío para sint
+        tna:tnaP,tir:tirP,tem:temP,bg,ac};
     }catch(e){return null;}
   }
   return null;
@@ -6122,6 +6134,17 @@ function beChartTFSetMode(m){
   beRenderChartTF();
 }
 
+function beToggleChartSint(){
+  beChartSintVisible=!beChartSintVisible;
+  const btn=document.getElementById('be-chart-sint-btn');
+  if(btn){
+    btn.style.background=beChartSintVisible?'rgba(245,158,11,0.15)':'var(--surface2)';
+    btn.style.borderColor=beChartSintVisible?'#f59e0b':'var(--border2)';
+    btn.style.color=beChartSintVisible?'#f59e0b':'var(--text3)';
+  }
+  beRenderChartTF();
+}
+
 // ── CER TAB CHART ─────────────────────────────────────────────────────────────
 function cerRenderTabChart(){
   const canvas=document.getElementById('cer-curve-chart');
@@ -6235,16 +6258,18 @@ function beRenderChartTF(){
   if(beChartTF){beChartTF.destroy();beChartTF=null;}
   if(!pts.length)return;
   beChartTF=beDrawScatter(canvas,pts,'#a8d5a2','#6eb868',beChartTFMode.toUpperCase()+' (%)');
-  // Agregar puntos de sintéticos en naranja
+  // Agregar puntos de sintéticos en naranja (solo si visible)
   let sintPts=[];
-  try{
-    sintPts=(SINT_BONDS||[]).map(sb=>{
-      const r=sintEnrich(sb);
-      if(!r||!r.tna||!r.diasFechaFixing||r.diasFechaFixing<=0)return null;
-      const name=r.dlkBond?.vcto?sintNameFromVcto(r.dlkBond.vcto):sb.ticker;
-      return{x:r.diasFechaFixing,y:r.tna*100,ticker:name};
-    }).filter(Boolean);
-  }catch(e){}
+  if(beChartSintVisible){
+    try{
+      sintPts=(SINT_BONDS||[]).map(sb=>{
+        const r=sintEnrich(sb);
+        if(!r||!r.tna||!r.diasFechaFixing||r.diasFechaFixing<=0)return null;
+        const name=r.dlkBond?.vcto?sintNameFromVcto(r.dlkBond.vcto):sb.ticker;
+        return{x:r.diasFechaFixing,y:r.tna*100,ticker:name};
+      }).filter(Boolean);
+    }catch(e){}
+  }
   if(sintPts.length&&beChartTF){
     beChartTF.data.datasets.push({
       label:'Sintéticos',
@@ -7159,13 +7184,14 @@ function sintEnrich(sb){
     diasFuturo=diasACT(liq,fechaVctoFuturo);
     diasFechaFixing=diasACT(liq,fechaFixing);
   }
-  let tasaDirectaFuturo=null,precioFuturoAjustado=null,tasaDirecta=null,tna=null,tea=null;
+  let tasaDirectaFuturo=null,precioFuturoAjustado=null,tasaDirecta=null,tna=null,tea=null,tem=null;
   if(a3500&&sb.precioFuturo&&dlkBond.precio&&diasFuturo>0&&diasFechaFixing>0){
     tasaDirectaFuturo=(sb.precioFuturo/a3500)-1;
     precioFuturoAjustado=Math.pow(1+tasaDirectaFuturo,diasFechaFixing/diasFuturo)*a3500;
     tasaDirecta=(precioFuturoAjustado/(dlkBond.precio/100))-1;
     tna=(tasaDirecta/diasFechaFixing)*365;
     tea=Math.pow(1+tasaDirecta,365/diasFechaFixing)-1;
+    tem=Math.pow(1+tea,1/12)-1;
   }
   let teaTF=null,teaTFTicker=null;
   const bestLecap=sintMatchLecap(dlkBond);
@@ -7175,7 +7201,7 @@ function sintEnrich(sb){
     fechaVctoFuturo:fechaVctoFuturo?fmtDate(fechaVctoFuturo):null,
     fechaFixing:fechaFixing?fmtDate(fechaFixing):null,
     diasFuturo,diasFechaFixing,tasaDirectaFuturo,precioFuturoAjustado,tasaDirecta,
-    tna,tea,teaTF,teaTFTicker,a3500,
+    tna,tea,tem,teaTF,teaTFTicker,a3500,
     simboloFuturo:dlkBond.vcto?sintSymbolFromVcto(dlkBond.vcto):null
   };
 }
@@ -7184,7 +7210,7 @@ function sintRenderTable(){
   const tbody=document.getElementById('sint-table-body');
   if(!tbody)return;
   if(!SINT_DATA.length){
-    tbody.innerHTML=`<tr><td colspan="10" style="padding:12px;color:var(--text3);font-size:12px;text-align:center">Sin sintéticos. Usá + Agregar para comenzar.</td></tr>`;
+    tbody.innerHTML=`<tr><td colspan="11" style="padding:12px;color:var(--text3);font-size:12px;text-align:center">Sin sintéticos. Usá + Agregar para comenzar.</td></tr>`;
     return;
   }
   const f2p=v=>v==null||isNaN(v)?'—':(v*100).toFixed(2)+'%';
@@ -7206,6 +7232,7 @@ function sintRenderTable(){
       <td>${pxCell}</td>
       <td style="color:var(--warn);font-weight:600">${f2p(r.tna)}</td>
       <td style="color:var(--accent2)">${f2p(r.tea)}</td>
+      <td style="color:var(--text2)">${f2p(r.tem)}</td>
       <td style="color:var(--text2)">${fTF(r.teaTF)}</td>
       <td style="font-weight:600;color:${r.tea!=null&&r.teaTF!=null?(r.tea*100-r.teaTF)>=0?'var(--warn)':'var(--accent2)':'var(--text3)'}">${r.tea!=null&&r.teaTF!=null?(r.tea*100-r.teaTF).toFixed(2)+'pp':'—'}</td>
       <td><button onclick="sintRemove(event,'${r.ticker}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;padding:2px 4px" title="Eliminar">✕</button></td>
@@ -7302,6 +7329,7 @@ function sintRenderPanelBody(r){
     <table class="res-table" style="margin-bottom:12px">
       <tr class="wa"><td style="font-weight:600">TNA</td><td style="color:var(--warn);font-size:15px;font-weight:700">${f2(r.tna)}</td></tr>
       <tr class="bl"><td style="font-weight:600">TEA</td><td style="color:var(--accent2);font-size:14px;font-weight:700">${f2(r.tea)}</td></tr>
+      <tr class="mu"><td style="font-weight:600">TEM</td><td style="color:var(--text2);font-size:13px;font-weight:600">${f2(r.tem)}</td></tr>
     </table>
     ${r.teaTFTicker?`
     <div class="section-label">Comparación TF</div>
