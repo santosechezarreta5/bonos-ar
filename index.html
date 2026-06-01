@@ -1040,6 +1040,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
             <th>TNA</th>
             <th>TEA</th>
             <th>TEA TF</th>
+            <th>Spread</th>
             <th style="width:28px;cursor:default"></th>
           </tr></thead>
           <tbody id="sint-table-body"></tbody>
@@ -7092,7 +7093,7 @@ function sintRenderTable(){
   const tbody=document.getElementById('sint-table-body');
   if(!tbody)return;
   if(!SINT_DATA.length){
-    tbody.innerHTML=`<tr><td colspan="8" style="padding:12px;color:var(--text3);font-size:12px;text-align:center">Sin sintéticos. Usá + Agregar para comenzar.</td></tr>`;
+    tbody.innerHTML=`<tr><td colspan="9" style="padding:12px;color:var(--text3);font-size:12px;text-align:center">Sin sintéticos. Usá + Agregar para comenzar.</td></tr>`;
     return;
   }
   const f2p=v=>v==null||isNaN(v)?'—':(v*100).toFixed(2)+'%';
@@ -7113,6 +7114,7 @@ function sintRenderTable(){
       <td style="color:var(--warn);font-weight:600">${f2p(r.tna)}</td>
       <td style="color:var(--accent2)">${f2p(r.tea)}</td>
       <td style="color:var(--text2)">${fTF(r.teaTF)}</td>
+      <td style="font-weight:600;color:${r.tea!=null&&r.teaTF!=null?(r.tea*100-r.teaTF)>=0?'var(--warn)':'var(--accent2)':'var(--text3)'}">${r.tea!=null&&r.teaTF!=null?(r.tea*100-r.teaTF).toFixed(2)+'pp':'—'}</td>
       <td><button onclick="sintRemove(event,'${r.ticker}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;padding:2px 4px" title="Eliminar">✕</button></td>
     </tr>`;
   }).join('');
