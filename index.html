@@ -1028,7 +1028,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
         <span class="pane-title">Sintético DLK + ROFEX</span>
         <span style="font-size:10px;color:var(--text3);margin-left:auto;margin-right:4px">A3500</span>
         <span id="sint-a3500-display" style="font-family:var(--mono);font-size:12px;color:var(--accent)">—</span>
-        <button class="btn primary" onclick="sintOpenModal()" style="margin-left:8px">+ Agregar</button>
+        <button id="sint-add-btn" class="btn primary" onclick="sintOpenModal()" style="margin-left:8px">+ Agregar</button>
       </div>
       <div class="table-scroll">
         <table>
@@ -1669,7 +1669,7 @@ function authUpdateAdminUI(){
   const admin=isAdmin();
   // Solo ocultar botones de agregar/eliminar bonos en las toolbars de TF/CER/TAMAR
   document.querySelectorAll(
-    '.pane-toolbar .btn.primary'
+    '.pane-toolbar .btn.primary:not(#sint-add-btn)'
   ).forEach(el=>{
     el.style.display=admin?'':'none';
   });
@@ -1681,8 +1681,7 @@ function authUpdateAdminUI(){
 
 function authUpdateUI(user){
   const btn=document.getElementById('auth-btn');
-  const label=document.getElementById('auth-btn-label');
-  if(!btn||!label)return;
+  if(!btn)return;
   if(user){
     const name=user.user_metadata?.name||user.email||'Usuario';
     const avatar=user.user_metadata?.avatar_url;
@@ -1704,8 +1703,10 @@ async function authSetUser(user){
 
 async function authAction(){
   if(SUPA_USER){
-    // Show logout option
     if(confirm(`Cerrar sesión de ${SUPA_USER.email}?`)){
+      SUPA_USER=null;
+      authUpdateUI(null);
+      authUpdateAdminUI();
       await supa.auth.signOut();
     }
   } else {
