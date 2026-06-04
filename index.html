@@ -1392,6 +1392,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <span class="api-status" id="proj-status"></span>
         <button class="btn primary" style="margin:0;padding:6px 14px;font-size:12px" onclick="projRecalc()">↻ Recalcular</button>
+        <button id="proj-export-btn" class="btn" style="margin:0;padding:6px 14px;font-size:12px" onclick="projExportarExcel()">↓ Exportar Excel</button>
       </div>
     </div>
 
@@ -4643,6 +4644,136 @@ function projRenderSummary(){
     const [y,m]=lastPub.mes.split('-').map(Number);
     set('proj-last-pub',`Último publicado: ${MESES_ES[m-1]} ${y}`);
   }
+}
+
+// ── EXPORT EXCEL ──────────────────────────────────────────────────────────────
+function excelDateSerial(dateStr){
+  const [y,m,d]=dateStr.split('-').map(Number);
+  const dt=new Date(y,m-1,d);
+  const epoch=new Date(1899,11,30);
+  return Math.round((dt-epoch)/86400000);
+}
+
+async function projExportarExcel(){
+  const btn=document.getElementById('proj-export-btn');
+  const origTxt=btn?btn.textContent:'';
+  try{
+    if(!window.XLSX){
+      if(btn){btn.disabled=true;btn.textContent='Cargando...';}
+      await new Promise((res,rej)=>{
+        const s=document.createElement('script');
+        s.src='https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
+        s.onload=res; s.onerror=()=>rej(new Error('No se pudo cargar la biblioteca'));
+        document.head.appendChild(s);
+      });
+      if(btn){btn.disabled=false;btn.textContent=origTxt;}
+    }
+  }catch(err){
+    if(btn){btn.disabled=false;btn.textContent=origTxt;}
+    alert('Error al cargar la biblioteca XLSX: '+err.message);
+    return;
+  }
+  if(!window.XLSX)return;
+  if(!PROJ_INFLACION.length){alert('No hay sendero de inflación. Hacé ↻ Recalcular primero.');return;}
+  if(!CER_PROJ.size){alert('No hay CER proyectado. Hacé ↻ Recalcular primero.');return;}
+
+  const wb=XLSX.utils.book_new();
+  const N=PROJ_INFLACION.length;
+
+  // ── HOJA 1: SENDERO DE INFLACIÓN ────────────────────────────────────────────
+  (function(){
+    const ws={};
+    ['Mes','Tipo','Publicación','Inflación %','Coef. Diario','Vigencia Desde','Vigencia Hasta']
+      .forEach((v,c)=>{ ws[XLSX.utils.encode_cell({r:0,c})]={t:'s',v}; });
+
+    let ult=3;
+    PROJ_INFLACION.forEach((r,i)=>{
+      const row=i+1, R=row+1;
+      const [y,m]=r.mes.split('-').map(Number);
+      const infla=r.infla!=null?r.infla:ult;
+      if(r.infla!=null)ult=r.infla;
+
+      ws[XLSX.utils.encode_cell({r:row,c:0})]={t:'s',v:`${MESES_ES[m-1]} ${y}`};
+      ws[XLSX.utils.encode_cell({r:row,c:1})]={t:'s',v:r.tipo};
+      ws[XLSX.utils.encode_cell({r:row,c:2})]={t:'n',v:excelDateSerial(projFechaPublicacion(r.mes)),z:'DD/MM/YYYY'};
+      ws[XLSX.utils.encode_cell({r:row,c:3})]={t:'n',v:infla,z:'0.000'};
+      // Coef = (1+D/100)^(1/días_del_mes(G))  donde días = DAY(DATE(YEAR(G),MONTH(G)+1,0))
+      ws[XLSX.utils.encode_cell({r:row,c:4})]={t:'n',f:`(1+D${R}/100)^(1/DAY(DATE(YEAR(G${R}),MONTH(G${R})+1,0)))`,z:'0.00000000'};
+      ws[XLSX.utils.encode_cell({r:row,c:5})]={t:'n',v:excelDateSerial(projFechaInicioVigencia(r.mes)),z:'DD/MM/YYYY'};
+      ws[XLSX.utils.encode_cell({r:row,c:6})]={t:'n',v:excelDateSerial(projFechaFinVigencia(r.mes)),z:'DD/MM/YYYY'};
+    });
+
+    ws['!ref']=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:N,c:6}});
+    ws['!cols']=[{wch:12},{wch:10},{wch:12},{wch:11},{wch:14},{wch:13},{wch:13}];
+    XLSX.utils.book_append_sheet(wb,ws,'Sendero Inflación');
+  }());
+
+  // ── HOJA 2: CER PROYECTADO ───────────────────────────────────────────────────
+  // Estructura:
+  //   Cols A-F (lookup sendero, editable): Vigencia Desde | Inflación % | Días Aplica | Coef. Diario | Mes | Tipo
+  //   Col G: separador vacío
+  //   Cols H-J (serie diaria CER): Fecha | CER | Tipo
+  //
+  //   Editar col B (Inflación %) → recalcula D (Coef.) → recalcula toda la serie CER
+  (function(){
+    const ws={};
+    ['Vigencia Desde','Inflación %','Días Aplica','Coef. Diario','Mes','Tipo']
+      .forEach((v,c)=>{ ws[XLSX.utils.encode_cell({r:0,c})]={t:'s',v}; });
+
+    let ult=3;
+    PROJ_INFLACION.forEach((r,i)=>{
+      const row=i+1, R=row+1;
+      const [y,m]=r.mes.split('-').map(Number);
+      const infla=r.infla!=null?r.infla:ult;
+      if(r.infla!=null)ult=r.infla;
+
+      ws[XLSX.utils.encode_cell({r:row,c:0})]={t:'n',v:excelDateSerial(projFechaInicioVigencia(r.mes)),z:'DD/MM/YYYY'};
+      ws[XLSX.utils.encode_cell({r:row,c:1})]={t:'n',v:infla,z:'0.000'};
+      ws[XLSX.utils.encode_cell({r:row,c:2})]={t:'n',f:`DAY(DATE(YEAR(A${R}),MONTH(A${R})+1,0))`,z:'0'};
+      ws[XLSX.utils.encode_cell({r:row,c:3})]={t:'n',f:`(1+B${R}/100)^(1/C${R})`,z:'0.00000000'};
+      ws[XLSX.utils.encode_cell({r:row,c:4})]={t:'s',v:`${MESES_ES[m-1]} ${y}`};
+      ws[XLSX.utils.encode_cell({r:row,c:5})]={t:'s',v:r.tipo};
+    });
+
+    // Serie CER: últimos 10 reales + proyectados con fórmulas
+    const HC=7, IC=8, JC=9; // cols H, I, J (0-indexed)
+    ['Fecha','CER','Tipo'].forEach((v,i)=>{
+      ws[XLSX.utils.encode_cell({r:0,c:HC+i})]={t:'s',v};
+    });
+
+    const sorted=[...CER_INDEX].sort((a,b)=>a.fecha.localeCompare(b.fecha));
+    const realRows=sorted.slice(Math.max(0,sorted.length-10));
+    let cr=1; // current row (0-indexed)
+
+    realRows.forEach(({fecha,valor})=>{
+      ws[XLSX.utils.encode_cell({r:cr,c:HC})]={t:'n',v:excelDateSerial(fecha),z:'DD/MM/YYYY'};
+      ws[XLSX.utils.encode_cell({r:cr,c:IC})]={t:'n',v:valor,z:'0.000000'};
+      ws[XLSX.utils.encode_cell({r:cr,c:JC})]={t:'s',v:'real'};
+      cr++;
+    });
+
+    // Proyectados: CER = CER_anterior × INDEX(Coef, MATCH(fecha, Desde, 1))
+    const sdDesde=`$A$2:$A$${N+1}`;
+    const sdCoef=`$D$2:$D$${N+1}`;
+    const projEntries=[...CER_PROJ.entries()].sort((a,b)=>a[0].localeCompare(b[0]));
+
+    projEntries.forEach(([fecha])=>{
+      const R=cr+1; // 1-indexed Excel row
+      ws[XLSX.utils.encode_cell({r:cr,c:HC})]={t:'n',v:excelDateSerial(fecha),z:'DD/MM/YYYY'};
+      ws[XLSX.utils.encode_cell({r:cr,c:IC})]={t:'n',
+        f:`I${R-1}*INDEX(${sdCoef},MATCH(H${R},${sdDesde},1))`,z:'0.000000'};
+      ws[XLSX.utils.encode_cell({r:cr,c:JC})]={t:'s',v:'proyectado'};
+      cr++;
+    });
+
+    const maxRow=Math.max(N,cr-1);
+    ws['!ref']=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:maxRow,c:JC}});
+    ws['!cols']=[{wch:13},{wch:11},{wch:11},{wch:14},{wch:12},{wch:10},
+                 {wch:2},{wch:13},{wch:12},{wch:10}];
+    XLSX.utils.book_append_sheet(wb,ws,'CER Proyectado');
+  }());
+
+  XLSX.writeFile(wb,`CER_Proyectado_${fmtDate(TODAY).replace(/-/g,'')}.xlsx`);
 }
 
 function projSetInfla(mes, val){
