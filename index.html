@@ -355,6 +355,12 @@ tbody tr.selected .c-ticker{color:var(--accent);}
     title="TC A3500 — editá para override manual en calculadoras DLK">
   <button onclick="dlkResetA3500()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:10px;margin-left:3px;padding:0" title="Restaurar último cierre">↺</button>
   <span id="usd-a3500-label" style="color:var(--text3);font-size:10px;margin-left:4px"></span>
+  <span style="width:1px;background:var(--border);height:16px;margin:0 12px;flex-shrink:0;"></span>
+  <span style="color:var(--text3);margin-right:5px;font-size:10px;text-transform:uppercase;letter-spacing:.06em">T.Desc</span>
+  <input type="number" id="sint-tasa-desc" step="0.1" min="0" max="9999"
+    style="width:60px;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--warn);font-family:var(--mono);font-size:11px;padding:0 2px;outline:none;text-align:right;"
+    placeholder="—" title="Tasa de descuento para sintéticos (%)" onchange="sintSetTasaDesc(this.value)">
+  <span style="color:var(--text3);font-size:10px;margin-left:2px">%</span>
 </div>
 
 <!-- SETTLEMENT BAR -->
@@ -1028,11 +1034,6 @@ tbody tr.selected .c-ticker{color:var(--accent);}
         <span class="pane-title">Sintético DLK + ROFEX</span>
         <span style="font-size:10px;color:var(--text3);margin-left:auto;margin-right:4px">A3500</span>
         <span id="sint-a3500-display" style="font-family:var(--mono);font-size:12px;color:var(--accent)">—</span>
-        <span style="font-size:10px;color:var(--text3);margin-left:12px;margin-right:4px">T.Desc</span>
-        <input type="number" id="sint-tasa-desc" step="0.1" min="0" max="9999"
-          style="width:60px;text-align:right;background:var(--surface);border:1px solid var(--border2);border-radius:4px;padding:2px 6px;font-family:var(--mono);font-size:12px;color:var(--warn);outline:none;"
-          placeholder="—" onchange="sintSetTasaDesc(this.value)">
-        <span style="font-size:10px;color:var(--text3);margin-right:4px">%</span>
         <button id="sint-add-btn" class="btn primary" onclick="sintOpenModal()" style="margin-left:8px">+ Agregar</button>
       </div>
       <div class="table-scroll">
