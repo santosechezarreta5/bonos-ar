@@ -1028,6 +1028,11 @@ tbody tr.selected .c-ticker{color:var(--accent);}
         <span class="pane-title">Sintético DLK + ROFEX</span>
         <span style="font-size:10px;color:var(--text3);margin-left:auto;margin-right:4px">A3500</span>
         <span id="sint-a3500-display" style="font-family:var(--mono);font-size:12px;color:var(--accent)">—</span>
+        <span style="font-size:10px;color:var(--text3);margin-left:12px;margin-right:4px">T.Desc</span>
+        <input type="number" id="sint-tasa-desc" step="0.1" min="0" max="9999"
+          style="width:60px;text-align:right;background:var(--surface);border:1px solid var(--border2);border-radius:4px;padding:2px 6px;font-family:var(--mono);font-size:12px;color:var(--warn);outline:none;"
+          placeholder="—" onchange="sintSetTasaDesc(this.value)">
+        <span style="font-size:10px;color:var(--text3);margin-right:4px">%</span>
         <button id="sint-add-btn" class="btn primary" onclick="sintOpenModal()" style="margin-left:8px">+ Agregar</button>
       </div>
       <div class="table-scroll">
@@ -1039,7 +1044,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
             <th>Cierre Trade</th>
             <th>Px Futuro</th>
             <th>TNA</th>
-            <th>TEA</th>
+            <th>TIR</th>
             <th>TEM</th>
             <th>TEA TF</th>
             <th>Spread</th>
@@ -7363,17 +7368,38 @@ function fwdRecalc(){
 
 // ═══════════════════════════════════════════════════════ SINTETICOS
 const SINT_BONDS_LS='bonosAR_sint_bonds_v1';
+const SINT_TASA_DESC_LS='bonosAR_sint_tasa_desc_v1';
 let ROFEX_DATA=[];
 let SINT_BONDS=[];
 let SINT_DATA=[];
+let SINT_TASA_DESC=null; // en %, e.g. 35.0
 let sintSelectedTicker=null;
 let sintEditingCell=null;
 
 function sintLoadBonds(){try{SINT_BONDS=JSON.parse(localStorage.getItem(SINT_BONDS_LS)||'[]');}catch(e){SINT_BONDS=[];}}
 function sintSaveBonds(){localStorage.setItem(SINT_BONDS_LS,JSON.stringify(SINT_BONDS));}
 
+function sintLoadTasaDesc(){
+  try{const v=localStorage.getItem(SINT_TASA_DESC_LS);SINT_TASA_DESC=v!=null?parseFloat(v):null;}catch(e){}
+  const inp=document.getElementById('sint-tasa-desc');
+  if(inp)inp.value=SINT_TASA_DESC!=null?SINT_TASA_DESC:'';
+}
+
+function sintSetTasaDesc(val){
+  const n=parseFloat(val);
+  SINT_TASA_DESC=isNaN(n)||val===''?null:n;
+  try{
+    if(SINT_TASA_DESC!=null)localStorage.setItem(SINT_TASA_DESC_LS,SINT_TASA_DESC);
+    else localStorage.removeItem(SINT_TASA_DESC_LS);
+  }catch(e){}
+  SINT_DATA=SINT_BONDS.map(sintEnrich);
+  sintRenderTable();
+  if(sintSelectedTicker){const r=SINT_DATA.find(x=>x.ticker===sintSelectedTicker);if(r)sintRenderPanelBody(r);}
+}
+
 function sintInit(){
   sintLoadBonds();
+  sintLoadTasaDesc();
   SINT_DATA=SINT_BONDS.map(sintEnrich);
   sintRenderTable();
   const el=document.getElementById('sint-a3500-display');
@@ -7428,12 +7454,15 @@ function sintEnrich(sb){
     diasFuturo=diasACT(liq,fechaVctoFuturo);
     diasFechaFixing=diasACT(liq,fechaFixing);
   }
-  let tasaDirectaFuturo=null,precioFuturoAjustado=null,tasaDirecta=null,tna=null,tea=null,tem=null;
+  let tasaDirecta=null,tna=null,tea=null,tem=null,precioAjDLK=null,precioAjFuturo=null;
   if(a3500&&sb.precioFuturo&&dlkBond.precio&&diasFuturo>0&&diasFechaFixing>0){
-    tasaDirectaFuturo=(sb.precioFuturo/a3500)-1;
-    precioFuturoAjustado=Math.pow(1+tasaDirectaFuturo,diasFechaFixing/diasFuturo)*a3500;
-    tasaDirecta=(precioFuturoAjustado/(dlkBond.precio/100))-1;
-    tna=(tasaDirecta/diasFechaFixing)*365;
+    const tasaDesc=SINT_TASA_DESC!=null?SINT_TASA_DESC/100:0;
+    const diasVtoFixing=diasFuturo-diasFechaFixing;
+    const factor=Math.pow(1+tasaDesc,diasVtoFixing/365);
+    precioAjDLK=(dlkBond.precio/100)*factor;
+    precioAjFuturo=sb.precioFuturo/factor;
+    tasaDirecta=precioAjFuturo/precioAjDLK-1;
+    tna=tasaDirecta*365/diasFechaFixing;
     tea=Math.pow(1+tasaDirecta,365/diasFechaFixing)-1;
     tem=Math.pow(1+tea,1/12)-1;
   }
@@ -7444,7 +7473,7 @@ function sintEnrich(sb){
     ...sb,dlkBond,
     fechaVctoFuturo:fechaVctoFuturo?fmtDate(fechaVctoFuturo):null,
     fechaFixing:fechaFixing?fmtDate(fechaFixing):null,
-    diasFuturo,diasFechaFixing,tasaDirectaFuturo,precioFuturoAjustado,tasaDirecta,
+    diasFuturo,diasFechaFixing,precioAjDLK,precioAjFuturo,tasaDirecta,
     tna,tea,tem,teaTF,teaTFTicker,a3500,
     simboloFuturo:dlkBond.vcto?sintSymbolFromVcto(dlkBond.vcto):null
   };
@@ -7555,31 +7584,32 @@ function sintRenderPanelBody(r){
       <tr class="mu"><td>A3500 (spot)</td><td>${a3500!=null?'$'+a3500.toFixed(4):'—'}</td></tr>
       <tr class="mu"><td>Precio Futuro</td><td>${r.precioFuturo!=null?'$'+r.precioFuturo.toFixed(2):'—'}</td></tr>
       <tr class="mu"><td>Precio DLK (c/100 VN)</td><td>${r.dlkBond?.precio!=null?'$'+r.dlkBond.precio.toFixed(4):'—'}</td></tr>
+      <tr class="mu"><td>Tasa Descuento</td><td style="color:var(--warn)">${SINT_TASA_DESC!=null?SINT_TASA_DESC.toFixed(2)+'%':'—'}</td></tr>
     </table>
     <div class="section-label">Fechas</div>
     <table class="res-table" style="margin-bottom:12px">
       <tr class="mu"><td>Vto. Futuro ROFEX</td><td>${fFecha(r.fechaVctoFuturo)}</td></tr>
       <tr class="bl"><td>Fecha Fixing (Cierre Trade)</td><td>${fFecha(r.fechaFixing)}</td></tr>
-      <tr class="mu"><td>Días Futuro</td><td>${r.diasFuturo??'—'}</td></tr>
-      <tr class="mu"><td>Días Fecha Fixing</td><td>${r.diasFechaFixing??'—'}</td></tr>
+      <tr class="mu"><td>Días a Fixing</td><td>${r.diasFechaFixing??'—'}</td></tr>
+      <tr class="mu"><td>Días Vto − Fixing</td><td>${r.diasFuturo!=null&&r.diasFechaFixing!=null?r.diasFuturo-r.diasFechaFixing:'—'}</td></tr>
     </table>
     <div class="section-label">Cálculo</div>
     <table class="res-table" style="margin-bottom:12px">
-      <tr class="mu"><td>Tasa Directa Futuro</td><td>${f2(r.tasaDirectaFuturo)}</td></tr>
-      <tr class="mu"><td>Precio Futuro Ajustado</td><td>${r.precioFuturoAjustado!=null?'$'+r.precioFuturoAjustado.toFixed(4):'—'}</td></tr>
-      <tr class="mu"><td>Tasa Directa</td><td>${f2(r.tasaDirecta)}</td></tr>
+      <tr class="mu"><td>Px DLK Ajustado (fixing)</td><td>${r.precioAjDLK!=null?'$'+r.precioAjDLK.toFixed(4):'—'}</td></tr>
+      <tr class="mu"><td>Px Futuro Ajustado (fixing)</td><td>${r.precioAjFuturo!=null?'$'+r.precioAjFuturo.toFixed(4):'—'}</td></tr>
+      <tr class="bl"><td>Tasa Directa</td><td>${f2(r.tasaDirecta)}</td></tr>
     </table>
     <div class="section-label">Rendimiento sintético</div>
     <table class="res-table" style="margin-bottom:12px">
       <tr class="wa"><td style="font-weight:600">TNA</td><td style="color:var(--warn);font-size:15px;font-weight:700">${f2(r.tna)}</td></tr>
-      <tr class="bl"><td style="font-weight:600">TEA</td><td style="color:var(--accent2);font-size:14px;font-weight:700">${f2(r.tea)}</td></tr>
+      <tr class="bl"><td style="font-weight:600">TIR</td><td style="color:var(--accent2);font-size:14px;font-weight:700">${f2(r.tea)}</td></tr>
       <tr class="mu"><td style="font-weight:600">TEM</td><td style="color:var(--text2);font-size:13px;font-weight:600">${f2(r.tem)}</td></tr>
     </table>
     ${r.teaTFTicker?`
     <div class="section-label">Comparación TF</div>
     <table class="res-table">
       <tr class="mu"><td>LECAP par</td><td style="color:var(--accent)">${r.teaTFTicker}</td></tr>
-      <tr class="mu"><td>TEA TF</td><td>${r.teaTF!=null?r.teaTF.toFixed(2)+'%':'—'}</td></tr>
+      <tr class="mu"><td>TIR TF</td><td>${r.teaTF!=null?r.teaTF.toFixed(2)+'%':'—'}</td></tr>
       ${r.tea!=null&&r.teaTF!=null?`<tr class="bl"><td>Spread (Sint. − TF)</td><td style="color:${(r.tea*100-r.teaTF)>=0?'var(--warn)':'var(--accent2)'};font-weight:600">${(r.tea*100-r.teaTF).toFixed(2)}pp</td></tr>`:''}
     </table>`:''}`;
 }
