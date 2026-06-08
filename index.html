@@ -1041,6 +1041,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
           <thead><tr>
             <th style="text-align:left">Nombre</th>
             <th style="text-align:left">Bono DLK</th>
+            <th>Px Bono</th>
             <th>Vto</th>
             <th>Cierre Trade</th>
             <th>Px Futuro</th>
@@ -7455,12 +7456,13 @@ function sintEnrich(sb){
     diasFuturo=diasACT(liq,fechaVctoFuturo);
     diasFechaFixing=diasACT(liq,fechaFixing);
   }
+  const precioDLKEfectivo=sb.precioDLK!=null?sb.precioDLK:dlkBond.precio;
   let tasaDirecta=null,tna=null,tea=null,tem=null,precioAjDLK=null,precioAjFuturo=null;
-  if(a3500&&sb.precioFuturo&&dlkBond.precio&&diasFuturo>0&&diasFechaFixing>0){
+  if(a3500&&sb.precioFuturo&&precioDLKEfectivo&&diasFuturo>0&&diasFechaFixing>0){
     const tasaDesc=SINT_TASA_DESC!=null?SINT_TASA_DESC/100:0;
     const diasVtoFixing=diasFuturo-diasFechaFixing;
     const factor=Math.pow(1+tasaDesc,diasVtoFixing/365);
-    precioAjDLK=(dlkBond.precio/100)*factor;
+    precioAjDLK=(precioDLKEfectivo/100)*factor;
     precioAjFuturo=sb.precioFuturo/factor;
     tasaDirecta=precioAjFuturo/precioAjDLK-1;
     tna=tasaDirecta*365/diasFechaFixing;
@@ -7475,6 +7477,7 @@ function sintEnrich(sb){
     fechaVctoFuturo:fechaVctoFuturo?fmtDate(fechaVctoFuturo):null,
     fechaFixing:fechaFixing?fmtDate(fechaFixing):null,
     diasFuturo,diasFechaFixing,precioAjDLK,precioAjFuturo,tasaDirecta,
+    precioDLKEfectivo,
     tna,tea,tem,teaTF,teaTFTicker,a3500,
     simboloFuturo:dlkBond.vcto?sintSymbolFromVcto(dlkBond.vcto):null
   };
@@ -7484,23 +7487,30 @@ function sintRenderTable(){
   const tbody=document.getElementById('sint-table-body');
   if(!tbody)return;
   if(!SINT_DATA.length){
-    tbody.innerHTML=`<tr><td colspan="11" style="padding:12px;color:var(--text3);font-size:12px;text-align:center">Sin sintéticos. Usá + Agregar para comenzar.</td></tr>`;
+    tbody.innerHTML=`<tr><td colspan="12" style="padding:12px;color:var(--text3);font-size:12px;text-align:center">Sin sintéticos. Usá + Agregar para comenzar.</td></tr>`;
     return;
   }
   const f2p=v=>v==null||isNaN(v)?'—':(v*100).toFixed(2)+'%';
   const fTF=v=>v==null||isNaN(v)?'—':v.toFixed(2)+'%';
   const fFecha=s=>s?s.split('-').reverse().join('/'):'—';
   tbody.innerHTML=SINT_DATA.map(r=>{
-    const isEd=sintEditingCell?.ticker===r.ticker;
+    const isEdFuturo=sintEditingCell?.ticker===r.ticker&&sintEditingCell?.field==='precioFuturo';
+    const isEdBono=sintEditingCell?.ticker===r.ticker&&sintEditingCell?.field==='precioDLK';
     const isSel=sintSelectedTicker===r.ticker;
     const sintName=r.dlkBond?.vcto?sintNameFromVcto(r.dlkBond.vcto):r.ticker;
     const vctoDisp=r.dlkBond?.vcto?r.dlkBond.vcto.split('-').reverse().join('/'):'—';
-    const pxCell=isEd
+    const pxBonoCellVal=r.precioDLKEfectivo!=null?r.precioDLKEfectivo.toFixed(4):'—';
+    const pxBonoOverride=r.precioDLK!=null; // usuario sobreescribió
+    const pxBonoCell=isEdBono
+      ?`<input class="cell-input" id="sint-ci-input" type="number" step="0.01" value="${r.precioDLKEfectivo!=null?r.precioDLKEfectivo:''}" onblur="sintCommitCell()" onkeydown="sintCellKey(event)" autofocus>`
+      :`<div class="cv editable ${pxBonoOverride?'c-green':''}" onclick="sintStartCell(event,'${r.ticker}','precioDLK')" title="${pxBonoOverride?'Precio manual — borrá para volver al de mercado':'Precio de mercado — clic para editar'}">${pxBonoCellVal}${pxBonoOverride?'<span style="color:var(--text3);font-size:9px;margin-left:2px">✎</span>':''}</div>`;
+    const pxCell=isEdFuturo
       ?`<input class="cell-input" id="sint-ci-input" type="number" step="0.5" value="${r.precioFuturo!=null?r.precioFuturo:''}" onblur="sintCommitCell()" onkeydown="sintCellKey(event)" autofocus>`
-      :`<div class="cv editable ${r.precioFuturo?'c-green':''}" onclick="sintStartCell(event,'${r.ticker}')">${r.precioFuturo!=null?'$'+r.precioFuturo.toFixed(2):'—'}</div>`;
+      :`<div class="cv editable ${r.precioFuturo?'c-green':''}" onclick="sintStartCell(event,'${r.ticker}','precioFuturo')">${r.precioFuturo!=null?'$'+r.precioFuturo.toFixed(2):'—'}</div>`;
     return`<tr style="${isSel?'background:var(--surface)':''}" onclick="sintRowClick(event,'${r.ticker}')">
       <td style="text-align:left;font-weight:500;color:var(--accent)">${sintName}</td>
       <td style="text-align:left;font-family:var(--mono);font-size:11px;color:var(--text2)">${r.ticker}</td>
+      <td style="font-family:var(--mono);font-size:11px;color:${pxBonoOverride?'var(--warn)':'var(--text2)'}">${pxBonoCell}</td>
       <td style="font-family:var(--mono);font-size:11px">${vctoDisp}</td>
       <td style="font-family:var(--mono);font-size:11px;color:var(--text2)">${fFecha(r.fechaFixing)}</td>
       <td>${pxCell}</td>
@@ -7520,9 +7530,9 @@ function sintRowClick(e,ticker){
   sintOpenPanel(ticker);
 }
 
-function sintStartCell(e,ticker){
+function sintStartCell(e,ticker,field){
   e.stopPropagation();
-  sintEditingCell={ticker};
+  sintEditingCell={ticker,field:field||'precioFuturo'};
   sintRenderTable();
   setTimeout(()=>{const inp=document.getElementById('sint-ci-input');if(inp)inp.focus();},10);
 }
@@ -7535,12 +7545,18 @@ function sintCellKey(e){
 function sintCommitCell(){
   if(!sintEditingCell)return;
   const inp=document.getElementById('sint-ci-input');
-  const val=inp?parseFloat(inp.value):NaN;
-  const{ticker}=sintEditingCell;
+  const rawVal=inp?inp.value:'';
+  const val=parseFloat(rawVal);
+  const{ticker,field}=sintEditingCell;
   sintEditingCell=null;
   const idx=SINT_BONDS.findIndex(b=>b.ticker===ticker);
   if(idx>=0){
-    SINT_BONDS[idx]={...SINT_BONDS[idx],precioFuturo:(!isNaN(val)&&val>0)?val:SINT_BONDS[idx].precioFuturo};
+    if(field==='precioDLK'){
+      // valor vacío o 0 → resetear a precio de mercado (null)
+      SINT_BONDS[idx]={...SINT_BONDS[idx],precioDLK:(!isNaN(val)&&val>0)?val:null};
+    } else {
+      SINT_BONDS[idx]={...SINT_BONDS[idx],precioFuturo:(!isNaN(val)&&val>0)?val:SINT_BONDS[idx].precioFuturo};
+    }
     sintSaveBonds();
   }
   SINT_DATA=SINT_BONDS.map(sintEnrich);
@@ -7584,7 +7600,7 @@ function sintRenderPanelBody(r){
     <table class="res-table" style="margin-bottom:12px">
       <tr class="mu"><td>A3500 (spot)</td><td>${a3500!=null?'$'+a3500.toFixed(4):'—'}</td></tr>
       <tr class="mu"><td>Precio Futuro</td><td>${r.precioFuturo!=null?'$'+r.precioFuturo.toFixed(2):'—'}</td></tr>
-      <tr class="mu"><td>Precio DLK (c/100 VN)</td><td>${r.dlkBond?.precio!=null?'$'+r.dlkBond.precio.toFixed(4):'—'}</td></tr>
+      <tr class="mu"><td>Precio DLK (c/100 VN)</td><td style="color:${r.precioDLK!=null?'var(--warn)':'inherit'}">${r.precioDLKEfectivo!=null?r.precioDLKEfectivo.toFixed(4):'—'}${r.precioDLK!=null?' <span style="font-size:10px;color:var(--text3)">(manual)</span>':''}</td></tr>
       <tr class="mu"><td>Tasa Descuento</td><td style="color:var(--warn)">${SINT_TASA_DESC!=null?SINT_TASA_DESC.toFixed(2)+'%':'—'}</td></tr>
     </table>
     <div class="section-label">Fechas</div>
