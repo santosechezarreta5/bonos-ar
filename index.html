@@ -1423,50 +1423,62 @@ tbody tr.selected .c-ticker{color:var(--accent);}
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;align-items:start;">
-
-      <!-- LEFT: TABLA DE INFLACIÓN -->
-      <div>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;">
-          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">Sendero de inflación mensual</div>
-          <div style="font-size:11px;color:var(--text3)" id="proj-last-pub"></div>
-        </div>
-        <table style="width:100%;border-collapse:collapse;" id="proj-table">
-          <thead>
-            <tr style="border-bottom:1px solid var(--border2)">
-              <th style="text-align:left;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Mes</th>
-              <th style="text-align:left;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Publicación</th>
-              <th style="text-align:right;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Inflación %</th>
-              <th style="text-align:right;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Coef. diario</th>
-              <th style="width:32px"></th>
-            </tr>
-          </thead>
-          <tbody id="proj-tbody"></tbody>
-        </table>
-        <button class="btn" style="width:100%;margin-top:8px;padding:6px;font-size:12px" onclick="projAddMes()">+ Agregar mes</button>
+    <!-- TABLA DE INFLACIÓN -->
+    <div style="margin-bottom:1.5rem;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">Sendero de inflación mensual</div>
+        <div style="font-size:11px;color:var(--text3)" id="proj-last-pub"></div>
       </div>
-
-      <!-- RIGHT: CER PROYECTADO COMPLETO -->
-      <div>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;">
-          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">CER proyectado · serie completa</div>
-          <div style="font-size:11px;color:var(--text3)" id="proj-preview-count"></div>
-        </div>
-        <div style="max-height:520px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;">
-          <table style="width:100%;border-collapse:collapse;">
-            <thead style="position:sticky;top:0;background:var(--surface2);z-index:1;">
-              <tr style="border-bottom:1px solid var(--border2)">
-                <th style="text-align:left;padding:5px 8px;font-size:10px;color:var(--text3);font-weight:400;text-transform:uppercase;letter-spacing:.06em">Fecha</th>
-                <th style="text-align:right;padding:5px 8px;font-size:10px;color:var(--text3);font-weight:400;text-transform:uppercase;letter-spacing:.06em">CER</th>
-                <th style="text-align:right;padding:5px 8px;font-size:10px;color:var(--text3);font-weight:400;text-transform:uppercase;letter-spacing:.06em">Var. diaria</th>
-              </tr>
-            </thead>
-            <tbody id="proj-preview-tbody"></tbody>
-          </table>
-        </div>
-      </div>
-
+      <table style="width:100%;border-collapse:collapse;" id="proj-table">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border2)">
+            <th style="text-align:left;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Mes</th>
+            <th style="text-align:left;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Publicación</th>
+            <th style="text-align:right;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Infl. %</th>
+            <th style="text-align:right;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Infl. 12m</th>
+            <th style="text-align:right;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Infl. YTD</th>
+            <th style="width:32px"></th>
+          </tr>
+        </thead>
+        <tbody id="proj-tbody"></tbody>
+      </table>
+      <button class="btn" style="width:100%;margin-top:8px;padding:6px;font-size:12px" onclick="projAddMes()">+ Agregar mes</button>
     </div>
+
+    <!-- GRÁFICO -->
+    <div style="margin-bottom:2rem;">
+      <!-- Controles -->
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:.75rem;">
+        <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text3);">
+          <span>Desde</span>
+          <select id="proj-chart-desde" class="sbar-input" style="width:110px" onchange="projRenderChart()"></select>
+          <span>Hasta</span>
+          <select id="proj-chart-hasta" class="sbar-input" style="width:110px" onchange="projRenderChart()"></select>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;font-size:11px;">
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:var(--text2)">
+            <input type="checkbox" id="proj-cb-mensual" checked onchange="projRenderChart()">
+            <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#6366f1;margin-right:2px"></span>pub
+            <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#f59e0b;margin-right:2px"></span>proy
+            Inflación mensual
+          </label>
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:var(--text2)">
+            <input type="checkbox" id="proj-cb-12m" onchange="projRenderChart()">
+            <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#22c55e;margin-right:2px"></span>
+            Infl. 12m
+          </label>
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:var(--text2)">
+            <input type="checkbox" id="proj-cb-ytd" onchange="projRenderChart()">
+            <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#a855f7;margin-right:2px"></span>
+            Infl. YTD
+          </label>
+        </div>
+      </div>
+      <div style="position:relative;height:300px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px;">
+        <canvas id="proj-chart"></canvas>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -4144,7 +4156,7 @@ async function cerFetchIndex(force=false){
     if(!PROJ_INFLACION.length) projInit(); // auto-init if not loaded yet
     projDetectarPublicados();
     projCalcularCER();
-    if(currentTab==='proyecciones'){projRenderSummary();projRenderPreview();}
+    if(currentTab==='proyecciones'){projRenderSummary();projRenderTabla();projRenderChart();}
     if(CER_BONDS.length) cerRenderTable();
     // re-render forwards y gráfico CER si están abiertos
     if(currentTab==='forwards') fwdRecalc();
@@ -4378,6 +4390,7 @@ const PROJ_HORIZONTE_AÑOS=10;
 
 // [{mes:'YYYY-MM', infla:number, tipo:'publicado'|'proyectado'}]
 let PROJ_INFLACION=[];
+let projChart=null;
 
 // CER proyectado: Map<'YYYY-MM-DD', number> — extiende CER_INDEX hacia adelante
 let CER_PROJ=new Map();
@@ -4604,33 +4617,57 @@ function projRellenarMeses(){
 }
 
 function projRecalc(){
-  // rellenar nulos con último valor disponible (para el cálculo)
-  let ultimaInfla=3; // default 3% si no hay nada
+  let ultimaInfla=3;
   PROJ_INFLACION.forEach(r=>{if(r.infla!=null)ultimaInfla=r.infla;});
 
   projCalcularCER();
   projRenderTabla();
-  projRenderPreview();
+  projRenderChart();
   projRenderSummary();
 
   set('proj-status','');
+}
+
+function projCalcAcum(){
+  let ultimaInfla=2.8;
+  const rows=PROJ_INFLACION.map(r=>{
+    const ie=r.infla!=null?r.infla:ultimaInfla;
+    if(r.infla!=null) ultimaInfla=r.infla;
+    return{mes:r.mes,tipo:r.tipo,inflaEfectiva:ie};
+  });
+  return rows.map((r,i)=>{
+    // Infl. 12m: producto últimas 12 inclusivo
+    let inf12m=null;
+    if(i>=11){
+      let p=1;
+      for(let j=i-11;j<=i;j++) p*=(1+rows[j].inflaEfectiva/100);
+      inf12m=(p-1)*100;
+    }
+    // Infl. YTD: desde Enero del mismo año
+    const año=r.mes.substring(0,4);
+    let p=1;
+    for(let j=0;j<=i;j++){if(rows[j].mes.startsWith(año)) p*=(1+rows[j].inflaEfectiva/100);}
+    const infYtd=(p-1)*100;
+    return{...r,inf12m,infYtd};
+  });
 }
 
 function projRenderTabla(){
   const tbody=document.getElementById('proj-tbody');
   if(!tbody)return;
 
-  let ultimaInfla=2.8; // default
+  let ultimaInfla=2.8;
   PROJ_INFLACION.forEach(r=>{if(r.infla!=null)ultimaInfla=r.infla;});
+
+  const acum=projCalcAcum();
 
   tbody.innerHTML=PROJ_INFLACION.map((r,i)=>{
     const [y,m]=r.mes.split('-').map(Number);
     const mesLabel=`${MESES_ES[m-1]} ${y}`;
     const pubFecha=projFechaPublicacion(r.mes);
     const pubDisp=pubFecha.split('-').reverse().join('/');
-    const mesAplica=projMesAplica(r.mes);
     const inflaEfectiva=r.infla!=null?r.infla:ultimaInfla;
-    const coef=projCoefDiario(inflaEfectiva,mesAplica);
+    if(r.infla!=null) ultimaInfla=r.infla;
 
     const esPublicado=r.tipo==='publicado';
     const esRelleno=r.infla==null&&!esPublicado;
@@ -4642,12 +4679,19 @@ function projRenderTabla(){
         :'<span style="font-size:10px;color:var(--warn);background:rgba(212,169,106,.1);padding:1px 6px;border-radius:3px">proy</span>';
 
     const inflColor=esPublicado?'var(--text2)':esRelleno?'var(--text3)':'var(--warn)';
-    // SIEMPRE poner el valor efectivo en value para que el input no quede vacío
     const inputVal=inflaEfectiva.toFixed(2);
     const inputDisabled=esPublicado?'disabled':'';
     const inputBg=esPublicado?'transparent':esRelleno?'var(--surface)':'var(--surface2)';
     const inputBorder=esPublicado?'transparent':'var(--border2)';
     const inputStyle=`width:70px;text-align:right;background:${inputBg};border:1px solid ${inputBorder};border-radius:4px;padding:3px 6px;font-family:var(--mono);font-size:12px;color:${inflColor};outline:none;`;
+
+    const a=acum[i];
+    const fmt1=(v)=>v!=null?v.toFixed(1)+'%':'—';
+    const c12=fmt1(a?.inf12m);
+    const cYtd=fmt1(a?.infYtd);
+    const c12Color=a?.inf12m!=null?'var(--text2)':'var(--text3)';
+
+    const delBtn=isAdmin()?`<td style="padding:3px;text-align:center"><button class="btn rbtn del" style="padding:2px 6px;font-size:11px" onclick="projDeleteMes('${r.mes}')">×</button></td>`:'<td></td>';
 
     return`<tr style="border-bottom:1px solid var(--border)">
       <td style="padding:5px 8px;font-size:12px;color:${esPublicado?'var(--text2)':'var(--text)'}">${mesLabel} ${tipoBadge}</td>
@@ -4659,7 +4703,9 @@ function projRenderTabla(){
           value="${inputVal}"
           onchange="projSetInfla('${r.mes}',this.value)">
       </td>
-      <td style="padding:5px 8px;text-align:right;font-size:11px;color:var(--text3);font-family:var(--mono)" id="proj-coef-${r.mes}">${coef.toFixed(8)}</td>
+      <td style="padding:5px 8px;text-align:right;font-size:11px;color:${c12Color};font-family:var(--mono)">${c12}</td>
+      <td style="padding:5px 8px;text-align:right;font-size:11px;color:var(--text2);font-family:var(--mono)">${cYtd}</td>
+      ${delBtn}
     </tr>`;
   }).join('');
 }
@@ -4734,6 +4780,124 @@ function projRenderSummary(){
     const [y,m]=lastPub.mes.split('-').map(Number);
     set('proj-last-pub',`Último publicado: ${MESES_ES[m-1]} ${y}`);
   }
+}
+
+function projRenderChart(){
+  const canvas=document.getElementById('proj-chart');
+  if(!canvas||!PROJ_INFLACION.length)return;
+
+  // ─ filtros y datos ─
+  const acum=projCalcAcum();
+  const allMeses=acum.map(r=>r.mes);
+
+  // Poblar selects de fechas (solo la primera vez o si cambiaron los meses)
+  const selDesde=document.getElementById('proj-chart-desde');
+  const selHasta=document.getElementById('proj-chart-hasta');
+  if(selDesde&&selHasta){
+    const prevDesde=selDesde.value, prevHasta=selHasta.value;
+    const opts=allMeses.map(m=>{const [y,mo]=m.split('-').map(Number);return`<option value="${m}">${MESES_ES[mo-1]} ${y}</option>`;}).join('');
+    selDesde.innerHTML=opts;
+    selHasta.innerHTML=opts;
+    // defaults: desde hace 24 meses (o el inicio), hasta el final
+    const defaultDesde=allMeses[Math.max(0,allMeses.length-24)];
+    selDesde.value=allMeses.includes(prevDesde)?prevDesde:defaultDesde;
+    selHasta.value=allMeses.includes(prevHasta)?prevHasta:allMeses[allMeses.length-1];
+  }
+
+  const desde=selDesde?selDesde.value:allMeses[0];
+  const hasta=selHasta?selHasta.value:allMeses[allMeses.length-1];
+  const filtered=acum.filter(r=>r.mes>=desde&&r.mes<=hasta);
+  if(!filtered.length)return;
+
+  const labels=filtered.map(r=>{const [y,m]=r.mes.split('-').map(Number);return`${MESES_ES[m-1]}'${String(y).slice(2)}`;});
+
+  const showMensual=document.getElementById('proj-cb-mensual')?.checked??true;
+  const show12m=document.getElementById('proj-cb-12m')?.checked??false;
+  const showYtd=document.getElementById('proj-cb-ytd')?.checked??false;
+
+  const datasets=[];
+
+  if(showMensual){
+    // barras publicado (azul) y proyectado (naranja), mismo dataset con colores por barra
+    datasets.push({
+      label:'Inflación mensual',
+      type:'bar',
+      data:filtered.map(r=>r.inflaEfectiva??null),
+      backgroundColor:filtered.map(r=>r.tipo==='publicado'?'#6366f1':'#f59e0b'),
+      borderColor:filtered.map(r=>r.tipo==='publicado'?'#4f46e5':'#d97706'),
+      borderWidth:1,
+      borderRadius:2,
+      order:2,
+    });
+  }
+
+  if(show12m){
+    datasets.push({
+      label:'Infl. 12m',
+      type:'line',
+      data:filtered.map(r=>r.inf12m!=null?parseFloat(r.inf12m.toFixed(2)):null),
+      borderColor:'#22c55e',
+      backgroundColor:'rgba(34,197,94,0.08)',
+      borderWidth:2,
+      pointRadius:2,
+      tension:0.3,
+      spanGaps:false,
+      order:1,
+    });
+  }
+
+  if(showYtd){
+    datasets.push({
+      label:'Infl. YTD',
+      type:'line',
+      data:filtered.map(r=>parseFloat(r.infYtd.toFixed(2))),
+      borderColor:'#a855f7',
+      backgroundColor:'rgba(168,85,247,0.08)',
+      borderWidth:2,
+      pointRadius:2,
+      tension:0.3,
+      order:0,
+    });
+  }
+
+  if(projChart){projChart.destroy();projChart=null;}
+  if(!datasets.length)return;
+
+  const textColor=getComputedStyle(document.body).getPropertyValue('--text3').trim()||'#888';
+  const gridColor=getComputedStyle(document.body).getPropertyValue('--border').trim()||'#333';
+
+  projChart=new Chart(canvas,{
+    type:'bar',
+    data:{labels,datasets},
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{
+          display:true,
+          position:'top',
+          labels:{color:textColor,font:{size:11},boxWidth:12,padding:14},
+        },
+        tooltip:{
+          callbacks:{
+            label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y!=null?ctx.parsed.y.toFixed(2)+'%':'—'}`,
+          },
+        },
+        datalabels:{display:false},
+      },
+      scales:{
+        x:{
+          ticks:{color:textColor,font:{size:10},maxRotation:45,minRotation:0},
+          grid:{color:gridColor,drawBorder:false},
+        },
+        y:{
+          ticks:{color:textColor,font:{size:10},callback:v=>v+'%'},
+          grid:{color:gridColor,drawBorder:false},
+        },
+      },
+    },
+  });
 }
 
 // ── EXPORT EXCEL ──────────────────────────────────────────────────────────────
@@ -4881,28 +5045,20 @@ function projSetInfla(mes, val){
   let ultimaInfla=2.8;
   PROJ_INFLACION.forEach(x=>{if(x.infla!=null)ultimaInfla=x.infla;});
 
-  // actualizar celda del coeficiente de este mes sin re-renderizar
-  const mesAplica=projMesAplica(mes);
-  const inflaEfectiva=r.infla!=null?r.infla:ultimaInfla;
-  const coef=projCoefDiario(inflaEfectiva,mesAplica);
-  const coefEl=document.getElementById('proj-coef-'+mes);
-  if(coefEl)coefEl.textContent=coef.toFixed(8);
-
   // actualizar inputs de filas "auto" que dependen de este valor
   PROJ_INFLACION.forEach(x=>{
     if(x.infla==null&&x.tipo!=='publicado'){
       const inp=document.querySelector(`input[data-mes="${x.mes}"]`);
       if(inp)inp.value=ultimaInfla.toFixed(2);
-      const mA=projMesAplica(x.mes);
-      const c=projCoefDiario(ultimaInfla,mA);
-      const cEl=document.getElementById('proj-coef-'+x.mes);
-      if(cEl)cEl.textContent=c.toFixed(8);
     }
   });
 
-  // recalcular CER proyectado y preview
+  // re-render tabla completa para actualizar cols 12m/YTD
+  projRenderTabla();
+
+  // recalcular CER proyectado, resumen y gráfico
   projCalcularCER();
-  projRenderPreview();
+  projRenderChart();
   projRenderSummary();
 }
 
