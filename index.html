@@ -6264,12 +6264,14 @@ function calFeriadosMes(y,m){
 
 function calEventosPorFecha(){
   const y=CAL_MES.getFullYear(), m=CAL_MES.getMonth();
+  // admin overrides tienen prioridad sobre auto: si comparten ID, gana el admin
+  const adminIds=new Set(CAL_EVENTOS_ADMIN.map(e=>e.id));
+  const autoFiltrados=calAutoEventos().filter(e=>!adminIds.has(e.id));
   const map={};
-  [...calAutoEventos(),...CAL_EVENTOS_ADMIN,...calFeriadosMes(y,m)].forEach(e=>{
+  [...autoFiltrados,...CAL_EVENTOS_ADMIN,...calFeriadosMes(y,m)].forEach(e=>{
     if(!map[e.fecha])map[e.fecha]=[];
     map[e.fecha].push(e);
   });
-  // sort each day's events by priority
   Object.values(map).forEach(arr=>arr.sort((a,b)=>(CAL_TIPO_PRIO[a.tipo]??99)-(CAL_TIPO_PRIO[b.tipo]??99)));
   return map;
 }
@@ -6405,7 +6407,8 @@ function calRenderSide(evMap){
 
     evs.forEach(e=>{
       const t=CAL_TIPOS[e.tipo]||CAL_TIPOS.custom;
-      const editBtn=(!e.auto&&isAdmin())?`<button class="btn" style="font-size:9px;padding:1px 6px;margin-left:auto;flex-shrink:0;line-height:1.5" onclick="calEditEvento('${e.id}')">✎</button>`:'';
+      const isEditableIpc=e.auto&&(e.tipo==='ipc_nacion'||e.tipo==='ipc_caba');
+      const editBtn=(isAdmin()&&(!e.auto||isEditableIpc))?`<button class="btn" style="font-size:9px;padding:1px 6px;margin-left:auto;flex-shrink:0;line-height:1.5" onclick="calEditEvento('${e.id}')">✎</button>`:'';
       const aprox=(e.auto&&e.tipo!=='feriado')?` <span style="font-size:9px;color:var(--text3);font-style:italic">aprox.</span>`:'';
       html+=`<div style="display:flex;align-items:flex-start;gap:4px;border-left:2px solid ${t.color};padding-left:6px;margin-bottom:4px">
         <div style="flex:1;min-width:0">
@@ -6442,17 +6445,27 @@ function calOpenModal(fecha){
 }
 
 function calEditEvento(id){
-  const ev=CAL_EVENTOS_ADMIN.find(e=>e.id===id);
+  const adminEv=CAL_EVENTOS_ADMIN.find(e=>e.id===id);
+  const autoEv=calAutoEventos().find(e=>e.id===id);
+  const ev=adminEv||autoEv;
   if(!ev) return;
   CAL_MODAL_EDITING_ID=id;
   const t=document.getElementById('cal-modal-title');
   if(t) t.textContent='Editar evento';
   document.getElementById('cal-m-id').value=id;
   document.getElementById('cal-m-fecha').value=ev.fecha;
-  document.getElementById('cal-m-tipo').value=ev.tipo||'custom';
-  document.getElementById('cal-m-desc').value=ev.titulo!==((CAL_TIPOS[ev.tipo]||CAL_TIPOS.custom).label+' '+ev.fecha)?ev.titulo:'';
+  document.getElementById('cal-m-tipo').value=ev.tipo||'ipc_nacion';
+  document.getElementById('cal-m-desc').value=ev.desc||'';
   const del=document.getElementById('cal-m-delete-btn');
-  if(del) del.style.display='';
+  if(del){
+    if(adminEv){
+      del.style.display='';
+      del.textContent=autoEv?'Restablecer':'Eliminar';
+      del.style.color=autoEv?'var(--text3)':'var(--warn)';
+    } else {
+      del.style.display='none'; // auto puro aún sin override: no se puede borrar
+    }
+  }
   document.getElementById('cal-modal').style.display='flex';
 }
 
@@ -6472,7 +6485,12 @@ function calSaveModal(){
 
   if(CAL_MODAL_EDITING_ID){
     const idx=CAL_EVENTOS_ADMIN.findIndex(e=>e.id===CAL_MODAL_EDITING_ID);
-    if(idx>=0) CAL_EVENTOS_ADMIN[idx]={...CAL_EVENTOS_ADMIN[idx],fecha,tipo,titulo,desc};
+    if(idx>=0){
+      CAL_EVENTOS_ADMIN[idx]={...CAL_EVENTOS_ADMIN[idx],fecha,tipo,titulo,desc};
+    } else {
+      // primera edición de un auto event: guardar override con el mismo ID
+      CAL_EVENTOS_ADMIN.push({id:CAL_MODAL_EDITING_ID,fecha,tipo,titulo,desc,auto:false});
+    }
   } else {
     CAL_EVENTOS_ADMIN.push({id:`ev_${Date.now()}`,fecha,tipo,titulo,desc,auto:false});
   }
@@ -6488,7 +6506,9 @@ function calSaveModal(){
 
 function calDeleteEvento(){
   if(!CAL_MODAL_EDITING_ID) return;
-  if(!confirm('¿Eliminar este evento?')) return;
+  const esOverride=calAutoEventos().some(e=>e.id===CAL_MODAL_EDITING_ID);
+  const msg=esOverride?'¿Restablecer la fecha automática?':'¿Eliminar este evento?';
+  if(!confirm(msg)) return;
   CAL_EVENTOS_ADMIN=CAL_EVENTOS_ADMIN.filter(e=>e.id!==CAL_MODAL_EDITING_ID);
   calSaveEventos();
   calCloseModal();
