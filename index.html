@@ -402,7 +402,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
   </div>
   <div class="sbar-sep"></div>
   <div class="sbar-refresh">
-    <button class="btn primary" onclick="fetchPrices()">↻ Precios</button>
+    <button class="btn primary" onclick="fetchAllPrices()">↻ Precios</button>
     <span class="api-status" id="api-status">sin datos</span>
   </div>
 </div>
@@ -2308,6 +2308,79 @@ async function fetchPrices(){
   }catch(e){
     statusEl.textContent='error de conexión';
     statusEl.className='api-status err';
+  }
+}
+
+// ── FETCH ALL PRICES (una sola llamada API, actualiza todos los arrays) ────────
+async function fetchAllPrices(){
+  const st=document.getElementById('api-status');
+  st.textContent='cargando…';st.className='api-status loading';
+  try{
+    const ts=Date.now();
+    const[rN,rB]=await Promise.all([
+      fetch(`https://data912.com/live/arg_notes?_=${ts}`,{cache:'no-store'}).then(r=>r.json()),
+      fetch(`https://data912.com/live/arg_bonds?_=${ts}`,{cache:'no-store'}).then(r=>r.json()),
+    ]);
+    const map=new Map([...rN,...rB].map(x=>[x.symbol,x]));
+    const liq=G_LIQ||addHabiles(TODAY,1);
+    let total=0, notFound=[];
+
+    // LECAPS (Tasa Fija)
+    if(LECAPS.length){
+      LECAPS=LECAPS.map(r=>{
+        const api=map.get(r.ticker);const px=apiBestPrice(api);
+        if(px){total++;return{...r,precio:px,pct_change:api.pct_change??null,manualOverride:false};}
+        if(r.vcto&&diasACT(liq,parseDate(r.vcto))>0) notFound.push(r.ticker);
+        return r;
+      });
+      DATA=LECAPS.map(enrich);savePortfolio();renderTable();
+      if(selectedTicker)recalcPanel();
+    }
+
+    // CER
+    if(CER_BONDS.length){
+      CER_BONDS=CER_BONDS.map(r=>{
+        const api=map.get(r.ticker);
+        if(api){const px=apiBestPrice(api);if(px>0){total++;return{...r,precio:px,pct_change:api.pct_change??null,manualOverride:false};}}
+        if(r.vcto&&diasACT(liq,parseDate(r.vcto))>0) notFound.push(r.ticker);
+        return r;
+      });
+      CER_DATA=CER_BONDS.map(cerEnrich);savePortfolio();cerRenderTable();
+      if(cerSelectedTicker)cerRecalcPanel();
+    }
+
+    // TAMAR
+    if(TAMAR_BONDS.length){
+      TAMAR_BONDS=TAMAR_BONDS.map(r=>{
+        const api=map.get(r.ticker);const px=apiBestPrice(api);
+        if(px){total++;return{...r,precio:px,pct_change:api.pct_change??null,manualOverride:false};}
+        if(r.vcto&&diasACT(liq,parseDate(r.vcto))>0) notFound.push(r.ticker);
+        return r;
+      });
+      tamarSaveBonds();tamarRenderTable();
+    }
+
+    // DLK (Sintético ARS)
+    if(DLK_BONDS.length){
+      DLK_BONDS=DLK_BONDS.map(b=>{
+        const api=map.get(b.ticker);const px=apiBestPrice(api);
+        if(px){total++;return{...b,precio:px,pct_change:api.pct_change??null,manualOverride:false};}
+        return b;
+      });
+      dlkSaveBonds();dlkResetA3500();
+      DLK_DATA=DLK_BONDS.map(dlkEnrich);dlkRenderTable();
+      if(dlkSelectedTicker)dlkRecalcPanel();
+    }
+
+    beRefreshIfVisible();
+    const now=new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+    st.textContent=notFound.length
+      ?`${total} actualizados · sin precio: ${notFound.join(', ')} · ${now}`
+      :`${total} actualizados · ${now}`;
+    st.className=notFound.length?'api-status err':'api-status ok';
+  }catch(e){
+    document.getElementById('api-status').textContent='error de conexión';
+    document.getElementById('api-status').className='api-status err';
   }
 }
 
@@ -6576,9 +6649,7 @@ setInterval(usdFetch,5*60*1000);
 
 // ── AUTO-REFRESH PRECIOS cada 5 min ──────────────────────────────────────────
 setInterval(async()=>{
-  await fetchPrices();
-  await cerFetchPrices();
-  await tamarFetchPrices();
+  await fetchAllPrices();
   usdFetch();
 }, 5*60*1000);
 
