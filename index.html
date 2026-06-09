@@ -4704,7 +4704,12 @@ function projRenderTabla(){
 
     const delBtn=isAdmin()?`<td style="padding:3px;text-align:center"><button class="btn rbtn del" style="padding:2px 6px;font-size:11px" onclick="projDeleteMes('${r.mes}')">×</button></td>`:'<td></td>';
 
-    return`<tr style="border-bottom:1px solid var(--border)">
+    const prevAño=i>0?rows[i-1].mes.substring(0,4):null;
+    const yearSep=prevAño&&String(y)!==prevAño
+      ?`<tr><td colspan="6" style="padding:3px 8px 2px;background:var(--surface2);border-top:2px solid var(--border2);border-bottom:1px solid var(--border2)"><span style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);font-weight:600">${y}</span></td></tr>`
+      :'';
+
+    return yearSep+`<tr style="border-bottom:1px solid var(--border)">
       <td style="padding:5px 8px;font-size:12px;color:${esPublicado?'var(--text2)':'var(--text)'}">${mesLabel} ${tipoBadge}</td>
       <td style="padding:5px 8px;font-size:11px;color:var(--text3);font-family:var(--mono)">${pubDisp}</td>
       <td style="padding:5px 8px;text-align:right;">
