@@ -1460,7 +1460,10 @@ tbody tr.selected .c-ticker{color:var(--accent);}
     <div style="margin-bottom:1.5rem;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;">
         <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">Sendero de inflación mensual</div>
-        <div style="font-size:11px;color:var(--text3)" id="proj-last-pub"></div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <select id="proj-tabla-desde" class="sbar-input" style="width:80px" onchange="projRenderTabla()"></select>
+          <div style="font-size:11px;color:var(--text3)" id="proj-last-pub"></div>
+        </div>
       </div>
       <table style="width:100%;border-collapse:collapse;" id="proj-table">
         <thead>
@@ -4446,19 +4449,14 @@ function projLoadLs(){
 }
 
 function projInitDefault(){
-  // Detectar hasta dónde llega el CER real para saber qué meses son "publicados"
-  // El último dato CER real corresponde al 15 del mes M+1 → inflación de M ya publicada
   PROJ_INFLACION=[];
-  const hoy=TODAY;
-  let año=hoy.getFullYear(), mes=hoy.getMonth()-3; // 0-based, puede ser negativo
-  // normalizar
-  while(mes<0){mes+=12;año--;}
-  const endAño=hoy.getFullYear()+PROJ_HORIZONTE_AÑOS, endMes=hoy.getMonth();
-  while(año<endAño||(año===endAño&&mes<=endMes)){
-    const mesStr=`${año}-${String(mes+1).padStart(2,'0')}`;
-    PROJ_INFLACION.push({mes:mesStr, infla:null, tipo:'proyectado'});
-    mes++;
-    if(mes>11){mes=0;año++;}
+  let año=2025, mes=1; // Jan 2025, 1-based
+  const endAño=TODAY.getFullYear()+PROJ_HORIZONTE_AÑOS;
+  const endMes=TODAY.getMonth()+1; // 1-based
+  while(año<endAño||(año===endAño&&mes<=endMes+1)){
+    const mesStr=`${año}-${String(mes).padStart(2,'0')}`;
+    PROJ_INFLACION.push({mes:mesStr,infla:null,tipo:'proyectado'});
+    mes++; if(mes>12){mes=1;año++;}
   }
 }
 
@@ -4592,10 +4590,10 @@ function projInit(){
 
 function projRellenarMeses(){
   if(!PROJ_INFLACION.length){projInitDefault();return;}
-  // construir set de meses existentes
   const existentes=new Set(PROJ_INFLACION.map(r=>r.mes));
-  // rango esperado: desde el primer mes hasta 10 años desde hoy
-  const first=PROJ_INFLACION[0].mes;
+  // asegurar que el rango empieza desde al menos 2025-01
+  const HIST_START='2025-01';
+  const first=PROJ_INFLACION[0].mes<HIST_START?PROJ_INFLACION[0].mes:HIST_START;
   const [fy,fm]=first.split('-').map(Number);
   const endAño=TODAY.getFullYear()+PROJ_HORIZONTE_AÑOS;
   const endMes=TODAY.getMonth(); // 0-based
@@ -4655,12 +4653,26 @@ function projRenderTabla(){
   const tbody=document.getElementById('proj-tbody');
   if(!tbody)return;
 
+  // poblar + aplicar filtro de año
+  const sel=document.getElementById('proj-tabla-desde');
+  if(sel){
+    const años=[...new Set(PROJ_INFLACION.map(r=>r.mes.substring(0,4)))].sort();
+    const curAño=String(TODAY.getFullYear());
+    const prev=sel.value;
+    sel.innerHTML='<option value="">Todo</option>'+años.map(a=>`<option value="${a}">${a}</option>`).join('');
+    sel.value=años.includes(prev)?prev:(años.includes(curAño)?curAño:'');
+  }
+  const desdeAño=sel?sel.value:'';
+  const rows=desdeAño?PROJ_INFLACION.filter(r=>r.mes>=`${desdeAño}-01`):PROJ_INFLACION;
+
   let ultimaInfla=2.8;
   PROJ_INFLACION.forEach(r=>{if(r.infla!=null)ultimaInfla=r.infla;});
 
   const acum=projCalcAcum();
+  // mapa mes→índice acum para filas filtradas
+  const acumMap=Object.fromEntries(acum.map(a=>[a.mes,a]));
 
-  tbody.innerHTML=PROJ_INFLACION.map((r,i)=>{
+  tbody.innerHTML=rows.map((r,i)=>{
     const [y,m]=r.mes.split('-').map(Number);
     const mesLabel=`${MESES_ES[m-1]} ${y}`;
     const pubFecha=projFechaPublicacion(r.mes);
@@ -4684,7 +4696,7 @@ function projRenderTabla(){
     const inputBorder=esPublicado?'transparent':'var(--border2)';
     const inputStyle=`width:70px;text-align:right;background:${inputBg};border:1px solid ${inputBorder};border-radius:4px;padding:3px 6px;font-family:var(--mono);font-size:12px;color:${inflColor};outline:none;`;
 
-    const a=acum[i];
+    const a=acumMap[r.mes];
     const fmt1=(v)=>v!=null?v.toFixed(1)+'%':'—';
     const c12=fmt1(a?.inf12m);
     const cYtd=fmt1(a?.infYtd);
@@ -4797,10 +4809,12 @@ function projRenderChart(){
     const opts=allMeses.map(m=>{const [y,mo]=m.split('-').map(Number);return`<option value="${m}">${MESES_ES[mo-1]} ${y}</option>`;}).join('');
     selDesde.innerHTML=opts;
     selHasta.innerHTML=opts;
-    // defaults: desde hace 24 meses (o el inicio), hasta el final
-    const defaultDesde=allMeses[Math.max(0,allMeses.length-24)];
-    selDesde.value=allMeses.includes(prevDesde)?prevDesde:defaultDesde;
-    selHasta.value=allMeses.includes(prevHasta)?prevHasta:allMeses[allMeses.length-1];
+    // defaults: 4 publicados antes del último pub + 8 proyectados después
+    const lastPubIdx=acum.reduce((acc,r,i)=>r.tipo==='publicado'?i:acc,-1);
+    const dIdx=lastPubIdx>=0?Math.max(0,lastPubIdx-3):0;
+    const hIdx=lastPubIdx>=0?Math.min(allMeses.length-1,lastPubIdx+8):Math.min(allMeses.length-1,11);
+    selDesde.value=allMeses.includes(prevDesde)?prevDesde:allMeses[dIdx];
+    selHasta.value=allMeses.includes(prevHasta)?prevHasta:allMeses[hIdx];
   }
 
   const desde=selDesde?selDesde.value:allMeses[0];
@@ -4898,17 +4912,17 @@ function projRenderChart(){
           type:'linear',
           position:'left',
           display:showMensual,
-          ticks:{color:'#6366f1',font:{size:10},callback:v=>v+'%'},
+          ticks:{color:textColor,font:{size:10},callback:v=>v+'%'},
           grid:{color:gridColor,drawBorder:false},
-          title:{display:true,text:'Mensual',color:'#6366f1',font:{size:10}},
+          title:{display:true,text:'Mensual',color:textColor,font:{size:10}},
         },
         yAcum:{
           type:'linear',
           position:'right',
           display:hasAcum,
-          ticks:{color:show12m?'#22c55e':'#a855f7',font:{size:10},callback:v=>v+'%'},
+          ticks:{color:textColor,font:{size:10},callback:v=>v+'%'},
           grid:{drawOnChartArea:false},
-          title:{display:true,text:'12m / YTD',color:show12m?'#22c55e':'#a855f7',font:{size:10}},
+          title:{display:true,text:'12m / YTD',color:textColor,font:{size:10}},
         },
       },
     },
