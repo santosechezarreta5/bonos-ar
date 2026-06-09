@@ -1423,31 +1423,8 @@ tbody tr.selected .c-ticker{color:var(--accent);}
       </div>
     </div>
 
-    <!-- TABLA DE INFLACIÓN -->
-    <div style="margin-bottom:1.5rem;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;">
-        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">Sendero de inflación mensual</div>
-        <div style="font-size:11px;color:var(--text3)" id="proj-last-pub"></div>
-      </div>
-      <table style="width:100%;border-collapse:collapse;" id="proj-table">
-        <thead>
-          <tr style="border-bottom:1px solid var(--border2)">
-            <th style="text-align:left;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Mes</th>
-            <th style="text-align:left;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Publicación</th>
-            <th style="text-align:right;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Infl. %</th>
-            <th style="text-align:right;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Infl. 12m</th>
-            <th style="text-align:right;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Infl. YTD</th>
-            <th style="width:32px"></th>
-          </tr>
-        </thead>
-        <tbody id="proj-tbody"></tbody>
-      </table>
-      <button class="btn" style="width:100%;margin-top:8px;padding:6px;font-size:12px" onclick="projAddMes()">+ Agregar mes</button>
-    </div>
-
     <!-- GRÁFICO -->
-    <div style="margin-bottom:2rem;">
-      <!-- Controles -->
+    <div style="margin-bottom:1.5rem;">
       <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:.75rem;">
         <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text3);">
           <span>Desde</span>
@@ -1477,6 +1454,28 @@ tbody tr.selected .c-ticker{color:var(--accent);}
       <div style="position:relative;height:300px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px;">
         <canvas id="proj-chart"></canvas>
       </div>
+    </div>
+
+    <!-- TABLA DE INFLACIÓN -->
+    <div style="margin-bottom:1.5rem;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">Sendero de inflación mensual</div>
+        <div style="font-size:11px;color:var(--text3)" id="proj-last-pub"></div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;" id="proj-table">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border2)">
+            <th style="text-align:left;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Mes</th>
+            <th style="text-align:left;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Publicación</th>
+            <th style="text-align:right;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Infl. %</th>
+            <th style="text-align:right;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Infl. 12m</th>
+            <th style="text-align:right;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Infl. YTD</th>
+            <th style="width:32px"></th>
+          </tr>
+        </thead>
+        <tbody id="proj-tbody"></tbody>
+      </table>
+      <button class="btn" style="width:100%;margin-top:8px;padding:6px;font-size:12px" onclick="projAddMes()">+ Agregar mes</button>
     </div>
 
   </div>
@@ -4818,7 +4817,6 @@ function projRenderChart(){
   const datasets=[];
 
   if(showMensual){
-    // barras publicado (azul) y proyectado (naranja), mismo dataset con colores por barra
     datasets.push({
       label:'Inflación mensual',
       type:'bar',
@@ -4827,6 +4825,7 @@ function projRenderChart(){
       borderColor:filtered.map(r=>r.tipo==='publicado'?'#4f46e5':'#d97706'),
       borderWidth:1,
       borderRadius:2,
+      yAxisID:'yMensual',
       order:2,
     });
   }
@@ -4842,6 +4841,7 @@ function projRenderChart(){
       pointRadius:2,
       tension:0.3,
       spanGaps:false,
+      yAxisID:'yAcum',
       order:1,
     });
   }
@@ -4856,6 +4856,7 @@ function projRenderChart(){
       borderWidth:2,
       pointRadius:2,
       tension:0.3,
+      yAxisID:'yAcum',
       order:0,
     });
   }
@@ -4865,6 +4866,8 @@ function projRenderChart(){
 
   const textColor=getComputedStyle(document.body).getPropertyValue('--text3').trim()||'#888';
   const gridColor=getComputedStyle(document.body).getPropertyValue('--border').trim()||'#333';
+
+  const hasAcum=show12m||showYtd;
 
   projChart=new Chart(canvas,{
     type:'bar',
@@ -4891,9 +4894,21 @@ function projRenderChart(){
           ticks:{color:textColor,font:{size:10},maxRotation:45,minRotation:0},
           grid:{color:gridColor,drawBorder:false},
         },
-        y:{
-          ticks:{color:textColor,font:{size:10},callback:v=>v+'%'},
+        yMensual:{
+          type:'linear',
+          position:'left',
+          display:showMensual,
+          ticks:{color:'#6366f1',font:{size:10},callback:v=>v+'%'},
           grid:{color:gridColor,drawBorder:false},
+          title:{display:true,text:'Mensual',color:'#6366f1',font:{size:10}},
+        },
+        yAcum:{
+          type:'linear',
+          position:'right',
+          display:hasAcum,
+          ticks:{color:show12m?'#22c55e':'#a855f7',font:{size:10},callback:v=>v+'%'},
+          grid:{drawOnChartArea:false},
+          title:{display:true,text:'12m / YTD',color:show12m?'#22c55e':'#a855f7',font:{size:10}},
         },
       },
     },
