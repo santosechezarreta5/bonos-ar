@@ -2408,14 +2408,24 @@ async function fetchAllPrices(){
 
     // DLK (Sintético ARS)
     if(DLK_BONDS.length){
+      const updatedDlk=new Set();
       DLK_BONDS=DLK_BONDS.map(b=>{
         const api=map.get(b.ticker);const px=apiBestPrice(api);
-        if(px){total++;return{...b,precio:px,pct_change:api.pct_change??null,manualOverride:false};}
+        if(px){total++;updatedDlk.add(b.ticker);return{...b,precio:px,pct_change:api.pct_change??null,manualOverride:false};}
         return b;
       });
       dlkSaveBonds();dlkResetA3500();
       DLK_DATA=DLK_BONDS.map(dlkEnrich);dlkRenderTable();
       if(dlkSelectedTicker)dlkRecalcPanel();
+      // limpiar overrides manuales en sintéticos para los tickers actualizados
+      if(updatedDlk.size&&SINT_BONDS.length){
+        let sintChanged=false;
+        SINT_BONDS=SINT_BONDS.map(b=>{
+          if(updatedDlk.has(b.ticker)&&b.precioDLK!=null){sintChanged=true;return{...b,precioDLK:null};}
+          return b;
+        });
+        if(sintChanged){sintSaveBonds();SINT_DATA=SINT_BONDS.map(sintEnrich);sintRenderTable();}
+      }
     }
 
     beRefreshIfVisible();
@@ -4304,6 +4314,8 @@ async function dlkFetchIndex(force=false){
     if(dlkTCOverride==null){
       ['usd-a3500-input','dlk-tc-input'].forEach(id=>{const e=document.getElementById(id);if(e&&!e.value)e.value=last.valor.toFixed(4);});
     }
+    // al refrescar con force=true, también actualizar precios de bonos
+    if(force&&DLK_BONDS.length) dlkFetchPrices();
     return true;
   }catch(e){
     if(st){st.textContent='DLK: error: '+e.message;st.className='api-status err';}
@@ -7953,10 +7965,11 @@ async function dlkFetchPrices(){
       fetch(`https://data912.com/live/arg_bonds?_=${ts}`,{cache:'no-store'}).then(r=>r.json()),
     ]);
     const map=new Map([...rN,...rB].map(x=>[x.symbol,x]));
+    const updatedDlk=new Set();
     DLK_BONDS=DLK_BONDS.map(b=>{
       const api=map.get(b.ticker);
       const px=apiBestPrice(api);
-      if(px) return{...b,precio:px,pct_change:api.pct_change??null,manualOverride:false};
+      if(px){updatedDlk.add(b.ticker);return{...b,precio:px,pct_change:api.pct_change??null,manualOverride:false};}
       return b;
     });
     dlkSaveBonds();
@@ -7964,6 +7977,14 @@ async function dlkFetchPrices(){
     DLK_DATA=DLK_BONDS.map(dlkEnrich);
     dlkRenderTable();
     if(dlkSelectedTicker) dlkRecalcPanel();
+    if(updatedDlk.size&&SINT_BONDS.length){
+      let sintChanged=false;
+      SINT_BONDS=SINT_BONDS.map(b=>{
+        if(updatedDlk.has(b.ticker)&&b.precioDLK!=null){sintChanged=true;return{...b,precioDLK:null};}
+        return b;
+      });
+      if(sintChanged){sintSaveBonds();SINT_DATA=SINT_BONDS.map(sintEnrich);sintRenderTable();}
+    }
   }catch(e){console.warn('dlkFetchPrices error:',e);}
 }
 
