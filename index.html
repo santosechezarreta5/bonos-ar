@@ -1187,7 +1187,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
   </div>
 
   <!-- TABLA CER -->
-  <div>
+  <div style="margin-bottom:2.5rem;">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:.6rem;flex-wrap:wrap;">
       <div style="font-family:var(--serif);font-size:18px;font-weight:300;font-style:italic;color:var(--accent)">Tasas Forward · CER <span style="font-size:12px;color:var(--text3);font-style:normal;font-family:var(--mono)">(TIR real)</span></div>
       <button class="btn" style="padding:3px 8px;font-size:10px" onclick="fwdCERToggleSelector()">+ / −</button>
@@ -1197,6 +1197,19 @@ tbody tr.selected .c-ticker{color:var(--accent);}
       <div id="fwd-cer-chips" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
     </div>
     <div style="overflow-x:auto;"><div id="fwd-cer-wrap"></div></div>
+  </div>
+
+  <!-- TABLA TAMAR -->
+  <div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:.6rem;flex-wrap:wrap;">
+      <div style="font-family:var(--serif);font-size:18px;font-weight:300;font-style:italic;color:var(--accent)">Tasas Forward · TAMAR <span style="font-size:12px;color:var(--text3);font-style:normal;font-family:var(--mono)">(TNA implícita)</span></div>
+      <button class="btn" style="padding:3px 8px;font-size:10px" onclick="fwdTAMARToggleSelector()">+ / −</button>
+    </div>
+    <div id="fwd-tamar-selector" style="display:none;margin-bottom:.75rem;padding:.6rem .75rem;background:var(--surface);border:1px solid var(--border);border-radius:4px;">
+      <div style="font-size:10px;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em">Bonos incluidos</div>
+      <div id="fwd-tamar-chips" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+    </div>
+    <div style="overflow-x:auto;"><div id="fwd-tamar-wrap"></div></div>
   </div>
 
 </div>
@@ -1948,6 +1961,7 @@ let fwdMode='tir';
 const FWD_LS='bonosAR_fwd_v1';
 let fwdTFExcluded=new Set();
 let fwdCERExcluded=new Set();
+let fwdTAMARExcluded=new Set();
 let beChartTF=null, beChartCER=null;
 let cerTabChart=null;
 let tamarTabChart=null;
@@ -8078,12 +8092,13 @@ function fwdLoadLs(){
     if(raw){const p=JSON.parse(raw);
       fwdTFExcluded=new Set(p.tfEx||[]);
       fwdCERExcluded=new Set(p.cerEx||[]);
+      fwdTAMARExcluded=new Set(p.tamarEx||[]);
     }
   }catch(e){}
 }
 function fwdSaveLs(){
   try{localStorage.setItem(FWD_LS,JSON.stringify({
-    tfEx:[...fwdTFExcluded],cerEx:[...fwdCERExcluded]
+    tfEx:[...fwdTFExcluded],cerEx:[...fwdCERExcluded],tamarEx:[...fwdTAMARExcluded]
   }));}catch(e){}
 }
 
@@ -8103,6 +8118,11 @@ function fwdTFToggleSelector(){
 }
 function fwdCERToggleSelector(){
   const el=document.getElementById('fwd-cer-selector');
+  if(!el)return;
+  el.style.display=el.style.display==='none'?'block':'none';
+}
+function fwdTAMARToggleSelector(){
+  const el=document.getElementById('fwd-tamar-selector');
   if(!el)return;
   el.style.display=el.style.display==='none'?'block':'none';
 }
@@ -8136,9 +8156,27 @@ function fwdToggleCER(ticker){
   fwdRenderChips(allCER,fwdCERExcluded,'fwd-cer-chips','fwdToggleCER');
   fwdBuildTable(allCER.filter(r=>!fwdCERExcluded.has(r.ticker)),'cer','fwd-cer-wrap');
 }
+function fwdToggleTAMAR(ticker){
+  if(fwdTAMARExcluded.has(ticker))fwdTAMARExcluded.delete(ticker);
+  else fwdTAMARExcluded.add(ticker);
+  fwdSaveLs();
+  const liq=G_LIQ||addHabiles(TODAY,1);
+  const allTAMAR=TAMAR_BONDS.filter(r=>{if(!r.vcto)return false;const v=parseDate(r.vcto);return v&&diasACT(liq,v)>0;}).sort((a,b)=>a.vcto.localeCompare(b.vcto));
+  fwdRenderChips(allTAMAR,fwdTAMARExcluded,'fwd-tamar-chips','fwdToggleTAMAR');
+  fwdBuildTable(allTAMAR.filter(r=>!fwdTAMARExcluded.has(r.ticker)),'tamar','fwd-tamar-wrap');
+}
 
 function fwdTasa(bond, tipo){
   if(tipo==='cer') return fwdGetCERTasa(bond);
+  if(tipo==='tamar'){
+    if(!TAMAR_INDEX.length)return null;
+    const e=tamarEnrich(bond);
+    if(!e||isNaN(e.tir))return null;
+    if(fwdMode==='tir')return e.tir;
+    if(fwdMode==='tna')return isNaN(e.tna)?null:e.tna;
+    if(fwdMode==='tem')return isNaN(e.tem)?null:e.tem;
+    return e.tna;
+  }
   const calc=calcLecap(bond);
   if(!calc)return null;
   if(fwdMode==='tir')return isNaN(calc.tir)?null:calc.tir;
@@ -8170,7 +8208,7 @@ function fwdCellStyle(val, min, max, isDiag){
 }
 
 function fwdEditPx(td, ticker, tipo){
-  const arr=tipo==='tf'?LECAPS:CER_BONDS;
+  const arr=tipo==='tf'?LECAPS:tipo==='cer'?CER_BONDS:TAMAR_BONDS;
   const b=arr.find(r=>r.ticker===ticker);
   const current=b?.precio||'';
   td.innerHTML=`<input type="number" step="0.01" value="${current}"
@@ -8185,7 +8223,7 @@ function fwdEditPx(td, ticker, tipo){
 function fwdCommitPx(input, ticker, tipo){
   const val=parseFloat(input.value);
   if(!isNaN(val)&&val>0){
-    const arr=tipo==='tf'?LECAPS:CER_BONDS;
+    const arr=tipo==='tf'?LECAPS:tipo==='cer'?CER_BONDS:TAMAR_BONDS;
     const idx=arr.findIndex(r=>r.ticker===ticker);
     if(idx>=0) arr[idx]={...arr[idx],precio:val,manualOverride:true};
   }
@@ -8200,6 +8238,11 @@ function fwdBuildTable(bonds, tipo, wrapId){
   // para CER necesitamos el índice
   if(tipo==='cer'&&!CER_INDEX.length){
     wrap.innerHTML=`<div style="color:var(--warn);font-size:12px;padding:.5rem">Cargá el índice CER primero (↻ CER en la barra superior).</div>`;
+    return;
+  }
+  // para TAMAR necesitamos el índice TAMAR
+  if(tipo==='tamar'&&!TAMAR_INDEX.length){
+    wrap.innerHTML=`<div style="color:var(--warn);font-size:12px;padding:.5rem">Cargá el índice TAMAR primero (abrí la solapa TAMAR).</div>`;
     return;
   }
 
@@ -8278,10 +8321,13 @@ function fwdRecalc(){
   const liq=G_LIQ||addHabiles(TODAY,1);
   const allTF=LECAPS.filter(r=>{if(!r.vcto)return false;const v=parseDate(r.vcto);return v&&diasACT(liq,v)>0;}).sort((a,b)=>a.vcto.localeCompare(b.vcto));
   const allCER=CER_BONDS.filter(r=>r.vcto).sort((a,b)=>a.vcto.localeCompare(b.vcto));
+  const allTAMAR=TAMAR_BONDS.filter(r=>{if(!r.vcto)return false;const v=parseDate(r.vcto);return v&&diasACT(liq,v)>0;}).sort((a,b)=>a.vcto.localeCompare(b.vcto));
   fwdRenderChips(allTF,fwdTFExcluded,'fwd-tf-chips','fwdToggleTF');
   fwdRenderChips(allCER,fwdCERExcluded,'fwd-cer-chips','fwdToggleCER');
+  fwdRenderChips(allTAMAR,fwdTAMARExcluded,'fwd-tamar-chips','fwdToggleTAMAR');
   fwdBuildTable(allTF.filter(r=>!fwdTFExcluded.has(r.ticker)),'tf','fwd-tf-wrap');
   fwdBuildTable(allCER.filter(r=>!fwdCERExcluded.has(r.ticker)),'cer','fwd-cer-wrap');
+  fwdBuildTable(allTAMAR.filter(r=>!fwdTAMARExcluded.has(r.ticker)),'tamar','fwd-tamar-wrap');
 }
 
 // ═══════════════════════════════════════════════════════ SINTETICOS
