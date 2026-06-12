@@ -1202,7 +1202,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
   <!-- TABLA TAMAR -->
   <div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:.6rem;flex-wrap:wrap;">
-      <div style="font-family:var(--serif);font-size:18px;font-weight:300;font-style:italic;color:var(--accent)">Tasas Forward · TAMAR <span style="font-size:12px;color:var(--text3);font-style:normal;font-family:var(--mono)">(TNA implícita)</span></div>
+      <div style="font-family:var(--serif);font-size:18px;font-weight:300;font-style:italic;color:var(--accent)">Tasas Forward · TAMAR <span style="font-size:12px;color:var(--text3);font-style:normal;font-family:var(--mono)">(Margen TNA s/TAMAR)</span></div>
       <button class="btn" style="padding:3px 8px;font-size:10px" onclick="fwdTAMARToggleSelector()">+ / −</button>
     </div>
     <div id="fwd-tamar-selector" style="display:none;margin-bottom:.75rem;padding:.6rem .75rem;background:var(--surface);border:1px solid var(--border);border-radius:4px;">
@@ -8171,11 +8171,7 @@ function fwdTasa(bond, tipo){
   if(tipo==='tamar'){
     if(!TAMAR_INDEX.length)return null;
     const e=tamarEnrich(bond);
-    if(!e||isNaN(e.tir))return null;
-    if(fwdMode==='tir')return e.tir;
-    if(fwdMode==='tna')return isNaN(e.tna)?null:e.tna;
-    if(fwdMode==='tem')return isNaN(e.tem)?null:e.tem;
-    return e.tna;
+    return(!e||isNaN(e.margenTNA))?null:e.margenTNA;
   }
   const calc=calcLecap(bond);
   if(!calc)return null;
