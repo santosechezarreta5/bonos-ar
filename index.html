@@ -970,13 +970,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
     <div class="left-pane" id="dlk-left-pane">
       <div class="pane-toolbar">
         <span class="pane-title">Dollar Linked</span>
-        <span style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-left:auto">A3500</span>
-        <input type="number" id="dlk-tc-input" step="0.01" placeholder="—"
-          style="width:80px;background:transparent;border:none;border-bottom:1px solid var(--border2);color:var(--accent);font-family:var(--mono);font-size:12px;padding:0 2px;outline:none;text-align:right;"
-          oninput="dlkOnA3500Change(this.value)" title="TC A3500 — editá para override manual">
-        <button onclick="dlkResetA3500()" title="Restaurar último cierre" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;padding:0 2px">↺</button>
-        <span id="dlk-tc-label" style="color:var(--warn);font-size:10px"></span>
-        <button class="btn primary" onclick="dlkOpenModal()" id="dlk-new-btn" style="display:none">+ Nueva</button>
+        <button class="btn primary" onclick="dlkOpenModal()" id="dlk-new-btn" style="display:none;margin-left:auto">+ Nueva</button>
       </div>
       <div class="table-scroll">
         <table>
@@ -4264,7 +4258,7 @@ async function dlkFetchIndex(force=false){
           dlkRenderIndexStrip();
           if(dlkTCOverride==null){
             const v=data[data.length-1]?.valor;
-            if(v){['usd-a3500-input','dlk-tc-input'].forEach(id=>{const e=document.getElementById(id);if(e&&!e.value)e.value=v.toFixed(4);});}
+            if(v){const inp=document.getElementById('usd-a3500-input');if(inp&&!inp.value)inp.value=v.toFixed(4);}
           }
           return true;
         }
@@ -4326,7 +4320,7 @@ async function dlkFetchIndex(force=false){
     if(currentTab==='dlk') dlkRenderPage();
     // poblar inputs A3500 si no hay override manual
     if(dlkTCOverride==null){
-      ['usd-a3500-input','dlk-tc-input'].forEach(id=>{const e=document.getElementById(id);if(e&&!e.value)e.value=last.valor.toFixed(4);});
+      {const inp=document.getElementById('usd-a3500-input');if(inp&&!inp.value)inp.value=last.valor.toFixed(4);}
     }
     // al refrescar con force=true, también actualizar precios de bonos
     if(force&&DLK_BONDS.length) dlkFetchPrices();
@@ -7908,28 +7902,37 @@ function dlkOnA3500Change(val){
   const v=parseFloat(val);
   dlkTCOverride=(!isNaN(v)&&v>0)?v:null;
   const manual=dlkTCOverride!=null;
-  ['usd-a3500-label','dlk-tc-label'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent=manual?'(manual)':'';});
-  // sincronizar ambos inputs con el mismo valor
-  ['usd-a3500-input','dlk-tc-input'].forEach(id=>{
-    const e=document.getElementById(id);
-    if(e&&e!==document.activeElement)e.value=manual&&v>0?v.toFixed(4):(dlkTCHoy()!=null?dlkTCHoy().toFixed(4):'');
-  });
+  const lbl=document.getElementById('usd-a3500-label');
+  if(lbl) lbl.textContent=manual?'(manual)':'';
   if(currentTab==='dlk'){
     DLK_DATA=DLK_BONDS.map(dlkEnrich);
     dlkRenderTable();
     if(dlkSelectedTicker) dlkRecalcPanel();
+  } else if(currentTab==='sintetico'){
+    SINT_DATA=SINT_BONDS.map(sintEnrich);
+    sintRenderTable();
+    const el=document.getElementById('sint-a3500-display');
+    if(el){const tc=dlkTCHoy();el.textContent=tc!=null?'$'+tc.toFixed(4):'—';}
+    if(sintSelectedTicker){const r=SINT_DATA.find(x=>x.ticker===sintSelectedTicker);if(r)sintRenderPanelBody(r);}
   }
 }
 function dlkResetA3500(){
   dlkTCOverride=null;
   const tc=dlkTCHoy();
-  const v=tc!=null?tc.toFixed(4):'';
-  ['usd-a3500-input','dlk-tc-input'].forEach(id=>{const e=document.getElementById(id);if(e)e.value=v;});
-  ['usd-a3500-label','dlk-tc-label'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent='';});
+  const inp=document.getElementById('usd-a3500-input');
+  if(inp) inp.value=tc!=null?tc.toFixed(4):'';
+  const lbl=document.getElementById('usd-a3500-label');
+  if(lbl) lbl.textContent='';
   if(currentTab==='dlk'){
     DLK_DATA=DLK_BONDS.map(dlkEnrich);
     dlkRenderTable();
     if(dlkSelectedTicker) dlkRecalcPanel();
+  } else if(currentTab==='sintetico'){
+    SINT_DATA=SINT_BONDS.map(sintEnrich);
+    sintRenderTable();
+    const el=document.getElementById('sint-a3500-display');
+    if(el) el.textContent=tc!=null?'$'+tc.toFixed(4):'—';
+    if(sintSelectedTicker){const r=SINT_DATA.find(x=>x.ticker===sintSelectedTicker);if(r)sintRenderPanelBody(r);}
   }
 }
 function dlkOnPxChange(val){
