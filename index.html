@@ -7136,12 +7136,14 @@ function beCPCommitPx(input, ticker, tipo){
   const val=parseFloat(input.value);
   if(!isNaN(val)&&val>0){
     CP_PX_OVERRIDE[ticker]=val;
-    // apply override to bond array
     const arr=tipo==='tf'?LECAPS:tipo==='cer'?CER_BONDS:TAMAR_BONDS;
     const idx=arr.findIndex(r=>r.ticker===ticker);
     if(idx>=0) arr[idx]={...arr[idx],precio:val,manualOverride:true};
   }
   beCPRecalc();
+  beRecalc();
+  beRenderChartTF();
+  beRenderChartCER();
 }
 
 function beCPRemove(ticker, tipo){
