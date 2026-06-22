@@ -8467,7 +8467,12 @@ function sintRenderTable(){
   const f2p=v=>v==null||isNaN(v)?'—':(v*100).toFixed(2)+'%';
   const fTF=v=>v==null||isNaN(v)?'—':v.toFixed(2)+'%';
   const fFecha=s=>s?s.split('-').reverse().join('/'):'—';
-  tbody.innerHTML=SINT_DATA.map(r=>{
+  const sortedSintData=[...SINT_DATA].sort((a,b)=>{
+    const va=a.dlkBond?.vcto||'9999';
+    const vb=b.dlkBond?.vcto||'9999';
+    return va.localeCompare(vb);
+  });
+  tbody.innerHTML=sortedSintData.map(r=>{
     const isEdFuturo=sintEditingCell?.ticker===r.ticker&&sintEditingCell?.field==='precioFuturo';
     const isEdBono=sintEditingCell?.ticker===r.ticker&&sintEditingCell?.field==='precioDLK';
     const isSel=sintSelectedTicker===r.ticker;
