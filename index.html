@@ -356,6 +356,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
     title="TC A3500 — editá para override manual en calculadoras DLK">
   <button onclick="dlkResetA3500()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:10px;margin-left:3px;padding:0" title="Restaurar último cierre">↺</button>
   <span id="usd-a3500-label" style="color:var(--text3);font-size:10px;margin-left:4px"></span>
+  <button onclick="a3500LiveFetch()" style="background:none;border:none;color:var(--accent2);cursor:pointer;font-size:10px;margin-left:4px;padding:0" title="Cotización mayorista intradiaria (argentinadatos.com)">↻ live</button>
   <span style="width:1px;background:var(--border);height:16px;margin:0 12px;flex-shrink:0;"></span>
   <span style="color:var(--text3);margin-right:5px;font-size:10px;text-transform:uppercase;letter-spacing:.06em">T.Desc</span>
   <input type="number" id="sint-tasa-desc" step="0.1" min="0" max="9999"
@@ -1029,7 +1030,9 @@ tbody tr.selected .c-ticker{color:var(--accent);}
         <span class="pane-title">Sintético DLK + ROFEX</span>
         <span style="font-size:10px;color:var(--text3);margin-left:auto;margin-right:4px">A3500</span>
         <span id="sint-a3500-display" style="font-family:var(--mono);font-size:12px;color:var(--accent)">—</span>
-        <button id="sint-add-btn" class="btn primary" onclick="sintOpenModal()" style="margin-left:8px">+ Agregar</button>
+        <button id="sint-rofex-btn" class="btn" style="margin-left:8px;font-size:10px;padding:2px 6px" onclick="rofexFetch()" title="Actualizar precios ROFEX desde IOL">↻ ROFEX</button>
+        <button onclick="iolCredsOpen()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;margin-left:2px;padding:0 2px" title="Configurar cuenta IOL">⚙</button>
+        <button id="sint-add-btn" class="btn primary" onclick="sintOpenModal()" style="margin-left:6px">+ Agregar</button>
       </div>
       <div class="table-scroll">
         <table>
@@ -1764,6 +1767,25 @@ tbody tr.selected .c-ticker{color:var(--accent);}
     </div>
   </div>
 </div>
+</div>
+
+<!-- IOL Credentials Modal -->
+<div class="modal-backdrop" id="iol-creds-modal" onclick="if(event.target===this)iolCredsClose()" style="display:none">
+  <div class="modal-box" style="max-width:380px">
+    <div class="modal-title">Cuenta IOL · InvertirOnline</div>
+    <p style="font-size:11px;color:var(--text3);margin-bottom:1rem">Tus credenciales se guardan solo en este dispositivo (localStorage) y se usan para traer precios ROFEX en tiempo real.</p>
+    <div class="field-row cols1">
+      <div class="field"><label>Usuario IOL</label><input type="text" id="iol-user" placeholder="tu@email.com" autocomplete="username" style="font-family:var(--mono)"></div>
+    </div>
+    <div class="field-row cols1" style="margin-top:.5rem">
+      <div class="field"><label>Contraseña IOL</label><input type="password" id="iol-pass" placeholder="••••••••" autocomplete="current-password"></div>
+    </div>
+    <div id="iol-creds-status" style="font-size:11px;min-height:20px;margin:.75rem 0;font-family:var(--mono)"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="iolCredsClose()">Cerrar</button>
+      <button class="btn primary" onclick="iolCredsSave()">Guardar y conectar</button>
+    </div>
+  </div>
 </div>
 
 <div style="height:30px;"></div>
@@ -4126,6 +4148,7 @@ function cerSaveModal(){
 // Sin token. Cache localStorage 23hs.
 
 const WORKER_URL='https://royal-resonance-d470.santosechezarreta5.workers.dev/cer';
+const WORKER_IOL='https://royal-resonance-d470.santosechezarreta5.workers.dev/iol';
 const CER_CACHE_KEY='bonosAR_cer_bcra_v2';
 const CER_CACHE_TTL=23*60*60*1000;
 let CER_INDEX=[];   // [{fecha:'YYYY-MM-DD', valor:number}] ordenado asc
@@ -8692,6 +8715,171 @@ function sintConfirmAdd(){
     }).observe(panel,{attributes:true,attributeFilter:['class']});
   });
 }());
+
+// ══════════════════════════════════════════════════════════ A3500 LIVE (argentinadatos.com)
+async function a3500LiveFetch(){
+  const btn=document.querySelector('button[onclick="a3500LiveFetch()"]');
+  if(btn){btn.textContent='…';btn.disabled=true;}
+  try{
+    const res=await fetch('https://api.argentinadatos.com/v1/cotizaciones/dolares/mayorista',
+      {cache:'no-store',signal:AbortSignal.timeout(8000)});
+    if(!res.ok)throw new Error(res.status);
+    const data=await res.json();
+    if(!data.length)throw new Error('Sin datos');
+    const last=data[data.length-1];
+    const v=last.venta||last.compra;
+    if(!v||isNaN(parseFloat(v)))throw new Error('Valor inválido');
+    const val=parseFloat(v);
+    // Actualizar input de la cinta (sin tocar dlkTCOverride)
+    const inp=document.getElementById('usd-a3500-input');
+    if(inp)inp.value=val.toFixed(4);
+    const lbl=document.getElementById('usd-a3500-label');
+    if(lbl)lbl.textContent='(live)';
+    // Propagar a las calculadoras igual que un override manual
+    dlkTCOverride=val;
+    if(currentTab==='dlk'){DLK_DATA=DLK_BONDS.map(dlkEnrich);dlkRenderTable();if(dlkSelectedTicker)dlkRecalcPanel();}
+    else if(currentTab==='sintetico'){
+      SINT_DATA=SINT_BONDS.map(sintEnrich);sintRenderTable();
+      const el=document.getElementById('sint-a3500-display');
+      if(el)el.textContent='$'+val.toFixed(4);
+      if(sintSelectedTicker){const r=SINT_DATA.find(x=>x.ticker===sintSelectedTicker);if(r)sintRenderPanelBody(r);}
+    }
+  }catch(e){
+    console.warn('A3500 live fetch error:',e);
+    const lbl=document.getElementById('usd-a3500-label');
+    if(lbl)lbl.textContent='(error live)';
+  }finally{
+    if(btn){btn.textContent='↻ live';btn.disabled=false;}
+  }
+}
+
+// ══════════════════════════════════════════════════════════ IOL — CREDENCIALES
+const IOL_CREDS_KEY='bonosAR_iol_creds_v1';
+const IOL_TOKEN_KEY='bonosAR_iol_token_v1';
+const IOL_TOKEN_ENDPOINT='https://api.invertironline.com/token';
+let iolTokenCache=null; // {access_token, expires_at}
+
+function iolGetCreds(){
+  try{const s=localStorage.getItem(IOL_CREDS_KEY);return s?JSON.parse(s):null;}catch(e){return null;}
+}
+function iolSaveCreds(user,pass){
+  try{localStorage.setItem(IOL_CREDS_KEY,JSON.stringify({user,pass}));}catch(e){}
+}
+function iolCredsOpen(){
+  const creds=iolGetCreds();
+  const userEl=document.getElementById('iol-user');
+  const passEl=document.getElementById('iol-pass');
+  if(userEl&&creds)userEl.value=creds.user||'';
+  if(passEl)passEl.value='';
+  const saved=iolTokenCache||(()=>{try{const s=localStorage.getItem(IOL_TOKEN_KEY);return s?JSON.parse(s):null;}catch(e){return null;}})();
+  const stEl=document.getElementById('iol-creds-status');
+  if(stEl){
+    if(saved&&Date.now()<saved.expires_at){
+      const mins=Math.round((saved.expires_at-Date.now())/60000);
+      stEl.style.color='var(--accent2)';
+      stEl.textContent=`Conectado · token válido por ${mins} min`;
+    } else if(creds){
+      stEl.style.color='var(--text3)';
+      stEl.textContent='Credenciales guardadas · no conectado';
+    } else {
+      stEl.style.color='var(--text3)';
+      stEl.textContent='Sin credenciales guardadas';
+    }
+  }
+  document.getElementById('iol-creds-modal').style.display='flex';
+}
+function iolCredsClose(){
+  document.getElementById('iol-creds-modal').style.display='none';
+}
+async function iolCredsSave(){
+  const user=document.getElementById('iol-user')?.value?.trim();
+  const pass=document.getElementById('iol-pass')?.value;
+  if(!user||!pass){alert('Completá usuario y contraseña.');return;}
+  iolSaveCreds(user,pass);
+  const stEl=document.getElementById('iol-creds-status');
+  if(stEl){stEl.style.color='var(--text3)';stEl.textContent='Conectando…';}
+  try{
+    const token=await iolAuth(user,pass);
+    if(token){
+      if(stEl){stEl.style.color='var(--accent2)';stEl.textContent='Conectado correctamente.';}
+    }
+  }catch(e){
+    if(stEl){stEl.style.color='var(--danger)';stEl.textContent='Error: '+e.message;}
+  }
+}
+
+// ══════════════════════════════════════════════════════════ IOL — AUTH
+async function iolAuth(user,pass){
+  const creds=(user&&pass)?{user,pass}:iolGetCreds();
+  if(!creds)throw new Error('Sin credenciales IOL');
+  const body=`grant_type=password&username=${encodeURIComponent(creds.user)}&password=${encodeURIComponent(creds.pass)}`;
+  const res=await fetch(
+    `${WORKER_IOL}?url=${encodeURIComponent(IOL_TOKEN_ENDPOINT)}`,
+    {method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body,signal:AbortSignal.timeout(15000)}
+  );
+  if(!res.ok)throw new Error(`IOL auth HTTP ${res.status}`);
+  const data=await res.json();
+  if(!data.access_token)throw new Error('IOL no devolvió token');
+  iolTokenCache={access_token:data.access_token,expires_at:Date.now()+(data.expires_in||1800)*1000};
+  try{localStorage.setItem(IOL_TOKEN_KEY,JSON.stringify(iolTokenCache));}catch(e){}
+  return iolTokenCache.access_token;
+}
+async function iolGetToken(){
+  if(iolTokenCache&&Date.now()<iolTokenCache.expires_at-60000)return iolTokenCache.access_token;
+  try{
+    const s=localStorage.getItem(IOL_TOKEN_KEY);
+    if(s){iolTokenCache=JSON.parse(s);if(Date.now()<iolTokenCache.expires_at-60000)return iolTokenCache.access_token;}
+  }catch(e){}
+  return iolAuth();
+}
+
+// ══════════════════════════════════════════════════════════ IOL — ROFEX FETCH
+function iolTickerFromSint(simboloFuturo){
+  // 'DLR/JUL25M' → 'DLRJUL25'
+  return simboloFuturo.replace('/','').replace(/M$/,'');
+}
+async function rofexFetch(){
+  const btn=document.getElementById('sint-rofex-btn');
+  if(btn){btn.textContent='…';btn.disabled=true;}
+  try{
+    const token=await iolGetToken();
+    if(!token){alert('Conectá tu cuenta IOL primero (⚙).');return;}
+    let updated=0;
+    for(const sb of SINT_BONDS){
+      const dlkBond=DLK_BONDS.find(b=>b.ticker===sb.ticker);
+      if(!dlkBond?.vcto)continue;
+      const simbolo=sintSymbolFromVcto(dlkBond.vcto);
+      const iolTicker=iolTickerFromSint(simbolo);
+      const iolUrl=`https://api.invertironline.com/api/v2/bRofex/${iolTicker}/cotizacion`;
+      try{
+        const res=await fetch(`${WORKER_IOL}?url=${encodeURIComponent(iolUrl)}`,
+          {headers:{'Authorization':`Bearer ${token}`},signal:AbortSignal.timeout(10000)});
+        if(!res.ok)continue;
+        const d=await res.json();
+        const px=d.ultimoPrecio||(d.puntas?.precioVenta)||null;
+        if(px&&px>0){
+          const idx=SINT_BONDS.findIndex(b=>b.ticker===sb.ticker);
+          if(idx>=0){SINT_BONDS[idx]={...SINT_BONDS[idx],precioFuturo:parseFloat(px)};updated++;}
+        }
+      }catch(e){console.warn('ROFEX fetch error',iolTicker,e);}
+    }
+    if(updated){
+      sintSaveBonds();
+      SINT_DATA=SINT_BONDS.map(sintEnrich);
+      sintRenderTable();
+      if(sintSelectedTicker){const r=SINT_DATA.find(x=>x.ticker===sintSelectedTicker);if(r)sintRenderPanelBody(r);}
+    }
+    if(btn){
+      const now=new Date();
+      btn.textContent=`↻ ROFEX · ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    }
+  }catch(e){
+    console.warn('rofexFetch error:',e);
+    if(e.message&&e.message.includes('token')){alert('Sesión IOL expirada. Reconectá en ⚙.');}
+  }finally{
+    if(btn)btn.disabled=false;
+  }
+}
 </script>
 </body>
 </html>
