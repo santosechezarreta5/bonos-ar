@@ -5642,9 +5642,9 @@ function tamarRenderTable(){
       <td><div class="cv no-edit c-muted">${isNaN(r.modDuration)?'—':r.modDuration.toFixed(2)}</div></td>
       <td>${pxCell}</td>
       <td><div class="cv no-edit">${chgStr}</div></td>
-      <td><div class="cv no-edit c-amber">${f(r.margenTNA)}</div></td>
-      <td><div class="cv no-edit c-amber">${f(r.tir)}</div></td>
-      <td><div class="cv no-edit c-muted">${f(r.tna)}</div></td>
+      <td><div class="cv no-edit c-amber">${f(r.margenTNA,4)}</div></td>
+      <td><div class="cv no-edit c-amber">${f(r.tir,4)}</div></td>
+      <td><div class="cv no-edit c-muted">${f(r.tna,4)}</div></td>
       <td><div class="cv no-edit c-muted">${f(r.tem,4)}</div></td>
       <td onclick="event.stopPropagation()"><div class="row-act">
         <button class="rbtn del" onclick="tamarDeleteRow('${r.ticker}')" style="display:${isAdmin()?'':'none'}">✕</button>
@@ -5732,12 +5732,12 @@ function tamarPanelRecalc(){
   const MARGEN_TNA=(TEM_MERCADO-d.prom5TEM)*12;
 
   const s=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
-  s('tp-r-vpv',   fmtP2(VPV));
-  s('tp-r-td',    fmtP2(TASA_DIRECTA*100));
-  s('tp-r-tir',   fmtP2(TIR_calc));
-  s('tp-r-tna',   fmtP2(TNA));
-  s('tp-r-tem',   fmtP2(TEM_MERCADO));
-  s('tp-r-margen-tna', fmtP2(MARGEN_TNA));
+  s('tp-r-vpv',   fmtPct(VPV));
+  s('tp-r-td',    fmtPct(TASA_DIRECTA*100));
+  s('tp-r-tir',   fmtPct(TIR_calc));
+  s('tp-r-tna',   fmtPct(TNA));
+  s('tp-r-tem',   fmtPct(TEM_MERCADO));
+  s('tp-r-margen-tna', fmtPct(MARGEN_TNA));
 }
 
 function tamarOpenPanel(ticker){
@@ -5784,14 +5784,14 @@ function tamarOpenPanel(ticker){
         <tr><td>Fix. emisión</td><td>${d.fixEmision.split('-').reverse().join('/')}</td></tr>
         <tr><td>Fix. vto</td><td>${d.fixVto.split('-').reverse().join('/')}</td></tr>
         <tr><td>Días TAMAR transcurridos</td><td>${d.DIAS_TAMAR_TRANSCURRIDOS}</td></tr>
-        <tr><td>TAMAR prom. real</td><td>${fmtP2(d.TAMAR_DIAS_TRANSCURRIDOS)}</td></tr>
-        <tr><td>TAMAR+Margen transcurrida</td><td>${fmtP2(d.TAMAR_MARGEN_DIAS_TRANSCURRIDOS)}</td></tr>
+        <tr><td>TAMAR prom. real</td><td>${fmtPct(d.TAMAR_DIAS_TRANSCURRIDOS)}</td></tr>
+        <tr><td>TAMAR+Margen transcurrida</td><td>${fmtPct(d.TAMAR_MARGEN_DIAS_TRANSCURRIDOS)}</td></tr>
         <tr><td>Días a proyectar</td><td>${d.DIAS_TAMAR_PROYECTAR}</td></tr>
-        <tr><td>TAMAR+Margen proyectada</td><td>${fmtP2(d.TAMAR_MARGEN_PROYECTAR)}</td></tr>
-        <tr><td>Prom 5d TNA</td><td>${fmtP2(d.prom5TNA)}</td></tr>
-        <tr><td>Prom 5d TEM</td><td>${fmtP2(d.prom5TEM)}</td></tr>
-        <tr class="hi"><td>Tasa NMC</td><td>${fmtP2(d.TASA_NMC)}</td></tr>
-        <tr class="hi"><td>VPV</td><td id="tp-r-vpv">${fmtP2(d.VPV)}</td></tr>
+        <tr><td>TAMAR+Margen proyectada</td><td>${fmtPct(d.TAMAR_MARGEN_PROYECTAR)}</td></tr>
+        <tr><td>Prom 5d TNA</td><td>${fmtPct(d.prom5TNA)}</td></tr>
+        <tr><td>Prom 5d TEM</td><td>${fmtPct(d.prom5TEM)}</td></tr>
+        <tr class="hi"><td>Tasa NMC</td><td>${fmtPct(d.TASA_NMC)}</td></tr>
+        <tr class="hi"><td>VPV</td><td id="tp-r-vpv">${fmtPct(d.VPV)}</td></tr>
       </table>
 
       <!-- CALCULADORA -->
