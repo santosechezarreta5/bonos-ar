@@ -241,8 +241,12 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 .section-toggle.collapsed .arrow{transform:rotate(-90deg);}
 
 /* manual override highlight */
-.cv.override{background:rgba(212,167,106,.08);outline:1px solid rgba(212,167,106,.3);}
-.cv.override::after{content:'✎';font-size:9px;color:var(--warn);margin-left:4px;opacity:.7;}
+.cv.override{background:rgba(212,167,106,.14);outline:1px solid rgba(212,167,106,.5);}
+.cv.override::after{content:'✎';font-size:9px;color:var(--warn);margin-left:4px;opacity:1;}
+
+/* index-not-loaded banner */
+.index-banner{display:none;background:rgba(245,158,11,.1);border-bottom:1px solid rgba(245,158,11,.3);
+  padding:6px 1.5rem;align-items:center;gap:12px;font-size:12px;color:var(--warn);flex-shrink:0;}
 
 /* rate heatmap — set via inline style --heat: 0..1 */
 .heat-cell{position:relative;}
@@ -417,6 +421,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
       <span class="pane-title">Tasa Fija</span>
       <input type="text" class="search-box" id="search" placeholder="Buscar…" oninput="renderTable()">
       <label class="chk"><input type="checkbox" id="show-vencidas" onchange="renderTable()"> Vencidas</label>
+      <button class="btn" onclick="exportTableCSV('lecap')" title="Exportar tabla a CSV" style="font-size:11px;padding:3px 7px">⬇ CSV</button>
       <button class="btn primary" onclick="openModal()">+ Nueva</button>
     </div>
     <div class="table-scroll">
@@ -558,6 +563,10 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 
 <!-- ═══════════════════════════════════════════════════════ CER PAGE -->
 <div id="page-cer" style="display:none;height:calc(100vh - 164px);flex-direction:column;overflow:hidden;">
+  <div id="cer-index-banner" class="index-banner">
+    <span>Índice CER no cargado — la TIR real y las tasas proyectadas no están disponibles.</span>
+    <button class="btn" style="padding:2px 8px;font-size:11px;flex-shrink:0" onclick="cerFetchIndex(true)">↻ Cargar CER</button>
+  </div>
 
   <div class="cer-workspace">
 
@@ -570,6 +579,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
         <label class="chk"><input type="checkbox" id="cer-show-vencidas" onchange="cerRenderTable()"> Vencidas</label>
         <button class="btn" id="cer-fetch-btn" onclick="cerFetchPrices()">↻ Precios</button>
         <span class="api-status" id="cer-api-status"></span>
+        <button class="btn" onclick="exportTableCSV('cer')" title="Exportar tabla a CSV" style="font-size:11px;padding:3px 7px">⬇ CSV</button>
         <button class="btn primary" onclick="cerOpenModal()">+ Nueva</button>
       </div>
       <!-- CER INDEX STRIP -->
@@ -802,6 +812,10 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 
 <!-- ═══════════════════════════════════════════════════════ TAMAR PAGE -->
 <div id="page-tamar" style="display:none;height:calc(100vh - 164px);overflow:hidden;flex-direction:column;">
+  <div id="tamar-index-banner" class="index-banner">
+    <span>Índice TAMAR no cargado — los cálculos de margen y TIR no están disponibles.</span>
+    <button class="btn" style="padding:2px 8px;font-size:11px;flex-shrink:0" onclick="tamarFetchIndex(true)">↻ Cargar TAMAR</button>
+  </div>
   <div style="display:flex;flex:1;height:100%;gap:0;min-height:0;">
 
     <!-- LEFT: índice TAMAR arriba + tabla bonos abajo -->
@@ -862,6 +876,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
         <div style="margin-left:auto;display:flex;gap:6px;align-items:center;">
           <span class="api-status" id="tamar-api-status">sin datos</span>
           <button class="btn" id="tamar-fetch-btn" onclick="tamarFetchPrices()">↻ Precios</button>
+          <button class="btn" onclick="exportTableCSV('tamar')" title="Exportar tabla a CSV" style="font-size:11px;padding:3px 7px">⬇ CSV</button>
           <button class="btn primary" onclick="tamarOpenModal()">+ Nueva</button>
         </div>
       </div>
@@ -933,6 +948,10 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 
 <!-- ═══════════════════════════════════════════════════════ DLK PAGE -->
 <div id="page-dlk" style="display:none;height:calc(100vh - 164px);overflow:hidden;flex-direction:column;">
+  <div id="dlk-index-banner" class="index-banner">
+    <span>Índice A3500 (DLK) no cargado — la paridad y TIR en USD no están disponibles.</span>
+    <button class="btn" style="padding:2px 8px;font-size:11px;flex-shrink:0" onclick="dlkFetchIndex(true)">↻ Cargar DLK</button>
+  </div>
 
   <!-- DLK INDEX STRIP -->
   <div id="dlk-index-strip" style="display:none;border-bottom:1px solid var(--border);flex-shrink:0;">
@@ -971,7 +990,8 @@ tbody tr.selected .c-ticker{color:var(--accent);}
     <div class="left-pane" id="dlk-left-pane">
       <div class="pane-toolbar">
         <span class="pane-title">Dollar Linked</span>
-        <button class="btn primary" onclick="dlkOpenModal()" id="dlk-new-btn" style="display:none;margin-left:auto">+ Nueva</button>
+        <button class="btn" onclick="exportTableCSV('dlk')" title="Exportar tabla a CSV" style="font-size:11px;padding:3px 7px;margin-left:auto">⬇ CSV</button>
+        <button class="btn primary" onclick="dlkOpenModal()" id="dlk-new-btn" style="display:none">+ Nueva</button>
       </div>
       <div class="table-scroll">
         <table>
@@ -1022,6 +1042,10 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 
 <!-- SINTETICOS PAGE -->
 <div id="page-sintetico" style="display:none;height:calc(100vh - 164px);overflow:hidden;flex-direction:column;">
+  <div id="sint-index-banner" class="index-banner">
+    <span>Índice A3500 (DLK) no cargado — el TC del sintético no está disponible.</span>
+    <button class="btn" style="padding:2px 8px;font-size:11px;flex-shrink:0" onclick="dlkFetchIndex(true)">↻ Cargar DLK</button>
+  </div>
   <div style="display:flex;flex:1;min-height:0;overflow:hidden;">
 
     <!-- LEFT: tabla -->
@@ -1032,6 +1056,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
         <span id="sint-a3500-display" style="font-family:var(--mono);font-size:12px;color:var(--accent)">—</span>
         <button id="sint-rofex-btn" class="btn" style="margin-left:8px;font-size:10px;padding:2px 6px" onclick="rofexFetch()" title="Actualizar precios ROFEX desde IOL">↻ ROFEX</button>
         <button onclick="iolCredsOpen()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;margin-left:2px;padding:0 2px" title="Configurar cuenta IOL">⚙</button>
+        <button class="btn" onclick="exportTableCSV('sintetico')" title="Exportar tabla a CSV" style="font-size:11px;padding:2px 6px;margin-left:6px">⬇ CSV</button>
         <button id="sint-add-btn" class="btn primary" onclick="sintOpenModal()" style="margin-left:6px">+ Agregar</button>
       </div>
       <div class="table-scroll">
@@ -2547,7 +2572,7 @@ function buildRow(r){
     const val=r[col];
     const isRate=col!=='precio';
     const disp=!isRate?fmtARS(val):(val==null||isNaN(val)?'—':fmtP2(val));
-    const colorClass=!isRate?(v?'c-muted':'c-green'):col==='tna'||col==='tem'?(v?'c-muted':'c-amber'):(v?'c-muted':'c-blue');
+    const colorClass=!isRate?(v?'c-muted':isOverride?'c-amber':'c-green'):col==='tna'||col==='tem'?(v?'c-muted':'c-amber'):(v?'c-muted':'c-blue');
     const overrideCls=isOverride&&!v?'override':'';
     if(key){
       const startVal=val!=null&&!isNaN(val)?val.toFixed(!isRate?4:6):'';
@@ -3063,6 +3088,7 @@ function switchTab(tab){
   } else if(tab==='cer'){
     cerPage.style.display='flex';
     if(!CER_INDEX.length) cerFetchIndex();
+    updateIndexBanners();
     dicpAutoSync();
     CER_DATA=CER_BONDS.map(cerEnrich);
     // refrescar precios automáticamente al abrir la tab
@@ -3084,12 +3110,14 @@ function switchTab(tab){
     document.getElementById('page-tamar').style.display='flex';
     if(!TAMAR_INDEX.length) tamarFetchIndex();
     else tamarRenderIndexStrip();
+    updateIndexBanners();
     tamarRenderTable();
     tamarRenderTabChart();
   } else if(tab==='dlk'){
     document.getElementById('page-dlk').style.display='flex';
     if(!DLK_INDEX.length) dlkFetchIndex();
     else dlkRenderIndexStrip();
+    updateIndexBanners();
     DLK_DATA=DLK_BONDS.map(dlkEnrich);
     dlkRenderTable();
     if(DLK_BONDS.length) dlkFetchPrices();
@@ -3098,6 +3126,7 @@ function switchTab(tab){
     if(newBtn) newBtn.style.display=isAdmin()?'':'none';
   } else if(tab==='sintetico'){
     document.getElementById('page-sintetico').style.display='flex';
+    updateIndexBanners();
     sintInit();
   } else if(tab==='calendario'){
     document.getElementById('page-calendario').style.display='block';
@@ -3696,7 +3725,7 @@ function cerRenderTable(){
       const val=r[col];
       const isRate=col!=='precio';
       const disp=!isRate?fmtARS(val):(val==null||isNaN(val)?'—':fmtP2(val));
-      const cc=!isRate?(v?'c-muted':'c-green'):(v?'c-muted':'c-amber');
+      const cc=!isRate?(v?'c-muted':r.manualOverride&&!v?'c-amber':'c-green'):(v?'c-muted':'c-amber');
       const oc=r.manualOverride&&!v?'override':'';
       if(key){
         const sv=val!=null&&!isNaN(val)?val.toFixed(!isRate?2:6):'';
@@ -4237,6 +4266,7 @@ async function tamarFetchIndex(force=false){
     const now=new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
     if(st){st.textContent=`TAMAR ${last.fecha.split('-').reverse().join('/')} = ${last.valor.toFixed(4)}% · ${now}`;st.className='api-status ok';}
     tamarRenderIndexStrip();
+    updateIndexBanners();
     if(currentTab==='tamar') tamarRenderTabChart();
     return true;
   }catch(e){
@@ -4340,10 +4370,14 @@ async function dlkFetchIndex(force=false){
     const varStr=varDia!=null?(varDia>=0?'+':'')+varDia.toFixed(4):'';
     if(st){st.textContent=`A3500 ${last.fecha.split('-').reverse().join('/')} = $${last.valor.toFixed(4)} ${varStr} · ${now}`;st.className='api-status ok';}
     dlkRenderIndexStrip();
+    updateIndexBanners();
     if(currentTab==='dlk') dlkRenderPage();
     // poblar inputs A3500 si no hay override manual
     if(dlkTCOverride==null){
-      {const inp=document.getElementById('usd-a3500-input');if(inp&&!inp.value)inp.value=last.valor.toFixed(4);}
+      const inp=document.getElementById('usd-a3500-input');
+      if(inp) inp.value=last.valor.toFixed(4);
+      const lbl=document.getElementById('usd-a3500-label');
+      if(lbl) lbl.textContent=last.fecha.split('-').reverse().join('/');
     }
     // al refrescar con force=true, también actualizar precios de bonos
     if(force&&DLK_BONDS.length) dlkFetchPrices();
@@ -4503,6 +4537,7 @@ async function cerFetchIndex(force=false){
     if(stTab){stTab.textContent=`CER · ${CER_INDEX.length} registros · ${now}`;stTab.className='api-status ok';}
 
     cerRenderIndexStrip();
+    updateIndexBanners();
     // actualizar proyecciones y tabla CER si están cargadas
     if(!PROJ_INFLACION.length) projInit(); // auto-init if not loaded yet
     projDetectarPublicados();
@@ -5599,7 +5634,7 @@ function tamarRenderTable(){
     const pxOverride=!!r.manualOverride&&!v;
     const pxCell=pxEditing
       ?`<input class="cell-input" id="tamar-ci-input" type="number" step="0.01" value="${r.precio!=null?r.precio.toFixed(4):''}" onblur="tamarCommitCell()" onkeydown="tamarCellKey(event)" autofocus>`
-      :`<div class="cv editable c-green ${pxOverride?'override':''}" onclick="tamarStartCell(event,'${r.ticker}')">${r.precio!=null?fmtARS(r.precio):'—'}</div>`;
+      :`<div class="cv editable ${pxOverride?'c-amber override':'c-green'}" onclick="tamarStartCell(event,'${r.ticker}')">${r.precio!=null?fmtARS(r.precio):'—'}</div>`;
     return`<tr onclick="tamarRowClick(event,'${r.ticker}')" style="cursor:pointer">
       <td class="ticker-cell"><div class="cv left no-edit"><span class="c-ticker">${r.ticker}</span></div></td>
       <td><div class="cv no-edit c-date">${vctoStr}</div></td>
@@ -5607,9 +5642,9 @@ function tamarRenderTable(){
       <td><div class="cv no-edit c-muted">${isNaN(r.modDuration)?'—':r.modDuration.toFixed(2)}</div></td>
       <td>${pxCell}</td>
       <td><div class="cv no-edit">${chgStr}</div></td>
-      <td><div class="cv no-edit c-amber">${f(r.margenTNA)}</div></td>
-      <td><div class="cv no-edit c-amber">${f(r.tir)}</div></td>
-      <td><div class="cv no-edit c-muted">${f(r.tna)}</div></td>
+      <td><div class="cv no-edit c-amber">${f(r.margenTNA,4)}</div></td>
+      <td><div class="cv no-edit c-amber">${f(r.tir,4)}</div></td>
+      <td><div class="cv no-edit c-muted">${f(r.tna,4)}</div></td>
       <td><div class="cv no-edit c-muted">${f(r.tem,4)}</div></td>
       <td onclick="event.stopPropagation()"><div class="row-act">
         <button class="rbtn del" onclick="tamarDeleteRow('${r.ticker}')" style="display:${isAdmin()?'':'none'}">✕</button>
@@ -5697,12 +5732,12 @@ function tamarPanelRecalc(){
   const MARGEN_TNA=(TEM_MERCADO-d.prom5TEM)*12;
 
   const s=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
-  s('tp-r-vpv',   fmtP2(VPV));
-  s('tp-r-td',    fmtP2(TASA_DIRECTA*100));
-  s('tp-r-tir',   fmtP2(TIR_calc));
-  s('tp-r-tna',   fmtP2(TNA));
-  s('tp-r-tem',   fmtP2(TEM_MERCADO));
-  s('tp-r-margen-tna', fmtP2(MARGEN_TNA));
+  s('tp-r-vpv',   fmtPct(VPV));
+  s('tp-r-td',    fmtPct(TASA_DIRECTA*100));
+  s('tp-r-tir',   fmtPct(TIR_calc));
+  s('tp-r-tna',   fmtPct(TNA));
+  s('tp-r-tem',   fmtPct(TEM_MERCADO));
+  s('tp-r-margen-tna', fmtPct(MARGEN_TNA));
 }
 
 function tamarOpenPanel(ticker){
@@ -5749,14 +5784,14 @@ function tamarOpenPanel(ticker){
         <tr><td>Fix. emisión</td><td>${d.fixEmision.split('-').reverse().join('/')}</td></tr>
         <tr><td>Fix. vto</td><td>${d.fixVto.split('-').reverse().join('/')}</td></tr>
         <tr><td>Días TAMAR transcurridos</td><td>${d.DIAS_TAMAR_TRANSCURRIDOS}</td></tr>
-        <tr><td>TAMAR prom. real</td><td>${fmtP2(d.TAMAR_DIAS_TRANSCURRIDOS)}</td></tr>
-        <tr><td>TAMAR+Margen transcurrida</td><td>${fmtP2(d.TAMAR_MARGEN_DIAS_TRANSCURRIDOS)}</td></tr>
+        <tr><td>TAMAR prom. real</td><td>${fmtPct(d.TAMAR_DIAS_TRANSCURRIDOS)}</td></tr>
+        <tr><td>TAMAR+Margen transcurrida</td><td>${fmtPct(d.TAMAR_MARGEN_DIAS_TRANSCURRIDOS)}</td></tr>
         <tr><td>Días a proyectar</td><td>${d.DIAS_TAMAR_PROYECTAR}</td></tr>
-        <tr><td>TAMAR+Margen proyectada</td><td>${fmtP2(d.TAMAR_MARGEN_PROYECTAR)}</td></tr>
-        <tr><td>Prom 5d TNA</td><td>${fmtP2(d.prom5TNA)}</td></tr>
-        <tr><td>Prom 5d TEM</td><td>${fmtP2(d.prom5TEM)}</td></tr>
-        <tr class="hi"><td>Tasa NMC</td><td>${fmtP2(d.TASA_NMC)}</td></tr>
-        <tr class="hi"><td>VPV</td><td id="tp-r-vpv">${fmtP2(d.VPV)}</td></tr>
+        <tr><td>TAMAR+Margen proyectada</td><td>${fmtPct(d.TAMAR_MARGEN_PROYECTAR)}</td></tr>
+        <tr><td>Prom 5d TNA</td><td>${fmtPct(d.prom5TNA)}</td></tr>
+        <tr><td>Prom 5d TEM</td><td>${fmtPct(d.prom5TEM)}</td></tr>
+        <tr class="hi"><td>Tasa NMC</td><td>${fmtPct(d.TASA_NMC)}</td></tr>
+        <tr class="hi"><td>VPV</td><td id="tp-r-vpv">${fmtPct(d.VPV)}</td></tr>
       </table>
 
       <!-- CALCULADORA -->
@@ -7469,7 +7504,10 @@ function beRenderChartTF(){
       responsive:true,maintainAspectRatio:false,animation:{duration:0},
       plugins:{
         legend:{display:false},
-        tooltip:{callbacks:{label:ctx=>ctx.raw.ticker?`${ctx.raw.ticker}: ${ctx.raw.y.toFixed(2)}%`:`${ctx.raw.y.toFixed(2)}%`}},
+        tooltip:{callbacks:{
+          title:ctx=>ctx[0]?.raw.ticker||'',
+          label:ctx=>`${ctx.raw.y.toFixed(4)}%  ·  ${Math.round(ctx.raw.x)} días`
+        }},
         datalabels:{
           display:ctx=>!!ctx.dataset.data[ctx.dataIndex]?.ticker,
           formatter:(v,ctx)=>ctx.dataset.data[ctx.dataIndex]?.ticker||'',
@@ -7538,7 +7576,10 @@ function beDrawScatter(canvas,pts,ptColor,ptBorder,yLabel){
       responsive:true,maintainAspectRatio:false,animation:{duration:0},
       plugins:{
         legend:{display:false},
-        tooltip:{callbacks:{label:ctx=>ctx.raw.ticker?`${ctx.raw.ticker}: ${ctx.raw.y.toFixed(2)}%`:`${ctx.raw.y.toFixed(2)}%`}},
+        tooltip:{callbacks:{
+          title:ctx=>ctx[0]?.raw.ticker||'',
+          label:ctx=>`${ctx.raw.y.toFixed(4)}%  ·  ${Math.round(ctx.raw.x)} días`
+        }},
         datalabels:{display:ctx=>ctx.datasetIndex===1,
           formatter:(v,ctx)=>ctx.chart.data.datasets[1].data[ctx.dataIndex].ticker||'',
           color:'#a8d5a2',font:{size:11,family:'DM Mono,monospace',weight:'500'},
@@ -7819,7 +7860,7 @@ function dlkRenderTable(){
     const pxOverride=!!r.manualOverride;
     const pxCell=pxEditing
       ?`<input class="cell-input" id="dlk-ci-input" type="number" step="0.01" value="${r.precio!=null?r.precio.toFixed(4):''}" onblur="dlkCommitCell()" onkeydown="dlkCellKey(event)" autofocus>`
-      :`<div class="cv editable c-green ${pxOverride?'override':''}" onclick="dlkStartCell(event,'${r.ticker}')">${r.precio!=null?fmtARS(r.precio):'—'}</div>`;
+      :`<div class="cv editable ${pxOverride?'c-amber override':'c-green'}" onclick="dlkStartCell(event,'${r.ticker}')">${r.precio!=null?fmtARS(r.precio):'—'}</div>`;
     return`<tr onclick="dlkRowClick(event,'${r.ticker}')" style="cursor:pointer">
       <td class="ticker-cell"><div class="cv left no-edit"><span class="c-ticker">${r.ticker}</span></div></td>
       <td><div class="cv no-edit c-date">${vctoStr}</div></td>
@@ -7950,7 +7991,10 @@ function dlkResetA3500(){
   const inp=document.getElementById('usd-a3500-input');
   if(inp) inp.value=tc!=null?tc.toFixed(4):'';
   const lbl=document.getElementById('usd-a3500-label');
-  if(lbl) lbl.textContent='';
+  if(lbl){
+    if(DLK_INDEX.length){const s=[...DLK_INDEX].sort((a,b)=>a.fecha.localeCompare(b.fecha));lbl.textContent=s[s.length-1].fecha.split('-').reverse().join('/');}
+    else lbl.textContent='';
+  }
   if(currentTab==='dlk'){
     DLK_DATA=DLK_BONDS.map(dlkEnrich);
     dlkRenderTable();
@@ -8734,7 +8778,8 @@ async function a3500LiveFetch(){
     const inp=document.getElementById('usd-a3500-input');
     if(inp)inp.value=val.toFixed(4);
     const lbl=document.getElementById('usd-a3500-label');
-    if(lbl)lbl.textContent='(live)';
+    const liveDate=last.fecha?last.fecha.split('T')[0].split('-').reverse().join('/'):'';
+    if(lbl)lbl.textContent=liveDate?`${liveDate} live`:'live';
     // Propagar a las calculadoras igual que un override manual
     dlkTCOverride=val;
     if(currentTab==='dlk'){DLK_DATA=DLK_BONDS.map(dlkEnrich);dlkRenderTable();if(dlkSelectedTicker)dlkRecalcPanel();}
@@ -8880,6 +8925,105 @@ async function rofexFetch(){
     if(btn)btn.disabled=false;
   }
 }
+
+// ══════════════════════════════════════════════════════════ INDEX BANNERS
+function updateIndexBanners(){
+  const show=(id,visible)=>{const el=document.getElementById(id);if(el)el.style.display=visible?'flex':'none';};
+  show('cer-index-banner',   !CER_INDEX.length);
+  show('tamar-index-banner', !TAMAR_INDEX.length);
+  show('dlk-index-banner',   !DLK_INDEX.length);
+  show('sint-index-banner',  !DLK_INDEX.length);
+}
+
+// ══════════════════════════════════════════════════════════ CSV EXPORT
+function exportTableCSV(type){
+  const fD=d=>d?d.split('-').reverse().join('/'):'';
+  const f=(v,d=2)=>v==null||isNaN(v)?'':v.toFixed(d);
+  let headers,rows,filename;
+  const today=new Date().toISOString().slice(0,10);
+
+  if(type==='lecap'){
+    const data=DATA.filter(r=>r.dias>0);
+    headers=['Ticker','Tipo','Vto','Días','Precio','TNA%','TIR%','TEM%','VF'];
+    rows=data.map(r=>[r.ticker,r.tipo||'',fD(r.vcto),r.dias||'',f(r.precio,4),f(r.tna),f(r.tir),f(r.tem),f(r.vf,4)]);
+    filename=`TasaFija_${today}.csv`;
+  }else if(type==='cer'){
+    const data=(CER_DATA.length?CER_DATA:CER_BONDS.map(cerEnrich)).filter(r=>r.dias>0);
+    headers=['Ticker','Tipo','Vto','Días','Precio','TIR real%','TIR c/proy%','TNA c/proy%','TEM c/proy%'];
+    rows=data.map(r=>[r.ticker,r.tipoLabel||'',fD(r.vcto),r.dias||'',f(r.precio,4),f(r.tir),f(r.tirProy),f(r.tnaProy),f(r.temProy)]);
+    filename=`CER_${today}.csv`;
+  }else if(type==='tamar'){
+    const data=TAMAR_DATA.filter(r=>r&&r.dias>0);
+    headers=['Ticker','Vto','Días','Precio','Margen TNA%','TIR%','TNA%','TEM%'];
+    rows=data.map(r=>[r.ticker,fD(r.vcto),r.dias||'',f(r.precio,4),f(r.margenTNA),f(r.tir),f(r.tna),f(r.tem,4)]);
+    filename=`TAMAR_${today}.csv`;
+  }else if(type==='dlk'){
+    const data=DLK_DATA.filter(r=>r&&r.dias>0);
+    headers=['Ticker','Vto','Días','Precio','Paridad%','TIR%','TNA%'];
+    rows=data.map(r=>[r.ticker,fD(r.vcto),r.dias||'',f(r.precio,4),f(r.paridad,4),f(r.tir),f(r.tna)]);
+    filename=`DLK_${today}.csv`;
+  }else if(type==='sintetico'){
+    const data=[...SINT_DATA].sort((a,b)=>(a.dlkBond?.vcto||'').localeCompare(b.dlkBond?.vcto||''));
+    headers=['Nombre','Ticker DLK','Px Bono','Vto','Px Futuro','TNA%','TIR%','TEM%','Spread pp'];
+    rows=data.map(r=>{
+      const nm=r.dlkBond?.vcto?sintNameFromVcto(r.dlkBond.vcto):r.ticker;
+      const sp=r.tea!=null&&r.teaTF!=null?((r.tea*100-r.teaTF).toFixed(2)):'';
+      return[nm,r.ticker,f(r.precioDLKEfectivo,4),fD(r.dlkBond?.vcto),f(r.precioFuturo,2),
+        r.tna!=null?(r.tna*100).toFixed(4):'',r.tea!=null?(r.tea*100).toFixed(4):'',
+        r.tem!=null?(r.tem*100).toFixed(4):'',sp];
+    });
+    filename=`Sinteticos_${today}.csv`;
+  }else{return;}
+
+  if(!rows||!rows.length){alert('Sin datos para exportar.');return;}
+  const csv=[headers,...rows].map(row=>row.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=filename;
+  document.body.appendChild(a);a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ══════════════════════════════════════════════════════════ KEYBOARD SHORTCUTS
+document.addEventListener('keydown',e=>{
+  const tag=e.target.tagName;
+  const inInput=tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||e.target.isContentEditable;
+
+  // Escape: cerrar cualquier panel abierto
+  if(e.key==='Escape'&&!inInput){
+    if(selectedTicker) closePanel();
+    if(cerSelectedTicker) cerClosePanel();
+    if(tamarSelectedTicker) tamarClosePanel();
+    if(dlkSelectedTicker) dlkClosePanel();
+    if(sintSelectedTicker) sintClosePanel();
+    return;
+  }
+
+  // R: refrescar precios
+  if((e.key==='r'||e.key==='R')&&!inInput&&!e.ctrlKey&&!e.metaKey){
+    fetchAllPrices();
+    return;
+  }
+
+  // ↑/↓: navegar filas de la tabla activa
+  if((e.key==='ArrowUp'||e.key==='ArrowDown')&&!inInput){
+    e.preventDefault();
+    const dir=e.key==='ArrowDown'?1:-1;
+    const nav=(arr,sel,openFn)=>{
+      if(!arr.length)return;
+      const sorted=[...arr].sort((a,b)=>(a.vcto||'').localeCompare(b.vcto||''));
+      const idx=sorted.findIndex(r=>r.ticker===sel);
+      const next=sorted[Math.max(0,Math.min(sorted.length-1,(idx<0?0:idx)+dir))];
+      if(next&&next.ticker!==sel)openFn(next.ticker);
+    };
+    if(currentTab==='lecap')    nav(DATA,          selectedTicker,     openPanel);
+    else if(currentTab==='cer') nav(CER_DATA,      cerSelectedTicker,  cerOpenPanel);
+    else if(currentTab==='tamar')nav(TAMAR_DATA,   tamarSelectedTicker,tamarOpenPanel);
+    else if(currentTab==='dlk') nav(DLK_DATA,      dlkSelectedTicker,  dlkOpenPanel);
+  }
+});
 </script>
 </body>
 </html>
