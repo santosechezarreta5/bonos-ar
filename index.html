@@ -7831,6 +7831,23 @@ function dlkCalcParidad(precioPesos, tc){
   return(precioPesos/tc); // precio en USD (base 100)
 }
 
+// ── TNA → TIR (inversa de dlkCalcTNA) ─────────────────────────────────────────
+function dlkTNAtoTIR(tna, dias){
+  const t=tna/100;
+  if(dias>180) return (Math.pow(t*0.5+1,2)-1)*100;
+  return (Math.pow(t*dias/365+1,365/dias)-1)*100;
+}
+
+// ── TIR → Precio ──────────────────────────────────────────────────────────────
+function dlkTIRtoPrice(tir, bond, liq, tc){
+  if(tir==null||!tc||tc<=0) return null;
+  const r=tir/100;
+  const{ff}=dlkBuildFF(bond,liq);
+  if(!ff.length) return null;
+  const precioUSD=ff.reduce((s,ev)=>s+ev.cf/Math.pow(1+r,ev.dias/365),0);
+  return precioUSD*tc;
+}
+
 // ── Enrich ────────────────────────────────────────────────────────────────────
 function dlkEnrich(bond){
   const liq=G_LIQ||addHabiles(TODAY,1);
@@ -7841,6 +7858,32 @@ function dlkEnrich(bond){
   const tna=tir!=null?dlkCalcTNA(tir,dias):null;
   const paridad=bond.precio&&tc?dlkCalcParidad(bond.precio,tc):null;
   return{...bond,dias,tir,tna,paridad,tc};
+}
+
+// ── Render parcial: tabla FF ──────────────────────────────────────────────────
+function dlkRenderFFTable(ff){
+  const el=document.getElementById('dlk-ff-table');
+  if(!el) return;
+  const f4=v=>v==null||isNaN(v)?'—':v.toFixed(4);
+  const f2=v=>v==null||isNaN(v)?'—':v.toFixed(2);
+  el.innerHTML=`<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:11px;">
+    <thead><tr style="border-bottom:1px solid var(--border2)">
+      <th style="text-align:left;padding:3px 6px;color:var(--text3);font-weight:400">Fecha</th>
+      <th style="text-align:right;padding:3px 6px;color:var(--text3);font-weight:400">Días</th>
+      <th style="text-align:right;padding:3px 6px;color:var(--text3);font-weight:400">Amort</th>
+      <th style="text-align:right;padding:3px 6px;color:var(--text3);font-weight:400">Interés</th>
+      <th style="text-align:right;padding:3px 6px;color:var(--accent);font-weight:400">CF Total</th>
+    </tr></thead>
+    <tbody>
+      ${ff.map(ev=>`<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:3px 6px;color:var(--text2);font-family:var(--mono)">${ev.fecha.split('-').reverse().join('/')}</td>
+        <td style="padding:3px 6px;text-align:right;color:var(--text3)">${ev.dias}</td>
+        <td style="padding:3px 6px;text-align:right;color:var(--warn)">${ev.amort>0?f2(ev.amort):'—'}</td>
+        <td style="padding:3px 6px;text-align:right;color:var(--text2)">${ev.interes>0?f4(ev.interes):'—'}</td>
+        <td style="padding:3px 6px;text-align:right;color:var(--accent);font-weight:600">${f4(ev.cf)}</td>
+      </tr>`).join('')}
+    </tbody>
+  </table></div>`;
 }
 
 // ── Tabla ─────────────────────────────────────────────────────────────────────
@@ -7906,14 +7949,10 @@ function dlkRenderPanel(r){
   const liq=G_LIQ||addHabiles(TODAY,1);
   const{ff,vnResidual}=dlkBuildFF(r,liq);
   const diasResid=r.dias||0;
-  const f4=v=>v==null||isNaN(v)?'—':v.toFixed(4);
   const f2=v=>v==null||isNaN(v)?'—':v.toFixed(2);
-
-  // TC editable
   const tcDisplay=dlkTCOverride!=null?dlkTCOverride:tc;
 
   body.innerHTML=`
-    <!-- TC activo (informativo) -->
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;font-size:11px;color:var(--text3)">
       <span>TC A3500:</span>
       <span style="color:var(--accent);font-family:var(--mono)">${tcDisplay!=null?'$'+tcDisplay.toFixed(4):'—'}</span>
@@ -7921,55 +7960,41 @@ function dlkRenderPanel(r){
       <span style="margin-left:4px;font-size:10px">— modificable en la barra superior</span>
     </div>
 
-    <!-- Precio + tasas -->
     <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
-      <div style="flex:1;min-width:100px;">
+      <div style="flex:1;min-width:90px;">
         <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:3px">Precio $</div>
-        <input type="number" id="dlk-px-input" value="${r.precio!=null?r.precio:''}"
+        <input type="number" id="dlk-px-input" value="${r.precio!=null?r.precio.toFixed(4):''}"
           step="0.01" placeholder="Precio sucio $"
           style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:3px;padding:4px 8px;font-family:var(--mono);font-size:13px;color:var(--text);outline:none;"
-          oninput="dlkOnPxChange(this.value)">
+          onchange="dlkOnPxChange(this.value)">
       </div>
-      <div style="flex:1;min-width:80px;">
+      <div style="flex:1;min-width:75px;">
         <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:3px">Paridad USD</div>
-        <input type="number" id="dlk-par-input" value="${r.paridad!=null?r.paridad.toFixed(2):''}"
-          step="0.01" placeholder="Paridad %"
+        <input type="number" id="dlk-par-input" value="${r.paridad!=null?r.paridad.toFixed(4):''}"
+          step="0.01" placeholder="Paridad USD"
           style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:3px;padding:4px 8px;font-family:var(--mono);font-size:13px;color:var(--warn);outline:none;"
-          oninput="dlkOnParChange(this.value)">
+          onchange="dlkOnParChange(this.value)">
+      </div>
+      <div style="flex:1;min-width:75px;">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:3px">TNA %</div>
+        <input type="number" id="dlk-tna-input" value="${r.tna!=null?r.tna.toFixed(4):''}"
+          step="0.01" placeholder="TNA %"
+          style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:3px;padding:4px 8px;font-family:var(--mono);font-size:13px;color:var(--warn);outline:none;"
+          onchange="dlkOnTNAChange(this.value)">
       </div>
     </div>
 
     <div class="section-label">Tasas implícitas</div>
     <table class="res-table" style="margin-bottom:10px">
-      <tr class="bl"><td>TIR (anual, base ACT/365)</td><td id="dlk-r-tir">${f2(r.tir)}%</td></tr>
-      <tr class="wa"><td>TNA (base 30/360)</td><td id="dlk-r-tna">${f2(r.tna)}%</td></tr>
+      <tr class="bl"><td>TIR (anual, base ACT/365)</td><td id="dlk-r-tir">${r.tir!=null?r.tir.toFixed(2)+'%':'—'}</td></tr>
       <tr class="mu"><td>Días residuales</td><td>${diasResid}</td></tr>
-      <tr class="mu"><td>VN residual</td><td>${f2(vnResidual)}%</td></tr>
+      <tr class="mu"><td>VN residual</td><td id="dlk-r-vn">${f2(vnResidual)}%</td></tr>
     </table>
 
     <div class="section-label">Flujo de Fondos Real (USD · base VN=100)</div>
-    <div style="overflow-x:auto;">
-      <table style="width:100%;border-collapse:collapse;font-size:11px;">
-        <thead>
-          <tr style="border-bottom:1px solid var(--border2)">
-            <th style="text-align:left;padding:3px 6px;color:var(--text3);font-weight:400">Fecha</th>
-            <th style="text-align:right;padding:3px 6px;color:var(--text3);font-weight:400">Días</th>
-            <th style="text-align:right;padding:3px 6px;color:var(--text3);font-weight:400">Amort</th>
-            <th style="text-align:right;padding:3px 6px;color:var(--text3);font-weight:400">Interés</th>
-            <th style="text-align:right;padding:3px 6px;color:var(--accent);font-weight:400">CF Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${ff.map(ev=>`<tr style="border-bottom:1px solid var(--border)">
-            <td style="padding:3px 6px;color:var(--text2);font-family:var(--mono)">${ev.fecha.split('-').reverse().join('/')}</td>
-            <td style="padding:3px 6px;text-align:right;color:var(--text3)">${ev.dias}</td>
-            <td style="padding:3px 6px;text-align:right;color:var(--warn)">${ev.amort>0?f2(ev.amort):'—'}</td>
-            <td style="padding:3px 6px;text-align:right;color:var(--text2)">${ev.interes>0?f4(ev.interes):'—'}</td>
-            <td style="padding:3px 6px;text-align:right;color:var(--accent);font-weight:600">${f4(ev.cf)}</td>
-          </tr>`).join('')}
-        </tbody>
-      </table>
-    </div>`;
+    <div id="dlk-ff-table"></div>`;
+
+  dlkRenderFFTable(ff);
 }
 
 function dlkOnA3500Change(val){
@@ -8033,17 +8058,40 @@ function dlkOnParChange(val){
   dlkRecalcPanel();
   dlkRenderTable();
 }
+function dlkOnTNAChange(val){
+  const tna=parseFloat(val);
+  if(isNaN(tna)||tna<0) return;
+  const bond=DLK_BONDS.find(b=>b.ticker===dlkSelectedTicker);
+  if(!bond) return;
+  const liq=G_LIQ||addHabiles(TODAY,1);
+  const tc=dlkTCHoy();
+  if(!tc||tc<=0) return;
+  const vctoDate=parseDate(bond.vcto);
+  const dias=vctoDate?diasACT(liq,vctoDate):0;
+  const tir=dlkTNAtoTIR(tna,dias);
+  const precio=dlkTIRtoPrice(tir,bond,liq,tc);
+  if(!precio||precio<=0) return;
+  const idx=DLK_BONDS.findIndex(b=>b.ticker===dlkSelectedTicker);
+  if(idx>=0){DLK_BONDS[idx]={...DLK_BONDS[idx],precio,manualOverride:true};dlkSaveBonds();}
+  DLK_DATA=DLK_BONDS.map(dlkEnrich);
+  dlkRecalcPanel();
+  dlkRenderTable();
+}
 function dlkRecalcPanel(){
   if(!dlkSelectedTicker)return;
-  const r=dlkEnrich(DLK_BONDS.find(b=>b.ticker===dlkSelectedTicker));
-  if(!r)return;
-  // actualizar solo los valores calculados sin re-renderizar todo
+  const bond=DLK_BONDS.find(b=>b.ticker===dlkSelectedTicker);
+  if(!bond) return;
+  const liq=G_LIQ||addHabiles(TODAY,1);
+  const r=dlkEnrich(bond);
   const s=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
-  const f2=v=>v==null||isNaN(v)?'—':v.toFixed(2)+'%';
-  s('dlk-r-tir',f2(r.tir));
-  s('dlk-r-tna',f2(r.tna));
-  // re-renderizar FF
-  dlkRenderPanel(r);
+  s('dlk-r-tir',r.tir!=null?r.tir.toFixed(2)+'%':'—');
+  const activeId=document.activeElement?.id;
+  const setVal=(id,val)=>{if(activeId===id)return;const e=document.getElementById(id);if(e)e.value=val;};
+  setVal('dlk-px-input',  r.precio!=null?r.precio.toFixed(4):'');
+  setVal('dlk-par-input', r.paridad!=null?r.paridad.toFixed(4):'');
+  setVal('dlk-tna-input', r.tna!=null?r.tna.toFixed(4):'');
+  const{ff}=dlkBuildFF(bond,liq);
+  dlkRenderFFTable(ff);
 }
 
 function dlkClosePanel(){
