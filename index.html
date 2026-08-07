@@ -7184,7 +7184,7 @@ const CP_PX_OVERRIDE={}; // {ticker: precio_manual}
 
 function beCPEditPx(td, ticker, tipo){
   const current=CP_PX_OVERRIDE[ticker]||
-    [...LECAPS,...CER_BONDS,...TAMAR_BONDS].find(r=>r.ticker===ticker)?.precio||'';
+    [...LECAPS,...CER_BONDS,...TAMAR_BONDS,...DLK_BONDS].find(r=>r.ticker===ticker)?.precio||'';
   td.innerHTML=`<input type="number" step="0.01" value="${current}"
     style="width:80px;background:var(--surface2);color:var(--text);border:1px solid var(--accent);border-radius:3px;padding:2px 4px;font-family:var(--mono);font-size:12px;text-align:right"
     onblur="beCPCommitPx(this,'${ticker}','${tipo}')"
@@ -7198,12 +7198,26 @@ function beCPCommitPx(input, ticker, tipo){
   const val=parseFloat(input.value);
   if(!isNaN(val)&&val>0){
     CP_PX_OVERRIDE[ticker]=val;
-    const arr=tipo==='tf'?LECAPS:tipo==='cer'?CER_BONDS:TAMAR_BONDS;
-    const idx=arr.findIndex(r=>r.ticker===ticker);
-    if(idx>=0) arr[idx]={...arr[idx],precio:val,manualOverride:true};
+    if(tipo==='tf'){
+      const idx=LECAPS.findIndex(r=>r.ticker===ticker);
+      if(idx>=0) LECAPS[idx]={...LECAPS[idx],precio:val,manualOverride:true};
+      DATA=LECAPS.map(enrich); // mantener DATA en sync para beFindTF
+    } else if(tipo==='cer'){
+      const idx=CER_BONDS.findIndex(r=>r.ticker===ticker);
+      if(idx>=0) CER_BONDS[idx]={...CER_BONDS[idx],precio:val,manualOverride:true};
+    } else if(tipo==='tamar'){
+      const idx=TAMAR_BONDS.findIndex(r=>r.ticker===ticker);
+      if(idx>=0) TAMAR_BONDS[idx]={...TAMAR_BONDS[idx],precio:val,manualOverride:true};
+      TAMAR_DATA=TAMAR_BONDS.map(tamarEnrich);
+    } else if(tipo==='dlk'){
+      const idx=DLK_BONDS.findIndex(r=>r.ticker===ticker);
+      if(idx>=0) DLK_BONDS[idx]={...DLK_BONDS[idx],precio:val,manualOverride:true};
+      DLK_DATA=DLK_BONDS.map(dlkEnrich);
+    }
   }
   beCPRecalc();
   beRecalc();
+  beTamarRecalc();
   beRenderChartTF();
   beRenderChartCER();
 }
