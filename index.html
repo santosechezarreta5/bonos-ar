@@ -6331,15 +6331,14 @@ function beTamarCalcular(tamarTicker){
   const tem_capitalizar=Math.pow(valor_final/100,30/d.DIAS_360)-1;
 
   // 4. TEM_TAMAR_MARGEN_PROY_BE
+  // Usa promedio aritmético, consistente con VPV = 100*(1+TASA_NMC)^(DIAS_360/30)
   const dias_trans=d.DIAS_TAMAR_TRANSCURRIDOS;
   const dias_proy=d.DIAS_TAMAR_PROYECTAR;
   const tm_trans=d.TAMAR_MARGEN_DIAS_TRANSCURRIDOS/100; // decimal
 
   let tem_proy_be;
   if(dias_proy>0){
-    const num=Math.pow(1+tem_capitalizar,(dias_trans+dias_proy)/30);
-    const den=Math.pow(1+tm_trans,dias_trans/30);
-    tem_proy_be=Math.pow(num/den,30/dias_proy)-1;
+    tem_proy_be=(tem_capitalizar*(dias_trans+dias_proy)-dias_trans*tm_trans)/dias_proy;
   } else {
     tem_proy_be=tem_capitalizar;
   }
