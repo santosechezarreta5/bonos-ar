@@ -1253,14 +1253,16 @@ tbody tr.selected .c-ticker{color:var(--accent);}
             <button class="btn" style="margin:0;padding:3px 7px;font-size:10px" onclick="beOpenModal()">+</button>
           </div>
         </div>
-        <table style="border-collapse:collapse;">
+        <table style="border-collapse:collapse;width:100%;table-layout:fixed">
+          <colgroup>
+            <col style="width:42px">
+            <col>
+            <col style="width:14px">
+          </colgroup>
           <thead>
             <tr style="border-bottom:1px solid var(--border2)">
-              <th style="padding:2px 5px;font-size:9px;font-family:var(--mono);text-transform:uppercase;color:var(--text3);font-weight:400;text-align:right">Proy.</th>
-              <th style="padding:2px 5px;font-size:9px;font-family:var(--mono);text-transform:uppercase;color:var(--text3);font-weight:400;text-align:left">Mes</th>
-              <th style="padding:2px 5px;font-size:9px;font-family:var(--mono);text-transform:uppercase;color:var(--text3);font-weight:400;text-align:right" id="be-header-body"></th>
-              <th style="padding:2px 5px;font-size:9px;font-family:var(--mono);text-transform:uppercase;color:var(--text3);font-weight:400;text-align:right">Dif.</th>
-              <th style="padding:2px 5px;font-size:9px;font-family:var(--mono);text-transform:uppercase;color:var(--info);font-weight:400;text-align:right">Fwd</th>
+              <th style="padding:2px 4px;font-size:9px;font-family:var(--mono);text-transform:uppercase;color:var(--text3);font-weight:400">Mes</th>
+              <th style="padding:2px 4px;font-size:9px;font-family:var(--mono);text-transform:uppercase;color:var(--text3);font-weight:400;text-align:right" id="be-header-body"></th>
               <th></th>
             </tr>
           </thead>
@@ -1280,13 +1282,17 @@ tbody tr.selected .c-ticker{color:var(--accent);}
         <div id="be-tamar-selector" style="display:none;margin-bottom:.5rem;padding:.4rem .6rem;background:var(--surface);border:1px solid var(--border);border-radius:4px;">
           <div id="be-tamar-chips" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
         </div>
-        <table style="border-collapse:collapse;">
+        <table style="border-collapse:collapse;width:100%;table-layout:fixed">
+          <colgroup>
+            <col>
+            <col style="width:44px">
+            <col style="width:44px">
+          </colgroup>
           <thead>
             <tr style="border-bottom:1px solid var(--border2)">
-              <th style="text-align:left;padding:2px 5px;font-size:9px;font-family:var(--mono);text-transform:uppercase;color:var(--text3);font-weight:400">Fecha</th>
-              <th style="text-align:left;padding:2px 5px;font-size:9px;font-family:var(--mono);text-transform:uppercase;color:var(--text3);font-weight:400">Bono</th>
-              <th style="text-align:right;padding:2px 5px;font-size:9px;font-family:var(--mono);text-transform:uppercase;color:var(--warn);font-weight:400">TNA BE</th>
-              <th style="text-align:right;padding:2px 5px;font-size:9px;font-family:var(--mono);text-transform:uppercase;color:var(--accent2);font-weight:400">Real</th>
+              <th style="padding:2px 4px;font-size:9px;font-family:var(--mono);text-transform:uppercase;color:var(--text3);font-weight:400">Bono</th>
+              <th style="text-align:right;padding:2px 4px;font-size:9px;font-family:var(--mono);text-transform:uppercase;color:var(--warn);font-weight:400">TNA BE</th>
+              <th style="text-align:right;padding:2px 4px;font-size:9px;font-family:var(--mono);text-transform:uppercase;color:var(--accent2);font-weight:400">Real</th>
             </tr>
           </thead>
           <tbody id="be-tamar-tbody"></tbody>
@@ -6212,18 +6218,17 @@ function beRenderTabla(resultados){
 
   if(!resultados.length){
     if(headerBody)headerBody.textContent='BE';
-    tbody.innerHTML=`<tr><td colspan="6" style="padding:2rem;text-align:center;color:var(--text3);font-size:12px">Agregá bonos CER con + Agregar bono CER</td></tr>`;
+    tbody.innerHTML=`<tr><td colspan="3" style="padding:2rem;text-align:center;color:var(--text3);font-size:11px">Agregá bonos CER con +</td></tr>`;
     return;
   }
 
   if(headerBody)headerBody.textContent='BE';
 
   tbody.innerHTML=resultados.map(({ticker,res,fwd})=>{
-    if(!res)return`<tr><td colspan="6" style="padding:3px 5px;color:var(--danger);font-size:11px">${ticker}: sin datos</td></tr>`;
+    if(!res)return`<tr><td colspan="3" style="padding:3px 4px;color:var(--danger);font-size:10px">${ticker}: sin datos</td></tr>`;
     if(res.error)return`<tr>
-      <td style="padding:3px 5px;font-family:var(--mono);font-size:11px;color:var(--accent)">${ticker}</td>
-      <td colspan="4" style="padding:3px 5px;color:var(--danger);font-size:11px">${res.error}</td>
-      <td><button onclick="beRemove('${ticker}')" style="background:none;border:none;color:var(--text3);cursor:pointer">✕</button></td>
+      <td colspan="2" style="padding:3px 4px;font-family:var(--mono);font-size:10px;overflow:hidden"><span style="color:var(--accent)">${ticker}</span> <span style="color:var(--danger);font-size:9px">${res.error}</span></td>
+      <td style="padding:2px 2px;text-align:center"><button onclick="beRemove('${ticker}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:10px">✕</button></td>
     </tr>`;
     const hm=res.hastaMes;
     const hmLabel=`${MESES_ES_BE[hm.mes]}-${String(hm.año).slice(2)}`;
@@ -6232,15 +6237,20 @@ function beRenderTabla(resultados){
     const difStr=dif!=null?`<span style="color:${dif>=0?'var(--accent2)':'var(--danger)'}">${dif>=0?'+':''}${fmtP2(dif)}</span>`:'—';
     const fwdStr=fwd!=null?`<span style="color:var(--info)">${fmtP2(fwd)}</span>`:'<span style="color:var(--text3)">—</span>';
     const tfLabel=res.tfTicker?`<span style="color:var(--text3);font-size:8px;display:block">${res.tfTicker}</span>`:'';
-    return`<tr style="border-bottom:1px solid var(--border);line-height:1.2">
-      <td style="padding:1px 5px;font-family:var(--mono);font-size:10px;color:var(--text2);white-space:nowrap">${promStr}</td>
-      <td style="padding:1px 5px;font-size:10px;color:var(--text2);font-family:var(--mono);white-space:nowrap">${hmLabel}</td>
-      <td style="padding:1px 5px;text-align:right;font-family:var(--mono);font-size:11px;color:var(--accent);font-weight:700;white-space:nowrap">
-        <span style="color:var(--text2);font-size:9px;font-weight:400;margin-right:2px">${ticker}</span>${fmtP2(res.inflaBE)}${tfLabel}
+    return`<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:2px 4px;font-family:var(--mono);vertical-align:top">
+        <div style="font-size:10px;color:var(--text2);white-space:nowrap">${hmLabel}</div>
+        <div style="font-size:8px;color:var(--text3);white-space:nowrap">${promStr}</div>
       </td>
-      <td style="padding:1px 5px;text-align:right;font-family:var(--mono);font-size:10px;white-space:nowrap">${difStr}</td>
-      <td style="padding:1px 5px;text-align:right;font-family:var(--mono);font-size:10px;white-space:nowrap">${fwdStr}</td>
-      <td style="padding:1px 3px;text-align:center"><button onclick="beRemove('${ticker}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:10px">✕</button></td>
+      <td style="padding:2px 4px;font-family:var(--mono);text-align:right;overflow:hidden;vertical-align:top">
+        <div style="display:flex;justify-content:flex-end;align-items:baseline;gap:3px">
+          <span style="font-size:8px;color:var(--text3)">${ticker}</span>
+          <span style="font-size:11px;color:var(--accent);font-weight:700">${fmtP2(res.inflaBE)}</span>
+        </div>
+        <div style="font-size:8px;color:var(--text3);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${difStr} <span style="color:var(--info)">${fwdStr}</span></div>
+        ${tfLabel}
+      </td>
+      <td style="padding:2px 2px;text-align:center;vertical-align:top"><button onclick="beRemove('${ticker}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:10px;padding:1px">✕</button></td>
     </tr>`;
   }).join('');
 }
@@ -6422,7 +6432,7 @@ function beTamarRecalc(){
   if(!tbody)return;
 
   if(!TAMAR_BONDS.length){
-    tbody.innerHTML=`<tr><td colspan="4" style="padding:2rem;text-align:center;color:var(--text3);font-size:12px">Agregá bonos en la tab TAMAR primero.</td></tr>`;
+    tbody.innerHTML=`<tr><td colspan="3" style="padding:2rem;text-align:center;color:var(--text3);font-size:11px">Agregá bonos en la tab TAMAR primero.</td></tr>`;
     return;
   }
 
@@ -6432,7 +6442,7 @@ function beTamarRecalc(){
     .sort((a,b)=>a.vcto.localeCompare(b.vcto));
 
   if(!bondsOrdenados.length){
-    tbody.innerHTML=`<tr><td colspan="4" style="padding:1rem;text-align:center;color:var(--text3);font-size:12px">Sin bonos seleccionados.</td></tr>`;
+    tbody.innerHTML=`<tr><td colspan="3" style="padding:1rem;text-align:center;color:var(--text3);font-size:11px">Sin bonos seleccionados.</td></tr>`;
     return;
   }
 
@@ -6440,24 +6450,25 @@ function beTamarRecalc(){
     const res=beTamarCalcular(bond.ticker);
     if(!res||res.error){
       return`<tr style="border-bottom:1px solid var(--border)">
-        <td style="padding:2px 4px;color:var(--text3);font-size:10px">—</td>
-        <td style="padding:2px 4px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--accent)">${bond.ticker}</td>
-        <td colspan="2" style="padding:2px 4px;text-align:right;color:var(--danger);font-size:10px">${res?.error||'—'}</td>
+        <td style="padding:2px 4px;font-family:var(--mono);font-size:10px;color:var(--accent)">${bond.ticker}</td>
+        <td colspan="2" style="padding:2px 4px;text-align:right;color:var(--danger);font-size:9px;overflow:hidden">${res?.error||'—'}</td>
       </tr>`;
     }
     const fixParts=res.fixVto.split('-');
     const fixDisp=`${fixParts[2]}/${fixParts[1]}/${fixParts[0].slice(2)}`;
     const tfLabel=res.tfTicker?`<span style="color:var(--text3);font-size:8px;display:block">${res.tfTicker}</span>`:'';
     const realCell=res.tamar_real!=null
-      ?`<td style="padding:1px 5px;text-align:right;font-family:var(--mono)">
+      ?`<td style="padding:2px 4px;text-align:right;font-family:var(--mono);overflow:hidden">
           <span style="font-size:10px;color:${res.tamar_real>=0?'var(--accent2)':'var(--danger)'};font-weight:600;white-space:nowrap">${fmtP2(res.tamar_real)}</span>
-          ${res.be_cer_tickers?`<span style="color:var(--text3);font-size:8px;display:block;white-space:normal;word-break:break-word;max-width:55px">${res.be_cer_tickers}</span>`:''}
+          ${res.be_cer_tickers?`<span style="color:var(--text3);font-size:8px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${res.be_cer_tickers}</span>`:''}
         </td>`
-      :`<td style="padding:1px 5px;text-align:right;color:var(--text3);font-size:10px">—</td>`;
-    return`<tr style="border-bottom:1px solid var(--border);line-height:1.2">
-      <td style="padding:1px 5px;font-family:var(--mono);font-size:10px;color:var(--text2);white-space:nowrap">${fixDisp}</td>
-      <td style="padding:1px 5px;font-family:var(--mono);font-size:10px;color:var(--accent);font-weight:600;white-space:nowrap">${bond.ticker}${tfLabel}</td>
-      <td style="padding:1px 5px;text-align:right;font-family:var(--mono);font-size:10px;color:var(--warn);font-weight:600;white-space:nowrap">${fmtP2(res.tamar_be_tna)}</td>
+      :`<td style="padding:2px 4px;text-align:right;color:var(--text3);font-size:10px">—</td>`;
+    return`<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:2px 4px;font-family:var(--mono);overflow:hidden;vertical-align:top">
+        <div style="font-size:10px;color:var(--accent);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${bond.ticker}${tfLabel}</div>
+        <div style="font-size:8px;color:var(--text2);white-space:nowrap">${fixDisp}</div>
+      </td>
+      <td style="padding:2px 4px;text-align:right;font-family:var(--mono);font-size:10px;color:var(--warn);font-weight:600;white-space:nowrap;vertical-align:top">${fmtP2(res.tamar_be_tna)}</td>
       ${realCell}
     </tr>`;
   }).join('');
