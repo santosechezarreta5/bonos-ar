@@ -1253,14 +1253,14 @@ tbody tr.selected .c-ticker{color:var(--accent);}
             <button class="btn" style="margin:0;padding:3px 7px;font-size:10px" onclick="beOpenModal()">+</button>
           </div>
         </div>
-        <table style="border-collapse:collapse;white-space:nowrap;width:100%;">
+        <table style="border-collapse:collapse;table-layout:fixed;width:100%;">
           <thead>
             <tr style="border-bottom:1px solid var(--border2)">
-              <th style="text-align:left;padding:2px 4px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Proy.</th>
-              <th style="text-align:center;padding:2px 4px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Mes</th>
+              <th style="width:15%;text-align:left;padding:2px 4px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400;overflow:hidden">Proy.</th>
+              <th style="width:19%;text-align:center;padding:2px 4px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400;overflow:hidden">Mes</th>
               <th style="text-align:center;padding:2px 4px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400" id="be-header-body"></th>
-              <th style="text-align:center;padding:2px 4px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Dif.</th>
-              <th style="text-align:center;padding:2px 4px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--info);font-weight:400">Fwd</th>
+              <th style="width:16%;text-align:center;padding:2px 4px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400;overflow:hidden">Dif.</th>
+              <th style="width:14%;text-align:center;padding:2px 4px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--info);font-weight:400;overflow:hidden">Fwd</th>
               <th style="width:16px"></th>
             </tr>
             <tr style="border-bottom:1px solid var(--border)" id="be-subheader">
@@ -1286,13 +1286,13 @@ tbody tr.selected .c-ticker{color:var(--accent);}
         <div id="be-tamar-selector" style="display:none;margin-bottom:.5rem;padding:.4rem .6rem;background:var(--surface);border:1px solid var(--border);border-radius:4px;">
           <div id="be-tamar-chips" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
         </div>
-        <table style="border-collapse:collapse;white-space:nowrap;width:100%;">
+        <table style="border-collapse:collapse;table-layout:fixed;width:100%;">
           <thead>
             <tr style="border-bottom:1px solid var(--border2)">
-              <th style="text-align:left;padding:2px 4px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Fecha últ.</th>
+              <th style="width:24%;text-align:left;padding:2px 4px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400;overflow:hidden">Fecha últ.</th>
               <th style="text-align:center;padding:2px 4px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Bono</th>
-              <th style="text-align:right;padding:2px 4px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--warn);font-weight:400">TAMAR TNA</th>
-              <th style="text-align:right;padding:2px 4px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--accent2);font-weight:400">TAMAR REAL</th>
+              <th style="width:24%;text-align:right;padding:2px 4px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--warn);font-weight:400;overflow:hidden">TAMAR TNA</th>
+              <th style="width:24%;text-align:right;padding:2px 4px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--accent2);font-weight:400;overflow:hidden">TAMAR REAL</th>
             </tr>
           </thead>
           <tbody id="be-tamar-tbody"></tbody>
