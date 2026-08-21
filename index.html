@@ -6240,18 +6240,17 @@ function beRenderTabla(resultados){
     return`<tr style="border-bottom:1px solid var(--border)">
       <td style="padding:2px 4px;font-family:var(--mono);vertical-align:top">
         <div style="font-size:10px;color:var(--text2);white-space:nowrap">${hmLabel}</div>
-        <div style="font-size:8px;color:var(--text3);white-space:nowrap">${promStr}</div>
+        <div style="font-size:9px;color:var(--text3);white-space:nowrap">${promStr}</div>
       </td>
       <td style="padding:2px 4px;font-family:var(--mono);overflow:hidden;vertical-align:top">
-        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:2px">
-          <span style="font-size:8px;color:var(--text3);white-space:nowrap">${ticker}</span>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:4px">
+          <span style="font-size:9px;color:var(--text3);white-space:nowrap">${ticker}</span>
           <span style="font-size:11px;color:var(--accent);font-weight:700;white-space:nowrap">${fmtP2(res.inflaBE)}</span>
         </div>
-        <div style="display:flex;justify-content:space-between;font-size:8px;white-space:nowrap">
-          <span style="color:var(--text3)">${difStr}</span>
+        <div style="display:flex;justify-content:space-between;font-size:9px;white-space:nowrap">
+          <span>${difStr}</span>
           <span style="color:var(--info)">${fwdStr}</span>
         </div>
-        ${tfLabel}
       </td>
       <td style="padding:2px 2px;text-align:center;vertical-align:top"><button onclick="beRemove('${ticker}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:10px;padding:1px">✕</button></td>
     </tr>`;
@@ -6468,11 +6467,10 @@ function beTamarRecalc(){
       :`<td style="padding:2px 4px;text-align:right;color:var(--text3);font-size:10px">—</td>`;
     return`<tr style="border-bottom:1px solid var(--border)">
       <td style="padding:2px 4px;font-family:var(--mono);overflow:hidden;vertical-align:top">
-        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:2px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:4px">
           <span style="font-size:10px;color:var(--accent);font-weight:600;white-space:nowrap">${bond.ticker}</span>
-          <span style="font-size:8px;color:var(--text2);white-space:nowrap">${fixDisp}</span>
+          <span style="font-size:9px;color:var(--text2);white-space:nowrap">${fixDisp}</span>
         </div>
-        ${tfLabel}
       </td>
       <td style="padding:2px 4px;text-align:right;font-family:var(--mono);font-size:10px;color:var(--warn);font-weight:600;white-space:nowrap;vertical-align:top">${fmtP2(res.tamar_be_tna)}</td>
       ${realCell}
