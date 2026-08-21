@@ -6242,13 +6242,13 @@ function beRenderTabla(resultados){
     const fwdStr=fwd!=null?`<span style="color:var(--info);font-family:var(--mono);font-size:11px">${fmtP2(fwd)}</span>`:'<span style="color:var(--text3)">—</span>';
     const tfLabel=res.tfTicker?`<span style="color:var(--text3);font-size:9px;display:block">par: ${res.tfTicker}</span>`:'';
     return`<tr style="border-bottom:1px solid var(--border);line-height:1.2">
-      <td style="padding:3px 5px;font-family:var(--mono);font-size:11px;color:var(--text2)">${promStr}</td>
-      <td style="padding:3px 5px;text-align:center;font-size:11px;color:var(--text2);font-family:var(--mono)">${hmLabel}${nStr}</td>
-      <td style="padding:3px 5px;text-align:center;font-family:var(--mono);font-size:12px;color:var(--accent);font-weight:700">
+      <td style="padding:3px 5px;font-family:var(--mono);font-size:11px;color:var(--text2);overflow:hidden">${promStr}</td>
+      <td style="padding:3px 5px;text-align:center;font-size:11px;color:var(--text2);font-family:var(--mono);overflow:hidden">${hmLabel}${nStr}</td>
+      <td style="padding:3px 5px;text-align:center;font-family:var(--mono);font-size:12px;color:var(--accent);font-weight:700;overflow:hidden">
         <span style="color:var(--text2);font-size:10px;font-weight:400;margin-right:3px">${ticker}</span>${fmtP2(res.inflaBE)}${tfLabel}
       </td>
-      <td style="padding:3px 5px;text-align:center;font-family:var(--mono);font-size:11px">${difStr}</td>
-      <td style="padding:3px 5px;text-align:center">${fwdStr}</td>
+      <td style="padding:3px 5px;text-align:center;font-family:var(--mono);font-size:11px;overflow:hidden">${difStr}</td>
+      <td style="padding:3px 5px;text-align:center;overflow:hidden">${fwdStr}</td>
       <td style="padding:3px 5px;text-align:center"><button onclick="beRemove('${ticker}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px">✕</button></td>
     </tr>`;
   }).join('');
@@ -6449,23 +6449,24 @@ function beTamarRecalc(){
     const res=beTamarCalcular(bond.ticker);
     if(!res||res.error){
       return`<tr style="border-bottom:1px solid var(--border)">
-        <td style="padding:2px 4px;color:var(--text3);font-size:10px;white-space:nowrap">—</td>
-        <td style="padding:2px 4px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--accent);white-space:nowrap">${bond.ticker}</td>
-        <td colspan="2" style="padding:2px 4px;text-align:right;color:var(--danger);font-size:10px;white-space:nowrap">${res?.error||'—'}</td>
+        <td style="padding:2px 4px;color:var(--text3);font-size:10px;overflow:hidden">—</td>
+        <td style="padding:2px 4px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--accent);overflow:hidden">${bond.ticker}</td>
+        <td colspan="2" style="padding:2px 4px;text-align:right;color:var(--danger);font-size:10px;overflow:hidden">${res?.error||'—'}</td>
       </tr>`;
     }
-    const fixDisp=res.fixVto.split('-').reverse().join('/');
+    const fixParts=res.fixVto.split('-');
+    const fixDisp=`${fixParts[2]}/${fixParts[1]}/${fixParts[0].slice(2)}`;
     const tfLabel=res.tfTicker?`<span style="color:var(--text3);font-size:9px;display:block">par: ${res.tfTicker}</span>`:'';
     const realCell=res.tamar_real!=null
-      ?`<td style="padding:2px 4px;text-align:right;font-family:var(--mono);white-space:nowrap">
+      ?`<td style="padding:2px 4px;text-align:right;font-family:var(--mono);overflow:hidden">
           <span style="font-size:11px;color:${res.tamar_real>=0?'var(--accent2)':'var(--danger)'};font-weight:600">${fmtP2(res.tamar_real)}%</span>
           ${res.be_cer_tickers?`<span style="color:var(--text3);font-size:9px;display:block">${res.be_cer_tickers}</span>`:''}
         </td>`
       :`<td style="padding:2px 4px;text-align:right;color:var(--text3);font-size:10px">—</td>`;
     return`<tr style="border-bottom:1px solid var(--border);line-height:1.2">
-      <td style="padding:2px 4px;font-family:var(--mono);font-size:10px;color:var(--text2);white-space:nowrap">${fixDisp}</td>
-      <td style="padding:2px 4px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--accent);font-weight:600;white-space:nowrap">${bond.ticker}${tfLabel}</td>
-      <td style="padding:2px 4px;text-align:right;font-family:var(--mono);font-size:11px;color:var(--warn);font-weight:600;white-space:nowrap">${fmtP2(res.tamar_be_tna)}%</td>
+      <td style="padding:2px 4px;font-family:var(--mono);font-size:10px;color:var(--text2);overflow:hidden">${fixDisp}</td>
+      <td style="padding:2px 4px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--accent);font-weight:600;overflow:hidden">${bond.ticker}${tfLabel}</td>
+      <td style="padding:2px 4px;text-align:right;font-family:var(--mono);font-size:11px;color:var(--warn);font-weight:600;overflow:hidden">${fmtP2(res.tamar_be_tna)}%</td>
       ${realCell}
     </tr>`;
   }).join('');
