@@ -1242,6 +1242,60 @@ tbody tr.selected .c-ticker{color:var(--accent);}
   <div id="be-columns" style="display:flex;height:100%;gap:0;min-height:0;">
 
 
+    <!-- COL 1: Breakevens (resizable) -->
+    <div id="be-col1" style="width:200px;min-width:140px;overflow-y:auto;overflow-x:hidden;padding:.75rem .75rem;display:flex;flex-direction:column;gap:1rem;border-right:1px solid var(--border);flex-shrink:0;">
+
+      <!-- BE Inflación -->
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.4rem;">
+          <div style="font-family:var(--serif);font-size:13px;font-weight:300;font-style:italic;color:var(--accent)">BE · Inflación</div>
+          <div style="display:flex;gap:3px;">
+            <button class="btn primary" style="margin:0;padding:2px 6px;font-size:10px" onclick="beRecalc()">↻</button>
+            <button class="btn" style="margin:0;padding:2px 6px;font-size:10px" onclick="beOpenModal()">+</button>
+          </div>
+        </div>
+        <table style="border-collapse:collapse;white-space:nowrap;">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border2)">
+              <th style="padding:1px 4px;font-size:9px;font-family:var(--mono);color:var(--text3);font-weight:400;text-transform:uppercase;text-align:left">CER · Mes · Proy</th>
+              <th style="padding:1px 4px;font-size:9px;font-family:var(--mono);color:var(--text3);font-weight:400;text-transform:uppercase;text-align:right">BE · TF</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="be-tbody"></tbody>
+        </table>
+      </div>
+
+      <!-- BE TAMAR -->
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.4rem;">
+          <div style="font-family:var(--serif);font-size:13px;font-weight:300;font-style:italic;color:var(--accent)">BE · TAMAR</div>
+          <div style="display:flex;gap:3px;">
+            <button class="btn" style="margin:0;padding:2px 6px;font-size:10px" onclick="beTamarToggleSelector()">+/−</button>
+            <button class="btn primary" style="margin:0;padding:2px 6px;font-size:10px" onclick="beTamarRecalc()">↻</button>
+          </div>
+        </div>
+        <div id="be-tamar-selector" style="display:none;margin-bottom:.4rem;padding:.3rem .5rem;background:var(--surface);border:1px solid var(--border);border-radius:4px;">
+          <div id="be-tamar-chips" style="display:flex;flex-wrap:wrap;gap:4px;"></div>
+        </div>
+        <table style="border-collapse:collapse;white-space:nowrap;">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border2)">
+              <th style="padding:1px 4px;font-size:9px;font-family:var(--mono);color:var(--text3);font-weight:400;text-transform:uppercase">Bono</th>
+              <th style="padding:1px 4px;font-size:9px;font-family:var(--mono);color:var(--text3);font-weight:400;text-transform:uppercase;text-align:right">Fixing</th>
+              <th style="padding:1px 4px;font-size:9px;font-family:var(--mono);color:var(--warn);font-weight:400;text-transform:uppercase;text-align:right">TNA BE</th>
+              <th style="padding:1px 4px;font-size:9px;font-family:var(--mono);color:var(--accent2);font-weight:400;text-transform:uppercase;text-align:right">Real</th>
+            </tr>
+          </thead>
+          <tbody id="be-tamar-tbody"></tbody>
+        </table>
+      </div>
+
+    </div>
+
+    <!-- RESIZER 1 -->
+    <div class="col-resizer" onmousedown="beStartResize(event,'be-col1')"></div>
+
     <!-- COL 2: Pesos Corto Plazo (resizable) -->
     <div id="be-col2" style="width:450px;min-width:200px;overflow-y:auto;overflow-x:auto;padding:1.25rem 1rem;border-right:1px solid var(--border);flex-shrink:0;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem;">
@@ -6150,44 +6204,33 @@ const MESES_ES_BE=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','
 
 function beRenderTabla(resultados){
   const tbody=document.getElementById('be-tbody');
-  const headerBody=document.getElementById('be-header-body');
-  const subTickers=document.getElementById('be-subheader-tickers');
   if(!tbody)return;
 
   if(!resultados.length){
-    if(headerBody)headerBody.textContent='BE';
-    tbody.innerHTML=`<tr><td colspan="5" style="padding:2rem;text-align:center;color:var(--text3);font-size:11px">Agregá bonos CER con +</td></tr>`;
+    tbody.innerHTML=`<tr><td colspan="3" style="padding:1.5rem;text-align:center;color:var(--text3);font-size:11px">Agregá bonos CER con +</td></tr>`;
     return;
   }
 
-  if(headerBody)headerBody.textContent='BE';
-
-  tbody.innerHTML=resultados.map(({ticker,res,fwd})=>{
-    if(!res)return`<tr><td colspan="5" style="padding:3px 5px;color:var(--danger);font-size:10px">${ticker}: sin datos</td></tr>`;
+  tbody.innerHTML=resultados.map(({ticker,res})=>{
+    if(!res)return`<tr><td colspan="3" style="padding:2px 4px;color:var(--danger);font-size:10px">${ticker}: sin datos</td></tr>`;
     if(res.error)return`<tr>
-      <td style="padding:3px 5px;font-family:var(--mono);font-size:10px;color:var(--accent)">${ticker}</td>
-      <td colspan="3" style="padding:3px 5px;color:var(--danger);font-size:9px">${res.error}</td>
-      <td style="padding:2px 3px;text-align:center"><button onclick="beRemove('${ticker}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:10px">✕</button></td>
+      <td style="padding:2px 4px;font-family:var(--mono);font-size:10px;color:var(--accent2)">${ticker}</td>
+      <td style="padding:2px 4px;color:var(--danger);font-size:9px">${res.error}</td>
+      <td style="padding:1px 2px;text-align:center"><button onclick="beRemove('${ticker}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:10px">✕</button></td>
     </tr>`;
     const hm=res.hastaMes;
     const hmLabel=`${MESES_ES_BE[hm.mes]}-${String(hm.año).slice(2)}`;
     const promStr=res.promInfla!=null?fmtP2(res.promInfla):'—';
-    const dif=res.promInfla!=null?res.inflaBE-res.promInfla:null;
-    const difStr=dif!=null?`<span style="color:${dif>=0?'var(--accent2)':'var(--danger)'}">${dif>=0?'+':''}${fmtP2(dif)}</span>`:'—';
-    const fwdStr=fwd!=null?`<span style="color:var(--info)">${fmtP2(fwd)}</span>`:'<span style="color:var(--text3)">—</span>';
-    const tfLabel=res.tfTicker?`<span style="color:var(--text3);font-size:8px;display:block">${res.tfTicker}</span>`:'';
     return`<tr style="border-bottom:1px solid var(--border)">
-      <td style="padding:2px 5px;font-family:var(--mono);vertical-align:middle">
-        <div style="font-size:10px;color:var(--text2)">${hmLabel}</div>
-        <div style="font-size:9px;color:var(--text3)">${promStr}</div>
+      <td style="padding:1px 4px;font-family:var(--mono);white-space:nowrap;vertical-align:middle">
+        <div style="font-size:10px;color:var(--accent2);font-weight:600">${ticker}</div>
+        <div style="font-size:9px;color:var(--text3)">${hmLabel} · ${promStr}</div>
       </td>
-      <td style="padding:2px 5px;font-family:var(--mono);text-align:right;vertical-align:middle">
-        <div style="font-size:8px;color:var(--text3)">${ticker}</div>
+      <td style="padding:1px 4px;font-family:var(--mono);white-space:nowrap;text-align:right;vertical-align:middle">
         <div style="font-size:11px;color:var(--accent);font-weight:700">${fmtP2(res.inflaBE)}</div>
+        <div style="font-size:9px;color:var(--text3)">${res.tfTicker||''}</div>
       </td>
-      <td style="padding:2px 5px;font-family:var(--mono);text-align:right;font-size:10px;vertical-align:middle">${difStr}</td>
-      <td style="padding:2px 5px;font-family:var(--mono);text-align:right;font-size:10px;vertical-align:middle">${fwdStr}</td>
-      <td style="padding:2px 3px;text-align:center;vertical-align:middle"><button onclick="beRemove('${ticker}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:10px">✕</button></td>
+      <td style="padding:1px 2px;text-align:center;vertical-align:middle"><button onclick="beRemove('${ticker}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:10px;line-height:1">✕</button></td>
     </tr>`;
   }).join('');
 }
@@ -6387,19 +6430,19 @@ function beTamarRecalc(){
     const res=beTamarCalcular(bond.ticker);
     if(!res||res.error){
       return`<tr style="border-bottom:1px solid var(--border)">
-        <td colspan="2" style="padding:2px 5px;font-family:var(--mono);font-size:10px;color:var(--accent)">${bond.ticker}</td>
-        <td colspan="2" style="padding:2px 5px;text-align:right;color:var(--danger);font-size:9px">${res?.error||'—'}</td>
+        <td colspan="2" style="padding:1px 4px;font-family:var(--mono);font-size:10px;color:var(--accent)">${bond.ticker}</td>
+        <td colspan="2" style="padding:1px 4px;text-align:right;color:var(--danger);font-size:9px">${res?.error||'—'}</td>
       </tr>`;
     }
     const fixParts=res.fixVto.split('-');
     const fixDisp=`${fixParts[2]}/${fixParts[1]}/${fixParts[0].slice(2)}`;
     const realCell=res.tamar_real!=null
-      ?`<td style="padding:2px 5px;text-align:right;font-family:var(--mono);font-size:10px;color:${res.tamar_real>=0?'var(--accent2)':'var(--danger)'};font-weight:600">${fmtP2(res.tamar_real)}</td>`
-      :`<td style="padding:2px 5px;text-align:right;color:var(--text3);font-size:10px">—</td>`;
+      ?`<td style="padding:1px 4px;text-align:right;font-family:var(--mono);font-size:10px;color:${res.tamar_real>=0?'var(--accent2)':'var(--danger)'};font-weight:600;white-space:nowrap">${fmtP2(res.tamar_real)}</td>`
+      :`<td style="padding:1px 4px;text-align:right;color:var(--text3);font-size:10px">—</td>`;
     return`<tr style="border-bottom:1px solid var(--border)">
-      <td style="padding:2px 5px;font-family:var(--mono);font-size:10px;color:var(--accent);font-weight:600">${bond.ticker}</td>
-      <td style="padding:2px 5px;font-family:var(--mono);font-size:10px;color:var(--text2);text-align:right">${fixDisp}</td>
-      <td style="padding:2px 5px;text-align:right;font-family:var(--mono);font-size:10px;color:var(--warn);font-weight:600">${fmtP2(res.tamar_be_tna)}</td>
+      <td style="padding:1px 4px;font-family:var(--mono);font-size:10px;color:var(--accent);font-weight:600;white-space:nowrap">${bond.ticker}</td>
+      <td style="padding:1px 4px;font-family:var(--mono);font-size:10px;color:var(--text2);text-align:right;white-space:nowrap">${fixDisp}</td>
+      <td style="padding:1px 4px;text-align:right;font-family:var(--mono);font-size:10px;color:var(--warn);font-weight:600;white-space:nowrap">${fmtP2(res.tamar_be_tna)}</td>
       ${realCell}
     </tr>`;
   }).join('');
