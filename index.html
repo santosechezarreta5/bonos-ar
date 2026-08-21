@@ -1241,40 +1241,6 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 <div id="page-breakeven" style="display:none;height:calc(100vh - 164px);overflow:hidden;">
   <div id="be-columns" style="display:flex;height:100%;gap:0;min-height:0;">
 
-    <!-- COL 1: BE Inflación + BE TAMAR (resizable) -->
-    <div id="be-col1" style="width:170px;min-width:120px;overflow-y:auto;overflow-x:hidden;padding:1.25rem 1rem;display:flex;flex-direction:column;gap:1.25rem;border-right:1px solid var(--border);flex-shrink:0;">
-
-      <!-- BE Inflación -->
-      <div>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem;">
-          <div style="font-family:var(--serif);font-size:16px;font-weight:300;font-style:italic;color:var(--accent)">Breakeven · Inflación</div>
-          <div style="display:flex;gap:4px;">
-            <button class="btn primary" style="margin:0;padding:3px 7px;font-size:10px" onclick="beRecalc()">↻</button>
-            <button class="btn" style="margin:0;padding:3px 7px;font-size:10px" onclick="beOpenModal()">+</button>
-          </div>
-        </div>
-        <div id="be-tbody"></div>
-      </div>
-
-      <!-- BE TAMAR -->
-      <div>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem;">
-          <div style="font-family:var(--serif);font-size:16px;font-weight:300;font-style:italic;color:var(--accent)">Breakeven · TAMAR</div>
-          <div style="display:flex;gap:4px;">
-            <button class="btn" style="margin:0;padding:3px 7px;font-size:10px" onclick="beTamarToggleSelector()">+ / −</button>
-            <button class="btn primary" style="margin:0;padding:3px 7px;font-size:10px" onclick="beTamarRecalc()">↻</button>
-          </div>
-        </div>
-        <div id="be-tamar-selector" style="display:none;margin-bottom:.5rem;padding:.4rem .6rem;background:var(--surface);border:1px solid var(--border);border-radius:4px;">
-          <div id="be-tamar-chips" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
-        </div>
-        <div id="be-tamar-tbody"></div>
-      </div>
-
-    </div>
-
-    <!-- RESIZER 1 -->
-    <div class="col-resizer" onmousedown="beStartResize(event,'be-col1')"></div>
 
     <!-- COL 2: Pesos Corto Plazo (resizable) -->
     <div id="be-col2" style="width:450px;min-width:200px;overflow-y:auto;overflow-x:auto;padding:1.25rem 1rem;border-right:1px solid var(--border);flex-shrink:0;">
