@@ -1289,10 +1289,10 @@ tbody tr.selected .c-ticker{color:var(--accent);}
         <table style="border-collapse:collapse;white-space:nowrap;width:100%;">
           <thead>
             <tr style="border-bottom:1px solid var(--border2)">
-              <th style="text-align:left;padding:4px 6px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Fecha últ.</th>
-              <th style="text-align:center;padding:4px 6px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Bono</th>
-              <th style="text-align:right;padding:4px 6px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--warn);font-weight:400">TAMAR TNA</th>
-              <th style="text-align:right;padding:4px 6px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--accent2);font-weight:400">TAMAR REAL</th>
+              <th style="text-align:left;padding:2px 4px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Fecha últ.</th>
+              <th style="text-align:center;padding:2px 4px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Bono</th>
+              <th style="text-align:right;padding:2px 4px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--warn);font-weight:400">TAMAR TNA</th>
+              <th style="text-align:right;padding:2px 4px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--accent2);font-weight:400">TAMAR REAL</th>
             </tr>
           </thead>
           <tbody id="be-tamar-tbody"></tbody>
@@ -1326,7 +1326,6 @@ tbody tr.selected .c-ticker{color:var(--accent);}
           <tr style="border-bottom:1px solid var(--border2)">
             <th style="text-align:left;padding:4px 6px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Bono</th>
             <th style="text-align:center;padding:4px 6px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Vto</th>
-            <th style="text-align:center;padding:4px 6px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Fixing</th>
             <th style="text-align:right;padding:4px 6px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Px</th>
             <th style="text-align:right;padding:4px 6px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">TIR R/Mgn</th>
             <th style="text-align:right;padding:4px 6px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">TNA</th>
@@ -1348,11 +1347,11 @@ tbody tr.selected .c-ticker{color:var(--accent);}
       <!-- Gráfico TF -->
       <div style="flex:1;min-height:0;display:flex;flex-direction:column;border-bottom:1px solid var(--border);">
         <div style="flex-shrink:0;border-bottom:1px solid var(--border);">
-          <div style="display:flex;align-items:center;gap:6px;padding:.3rem .75rem;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:5px;padding:.3rem .75rem;flex-wrap:wrap;">
             <span style="font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap">Curva TF</span>
             <div id="be-chart-tf-tipos" style="display:flex;gap:3px;flex-wrap:wrap;"></div>
+            <button class="btn" style="padding:1px 5px;font-size:10px" onclick="beToggleChartSelector('tf')">bonos ▾</button>
             <div style="margin-left:auto;display:flex;gap:5px;align-items:center;flex-wrap:wrap;">
-              <button class="btn" style="padding:2px 5px;font-size:10px" onclick="beToggleChartSelector('tf')">bonos ▾</button>
               <button class="btn" style="padding:2px 5px;font-size:10px" onclick="beToggleChartSintSelector()">sint ▾</button>
               <div class="mode-row" style="margin-left:2px">
                 <button class="mode-btn active" id="be-chart-tf-tna" onclick="beChartTFSetMode('tna')">TNA</button>
@@ -1376,11 +1375,11 @@ tbody tr.selected .c-ticker{color:var(--accent);}
       <!-- Gráfico CER -->
       <div style="flex:1;min-height:0;display:flex;flex-direction:column;">
         <div style="flex-shrink:0;border-bottom:1px solid var(--border);">
-          <div style="display:flex;align-items:center;gap:6px;padding:.3rem .75rem;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:5px;padding:.3rem .75rem;flex-wrap:wrap;">
             <span style="font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap">Curva CER</span>
             <div id="be-chart-cer-tipos" style="display:flex;gap:3px;flex-wrap:wrap;"></div>
+            <button class="btn" style="padding:1px 5px;font-size:10px" onclick="beToggleChartSelector('cer')">bonos ▾</button>
             <div style="margin-left:auto;display:flex;gap:5px;align-items:center;flex-wrap:wrap;">
-              <button class="btn" style="padding:2px 5px;font-size:10px" onclick="beToggleChartSelector('cer')">bonos ▾</button>
               <span id="be-chart-cer-status" style="font-size:10px;color:var(--text3)"></span>
               <div class="mode-row" style="margin-left:2px">
                 <button class="mode-btn active" id="be-chart-cer-tirreal" onclick="beChartCERSetMode('tirReal')">TIR R</button>
@@ -2029,6 +2028,8 @@ let beChartTFExcluded=new Set();
 let beChartSintVisible=true;
 let beChartSintExcluded=new Set();
 let beChartCERExcluded=new Set();
+let beChartTAMARExcluded=new Set();
+let beChartDLKExcluded=new Set();
 let beChartTFSelectedTipos=new Set(['tf']);
 let beChartCERSelectedTipos=new Set(['cer']);
 let beChartCERMode='tirReal';
@@ -6448,23 +6449,23 @@ function beTamarRecalc(){
     const res=beTamarCalcular(bond.ticker);
     if(!res||res.error){
       return`<tr style="border-bottom:1px solid var(--border)">
-        <td style="padding:5px 6px;color:var(--text3);font-size:11px;white-space:nowrap">—</td>
-        <td style="padding:5px 6px;text-align:center;font-family:var(--mono);font-size:12px;color:var(--accent);white-space:nowrap">${bond.ticker}</td>
-        <td colspan="2" style="padding:5px 6px;text-align:right;color:var(--danger);font-size:11px;white-space:nowrap">${res?.error||'—'}</td>
+        <td style="padding:2px 4px;color:var(--text3);font-size:10px;white-space:nowrap">—</td>
+        <td style="padding:2px 4px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--accent);white-space:nowrap">${bond.ticker}</td>
+        <td colspan="2" style="padding:2px 4px;text-align:right;color:var(--danger);font-size:10px;white-space:nowrap">${res?.error||'—'}</td>
       </tr>`;
     }
     const fixDisp=res.fixVto.split('-').reverse().join('/');
-    const tfLabel=res.tfTicker?`<span style="color:var(--text3);font-size:10px;display:block;margin-top:1px">par: ${res.tfTicker}</span>`:'';
+    const tfLabel=res.tfTicker?`<span style="color:var(--text3);font-size:9px;display:block">par: ${res.tfTicker}</span>`:'';
     const realCell=res.tamar_real!=null
-      ?`<td style="padding:5px 6px;text-align:right;font-family:var(--mono);white-space:nowrap">
-          <span style="font-size:12px;color:${res.tamar_real>=0?'var(--accent2)':'var(--danger)'};font-weight:600">${fmtP2(res.tamar_real)}%</span>
-          ${res.be_cer_tickers?`<span style="color:var(--text3);font-size:10px;display:block;margin-top:1px">${res.be_cer_tickers}</span>`:''}
+      ?`<td style="padding:2px 4px;text-align:right;font-family:var(--mono);white-space:nowrap">
+          <span style="font-size:11px;color:${res.tamar_real>=0?'var(--accent2)':'var(--danger)'};font-weight:600">${fmtP2(res.tamar_real)}%</span>
+          ${res.be_cer_tickers?`<span style="color:var(--text3);font-size:9px;display:block">${res.be_cer_tickers}</span>`:''}
         </td>`
-      :`<td style="padding:5px 6px;text-align:right;color:var(--text3);font-size:11px">—</td>`;
-    return`<tr style="border-bottom:1px solid var(--border)">
-      <td style="padding:5px 6px;font-family:var(--mono);font-size:11px;color:var(--text2);white-space:nowrap">${fixDisp}</td>
-      <td style="padding:5px 6px;text-align:center;font-family:var(--mono);font-size:12px;color:var(--accent);font-weight:600;white-space:nowrap">${bond.ticker}${tfLabel}</td>
-      <td style="padding:5px 6px;text-align:right;font-family:var(--mono);font-size:13px;color:var(--warn);font-weight:600;white-space:nowrap">${fmtP2(res.tamar_be_tna)}%</td>
+      :`<td style="padding:2px 4px;text-align:right;color:var(--text3);font-size:10px">—</td>`;
+    return`<tr style="border-bottom:1px solid var(--border);line-height:1.2">
+      <td style="padding:2px 4px;font-family:var(--mono);font-size:10px;color:var(--text2);white-space:nowrap">${fixDisp}</td>
+      <td style="padding:2px 4px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--accent);font-weight:600;white-space:nowrap">${bond.ticker}${tfLabel}</td>
+      <td style="padding:2px 4px;text-align:right;font-family:var(--mono);font-size:11px;color:var(--warn);font-weight:600;white-space:nowrap">${fmtP2(res.tamar_be_tna)}%</td>
       ${realCell}
     </tr>`;
   }).join('');
@@ -7146,7 +7147,7 @@ function beCPRecalc(){
   const tbody=document.getElementById('be-cp-tbody');
   if(!tbody)return;
   if(!CP_BONDS.length){
-    tbody.innerHTML=`<tr><td colspan="9" style="padding:1.5rem;text-align:center;color:var(--text3);font-size:12px">Agregá bonos con +</td></tr>`;
+    tbody.innerHTML=`<tr><td colspan="8" style="padding:1.5rem;text-align:center;color:var(--text3);font-size:12px">Agregá bonos con +</td></tr>`;
     return;
   }
 
@@ -7175,8 +7176,8 @@ function beCPRecalc(){
   const f=(v,d=2)=>v!=null&&!isNaN(v)?v.toFixed(d)+'%':'—';
 
   tbody.innerHTML=enriched.map(({item,r})=>{
-    if(!r)return`<tr><td colspan="9" style="padding:5px 8px;color:var(--danger);font-size:12px;border-bottom:1px solid var(--border)">${item.ticker}: sin datos</td></tr>`;
-    if(r.error)return`<tr><td colspan="9" style="padding:5px 8px;color:var(--warn);font-size:12px;border-bottom:1px solid var(--border)">${item.ticker}: ${r.error}</td></tr>`;
+    if(!r)return`<tr><td colspan="8" style="padding:5px 8px;color:var(--danger);font-size:12px;border-bottom:1px solid var(--border)">${item.ticker}: sin datos</td></tr>`;
+    if(r.error)return`<tr><td colspan="8" style="padding:5px 8px;color:var(--warn);font-size:12px;border-bottom:1px solid var(--border)">${item.ticker}: ${r.error}</td></tr>`;
     const htna=beCPHeat(r.tna,mnTNA,mxTNA);
     const htir=beCPHeat(r.tir,mnTIR,mxTIR);
     const htem=beCPHeat(r.tem,mnTEM,mxTEM);
@@ -7184,7 +7185,6 @@ function beCPRecalc(){
     return`<tr style="background:${r.bg}">
       <td style="${td}text-align:left;color:${r.ac};font-weight:600">${r.ticker}</td>
       <td style="${td}text-align:center;color:var(--text2)">${r.vctoStr}</td>
-      <td style="${td}text-align:center;color:var(--text3)">${r.fixing}</td>
       <td style="${td}cursor:pointer;color:var(--text)" title="Click para editar precio"
           onclick="beCPEditPx(this,'${item.ticker}','${item.tipo}')">${pxDisplay}</td>
       <td style="${td}color:${r.tipo==='cer'?'var(--accent2)':r.tipo==='tamar'?'var(--warn)':'var(--text3)'}">${f(r.tirReal,4)}</td>
@@ -7419,6 +7419,8 @@ function beChartSelLoadLs(){
     if(r){const p=JSON.parse(r);
       beChartTFExcluded=new Set(p.tf||[]);
       beChartCERExcluded=new Set(p.cer||[]);
+      beChartTAMARExcluded=new Set(p.tamar||[]);
+      beChartDLKExcluded=new Set(p.dlk||[]);
       if(p.tfTipos&&p.tfTipos.length) beChartTFSelectedTipos=new Set(p.tfTipos);
       if(p.cerTipos&&p.cerTipos.length) beChartCERSelectedTipos=new Set(p.cerTipos);
       if(p.cerMode) beChartCERMode=p.cerMode;
@@ -7428,44 +7430,52 @@ function beChartSelLoadLs(){
 function beChartSelSaveLs(){
   try{localStorage.setItem(LS_CHART_SEL,JSON.stringify({
     tf:[...beChartTFExcluded],cer:[...beChartCERExcluded],
+    tamar:[...beChartTAMARExcluded],dlk:[...beChartDLKExcluded],
     tfTipos:[...beChartTFSelectedTipos],cerTipos:[...beChartCERSelectedTipos],
     cerMode:beChartCERMode
   }));}catch(e){}
 }
 
-function beToggleChartSelector(tipo){
-  const el=document.getElementById('be-chart-'+tipo+'-selector');
+function beToggleChartSelector(chartId){
+  const el=document.getElementById('be-chart-'+chartId+'-selector');
   if(!el)return;
   const opening=el.style.display==='none';
   el.style.display=opening?'block':'none';
-  if(opening) beRenderChartChips(tipo);
+  if(opening) beRenderChartChips(chartId);
 }
 
-function beRenderChartChips(tipo){
-  const chipsEl=document.getElementById('be-chart-'+tipo+'-chips');
+function beRenderChartChips(chartId){
+  const chipsEl=document.getElementById('be-chart-'+chartId+'-chips');
   if(!chipsEl)return;
-  const pool=tipo==='tf'
-    ?LECAPS.filter(r=>r.vcto&&r.precio).sort((a,b)=>a.vcto.localeCompare(b.vcto))
-    :CER_BONDS.filter(r=>r.vcto&&r.precio).sort((a,b)=>a.vcto.localeCompare(b.vcto));
-  const excluded=tipo==='tf'?beChartTFExcluded:beChartCERExcluded;
-  chipsEl.innerHTML=pool.map(b=>{
-    const active=!excluded.has(b.ticker);
-    return`<button onclick="beToggleChartBond('${tipo}','${b.ticker}')"
-      style="padding:3px 8px;font-size:10px;font-family:var(--mono);border-radius:3px;cursor:pointer;
-      border:1px solid ${active?'var(--accent)':'var(--border2)'};
-      background:${active?'var(--accent-dim)':'var(--surface2)'};
-      color:${active?'var(--accent)':'var(--text3)'};transition:all .12s"
-    >${b.ticker}</button>`;
-  }).join('');
+  const sel=chartId==='tf'?beChartTFSelectedTipos:beChartCERSelectedTipos;
+  let html='';
+  for(const tipo of ['tf','cer','tamar','dlk']){
+    if(!sel.has(tipo))continue;
+    const pool=beGetBondsForTipo(tipo).filter(r=>r.vcto&&r.precio).sort((a,b)=>a.vcto.localeCompare(b.vcto));
+    if(!pool.length)continue;
+    const excluded=beGetExcludedForTipo(tipo);
+    const c=CHART_TIPO_COLORS[tipo];
+    html+=`<div style="margin-bottom:5px">
+      <span style="font-size:9px;color:${c.point};font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:3px">${tipo.toUpperCase()}</span>
+      <div style="display:flex;flex-wrap:wrap;gap:4px">${pool.map(b=>{
+        const active=!excluded.has(b.ticker);
+        return`<button onclick="beToggleChartBond('${chartId}','${tipo}','${b.ticker}')"
+          style="padding:2px 6px;font-size:10px;font-family:var(--mono);border-radius:3px;cursor:pointer;
+          border:1px solid ${active?c.point:'var(--border2)'};
+          background:${active?c.point+'22':'var(--surface2)'};
+          color:${active?c.point:'var(--text3)'};transition:all .12s">${b.ticker}</button>`;
+      }).join('')}</div></div>`;
+  }
+  chipsEl.innerHTML=html||`<span style="color:var(--text3);font-size:11px">Sin tipos activos</span>`;
 }
 
-function beToggleChartBond(tipo, ticker){
-  const excluded=tipo==='tf'?beChartTFExcluded:beChartCERExcluded;
+function beToggleChartBond(chartId, tipo, ticker){
+  const excluded=beGetExcludedForTipo(tipo);
   if(excluded.has(ticker))excluded.delete(ticker);
   else excluded.add(ticker);
   beChartSelSaveLs();
-  beRenderChartChips(tipo);
-  if(tipo==='tf') beRenderChartTF();
+  beRenderChartChips(chartId);
+  if(chartId==='tf') beRenderChartTF();
   else beRenderChartCER();
 }
 
@@ -7535,11 +7545,12 @@ function beRenderChartTF(){
           label:ctx=>`${ctx.raw.y.toFixed(4)}%  ·  ${Math.round(ctx.raw.x)} días`
         }},
         datalabels:{
-          display:ctx=>!!ctx.dataset.data[ctx.dataIndex]?.ticker,
+          display:'auto',
           formatter:(v,ctx)=>ctx.dataset.data[ctx.dataIndex]?.ticker||'',
-          color:ctx=>ctx.dataset.label==='sint'?'#f59e0b':(ctx.dataset.backgroundColor||'#a8d5a2'),
-          font:{size:11,family:'DM Mono,monospace',weight:'500'},
-          anchor:'end',align:'top',offset:3,clamp:true,clip:false,overlap:false
+          color:ctx=>ctx.dataset.label==='sint'?'#f59e0b':(ctx.dataset.backgroundColor||'#fbbf24'),
+          font:{size:9,family:'DM Mono,monospace',weight:'500'},
+          anchor:'end',align:'top',offset:2,clamp:true,clip:false,
+          padding:{left:1,right:1,top:0,bottom:0}
         }
       },
       scales:{
@@ -7610,11 +7621,12 @@ function beRenderChartCER(){
           label:ctx=>`${ctx.raw.y.toFixed(4)}%  ·  ${Math.round(ctx.raw.x)} días`
         }},
         datalabels:{
-          display:ctx=>!!ctx.dataset.data[ctx.dataIndex]?.ticker,
+          display:'auto',
           formatter:(v,ctx)=>ctx.dataset.data[ctx.dataIndex]?.ticker||'',
-          color:ctx=>ctx.dataset.backgroundColor||'#6eb8d5',
-          font:{size:11,family:'DM Mono,monospace',weight:'500'},
-          anchor:'end',align:'top',offset:3,clamp:true,clip:false,overlap:false
+          color:ctx=>ctx.dataset.backgroundColor||'#4ade80',
+          font:{size:9,family:'DM Mono,monospace',weight:'500'},
+          anchor:'end',align:'top',offset:2,clamp:true,clip:false,
+          padding:{left:1,right:1,top:0,bottom:0}
         }
       },
       scales:{
@@ -7669,8 +7681,8 @@ function beDrawScatter(canvas,pts,ptColor,ptBorder,yLabel){
 
 // ── CHART MULTI-TIPO HELPERS ──────────────────────────────────────────────────
 const CHART_TIPO_COLORS={
-  tf:   {point:'#a8d5a2',border:'#6eb868',trend:'rgba(168,213,162,0.4)',label:'#a8d5a2'},
-  cer:  {point:'#6eb8d5',border:'#3a8aad',trend:'rgba(110,184,213,0.4)',label:'#6eb8d5'},
+  tf:   {point:'#fbbf24',border:'#d97706',trend:'rgba(251,191,36,0.4)', label:'#fbbf24'},
+  cer:  {point:'#4ade80',border:'#22c55e',trend:'rgba(74,222,128,0.4)', label:'#4ade80'},
   tamar:{point:'#38bdf8',border:'#0ea5e9',trend:'rgba(56,189,248,0.4)', label:'#38bdf8'},
   dlk:  {point:'#a855f7',border:'#7c3aed',trend:'rgba(168,85,247,0.4)', label:'#a855f7'},
 };
@@ -7684,8 +7696,10 @@ function beGetBondsForTipo(tipo){
 }
 
 function beGetExcludedForTipo(tipo){
-  if(tipo==='tf')  return beChartTFExcluded;
-  if(tipo==='cer') return beChartCERExcluded;
+  if(tipo==='tf')    return beChartTFExcluded;
+  if(tipo==='cer')   return beChartCERExcluded;
+  if(tipo==='tamar') return beChartTAMARExcluded;
+  if(tipo==='dlk')   return beChartDLKExcluded;
   return new Set();
 }
 
@@ -7725,8 +7739,8 @@ function beRenderTipoChips(chartId){
   if(!el)return;
   const sel=chartId==='tf'?beChartTFSelectedTipos:beChartCERSelectedTipos;
   const tiposConf=[
-    {id:'tf',   label:'TF',    color:'#a8d5a2'},
-    {id:'cer',  label:'CER',   color:'#6eb8d5'},
+    {id:'tf',   label:'TF',    color:'#fbbf24'},
+    {id:'cer',  label:'CER',   color:'#4ade80'},
     {id:'tamar',label:'TAMAR', color:'#38bdf8'},
     {id:'dlk',  label:'DLK',   color:'#a855f7'},
   ];
