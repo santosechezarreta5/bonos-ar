@@ -2017,12 +2017,12 @@ let cerTabChart=null;
 let tamarTabChart=null;
 let dlkTabChart=null;
 let beChartTFMode='tna';
-let beChartTFExcluded=new Set();
+let beChartExcluded={
+  tf:  {tf:new Set(),cer:new Set(),tamar:new Set(),dlk:new Set()},
+  cer: {tf:new Set(),cer:new Set(),tamar:new Set(),dlk:new Set()}
+};
 let beChartSintVisible=true;
 let beChartSintExcluded=new Set();
-let beChartCERExcluded=new Set();
-let beChartTAMARExcluded=new Set();
-let beChartDLKExcluded=new Set();
 let beChartTFSelectedTipos=new Set(['tf']);
 let beChartCERSelectedTipos=new Set(['cer']);
 let beChartCERMode='tirReal';
@@ -7395,10 +7395,19 @@ function beChartSelLoadLs(){
   try{
     const r=localStorage.getItem(LS_CHART_SEL);
     if(r){const p=JSON.parse(r);
-      beChartTFExcluded=new Set(p.tf||[]);
-      beChartCERExcluded=new Set(p.cer||[]);
-      beChartTAMARExcluded=new Set(p.tamar||[]);
-      beChartDLKExcluded=new Set(p.dlk||[]);
+      if(p.exByChart){
+        ['tf','cer'].forEach(c=>{
+          ['tf','cer','tamar','dlk'].forEach(t=>{
+            if(p.exByChart[c]&&p.exByChart[c][t]) beChartExcluded[c][t]=new Set(p.exByChart[c][t]);
+          });
+        });
+      }else{
+        // backward compat: migrar formato viejo (sets compartidos) al chart tf
+        if(p.tf)    beChartExcluded.tf.tf=new Set(p.tf);
+        if(p.cer)   beChartExcluded.tf.cer=new Set(p.cer);
+        if(p.tamar) beChartExcluded.tf.tamar=new Set(p.tamar);
+        if(p.dlk)   beChartExcluded.tf.dlk=new Set(p.dlk);
+      }
       if(p.tfTipos&&p.tfTipos.length) beChartTFSelectedTipos=new Set(p.tfTipos);
       if(p.cerTipos&&p.cerTipos.length) beChartCERSelectedTipos=new Set(p.cerTipos);
       if(p.cerMode) beChartCERMode=p.cerMode;
@@ -7406,9 +7415,12 @@ function beChartSelLoadLs(){
   }catch(e){}
 }
 function beChartSelSaveLs(){
+  const ser=c=>({
+    tf:[...beChartExcluded[c].tf],cer:[...beChartExcluded[c].cer],
+    tamar:[...beChartExcluded[c].tamar],dlk:[...beChartExcluded[c].dlk]
+  });
   try{localStorage.setItem(LS_CHART_SEL,JSON.stringify({
-    tf:[...beChartTFExcluded],cer:[...beChartCERExcluded],
-    tamar:[...beChartTAMARExcluded],dlk:[...beChartDLKExcluded],
+    exByChart:{tf:ser('tf'),cer:ser('cer')},
     tfTipos:[...beChartTFSelectedTipos],cerTipos:[...beChartCERSelectedTipos],
     cerMode:beChartCERMode
   }));}catch(e){}
@@ -7431,7 +7443,7 @@ function beRenderChartChips(chartId){
     if(!sel.has(tipo))continue;
     const pool=beGetBondsForTipo(tipo).filter(r=>r.vcto&&r.precio).sort((a,b)=>a.vcto.localeCompare(b.vcto));
     if(!pool.length)continue;
-    const excluded=beGetExcludedForTipo(tipo);
+    const excluded=beGetExcludedForTipo(tipo,chartId);
     const c=CHART_TIPO_COLORS[tipo];
     html+=`<div style="margin-bottom:5px">
       <span style="font-size:9px;color:${c.point};font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:3px">${tipo.toUpperCase()}</span>
@@ -7448,7 +7460,7 @@ function beRenderChartChips(chartId){
 }
 
 function beToggleChartBond(chartId, tipo, ticker){
-  const excluded=beGetExcludedForTipo(tipo);
+  const excluded=beGetExcludedForTipo(tipo,chartId);
   if(excluded.has(ticker))excluded.delete(ticker);
   else excluded.add(ticker);
   beChartSelSaveLs();
@@ -7472,7 +7484,7 @@ function beRenderChartTF(){
   let tipoOrder=0;
   for(const tipo of beChartTFSelectedTipos){
     const bonds=beGetBondsForTipo(tipo);
-    const excluded=beGetExcludedForTipo(tipo);
+    const excluded=beGetExcludedForTipo(tipo,'tf');
     const pts=bonds.filter(b=>!excluded.has(b.ticker)).map(b=>{
       const vctoDate=b.vcto?parseDate(b.vcto):null;
       if(!vctoDate)return null;
@@ -7561,7 +7573,7 @@ function beRenderChartCER(){
   let tipoOrder=0;
   for(const tipo of beChartCERSelectedTipos){
     const bonds=beGetBondsForTipo(tipo);
-    const excluded=beGetExcludedForTipo(tipo);
+    const excluded=beGetExcludedForTipo(tipo,'cer');
     const pts=bonds.filter(b=>!excluded.has(b.ticker)).map(b=>{
       const vctoDate=b.vcto?parseDate(b.vcto):null;
       if(!vctoDate)return null;
@@ -7673,12 +7685,8 @@ function beGetBondsForTipo(tipo){
   return[];
 }
 
-function beGetExcludedForTipo(tipo){
-  if(tipo==='tf')    return beChartTFExcluded;
-  if(tipo==='cer')   return beChartCERExcluded;
-  if(tipo==='tamar') return beChartTAMARExcluded;
-  if(tipo==='dlk')   return beChartDLKExcluded;
-  return new Set();
+function beGetExcludedForTipo(tipo, chartId='tf'){
+  return (beChartExcluded[chartId]||{})[tipo]||new Set();
 }
 
 function beEnrichForTipo(b,tipo){
