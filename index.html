@@ -3102,15 +3102,21 @@ let currentSection='pesos';
 let currentUsdTab='usd-resumen';
 const USD_TABS=['usd-resumen','usd-forwards','usd-spreadleg','usd-bonares','usd-globales','usd-bopreales'];
 
+const PESOS_PAGES=['lecap-workspace','chart-area','page-cer','page-feriados',
+  'page-proyecciones','page-breakeven','page-tamar','page-forwards',
+  'page-dlk','page-sintetico','page-calendario'];
+
 function switchSection(s){
   currentSection=s;
+  // ocultar todas las páginas de ambas secciones antes de mostrar la correcta
+  PESOS_PAGES.forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+  USD_TABS.forEach(t=>{const p=document.getElementById('page-'+t);if(p)p.style.display='none';});
   document.getElementById('nav-pesos').style.display=s==='pesos'?'flex':'none';
   document.getElementById('nav-usd').style.display=s==='usd'?'flex':'none';
   const arEl=document.getElementById('logo-ar');
   const usdEl=document.getElementById('logo-usd');
   if(arEl)  arEl.classList.toggle('active', s==='pesos');
   if(usdEl) usdEl.classList.toggle('active', s==='usd');
-  USD_TABS.forEach(t=>{const p=document.getElementById('page-'+t);if(p)p.style.display='none';});
   if(s==='pesos') switchTab(currentTab);
   else            switchUsdTab(currentUsdTab);
 }
