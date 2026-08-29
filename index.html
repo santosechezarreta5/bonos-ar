@@ -3102,15 +3102,17 @@ let currentSection='pesos';
 let currentUsdTab='usd-resumen';
 const USD_TABS=['usd-resumen','usd-forwards','usd-spreadleg','usd-bonares','usd-globales','usd-bopreales'];
 
-const PESOS_PAGES=['lecap-workspace','chart-area','page-cer','page-feriados',
-  'page-proyecciones','page-breakeven','page-tamar','page-forwards',
-  'page-dlk','page-sintetico','page-calendario'];
+function hideAllPages(){
+  const ids=['lecap-workspace','chart-area','page-cer','page-feriados',
+    'page-proyecciones','page-breakeven','page-tamar','page-forwards',
+    'page-dlk','page-sintetico','page-calendario'];
+  ids.forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+  USD_TABS.forEach(t=>{const p=document.getElementById('page-'+t);if(p)p.style.display='none';});
+}
 
 function switchSection(s){
   currentSection=s;
-  // ocultar todas las páginas de ambas secciones antes de mostrar la correcta
-  PESOS_PAGES.forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
-  USD_TABS.forEach(t=>{const p=document.getElementById('page-'+t);if(p)p.style.display='none';});
+  hideAllPages();
   document.getElementById('nav-pesos').style.display=s==='pesos'?'flex':'none';
   document.getElementById('nav-usd').style.display=s==='usd'?'flex':'none';
   const arEl=document.getElementById('logo-ar');
@@ -3136,23 +3138,11 @@ function switchTab(tab){
   document.querySelectorAll('.nav-tab:not(.disabled)').forEach(b=>{
     b.classList.toggle('active', b.id==='nav-'+tab);
   });
+  hideAllPages();
   const lecapWorkspace=document.getElementById('lecap-workspace');
   const chartArea=document.getElementById('chart-area');
   const cerPage=document.getElementById('page-cer');
   const ferPage=document.getElementById('page-feriados');
-
-  lecapWorkspace.style.display='none';
-  chartArea.style.display='none';
-  cerPage.style.display='none';
-  ferPage.style.display='none';
-  document.getElementById('page-proyecciones').style.display='none';
-  document.getElementById('page-breakeven').style.display='none';
-  document.getElementById('page-tamar').style.display='none';
-  document.getElementById('page-forwards').style.display='none';
-  document.getElementById('page-dlk').style.display='none';
-  document.getElementById('page-sintetico').style.display='none';
-  document.getElementById('page-calendario').style.display='none';
-  USD_TABS.forEach(t=>{const p=document.getElementById('page-'+t);if(p)p.style.display='none';});
 
   if(tab==='lecap'){
     lecapWorkspace.style.display='flex';
