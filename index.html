@@ -91,8 +91,12 @@ body.theme-light canvas{filter:saturate(1.6) brightness(0.6) contrast(1.2);}
 body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13px;min-height:100vh;overflow-x:hidden;}
 
 .header{border-bottom:1px solid var(--border);padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:50px;position:sticky;top:0;background:var(--bg);z-index:300;}
-.logo{font-family:var(--serif);font-size:18px;font-weight:300;letter-spacing:-0.5px;}
-.logo span{color:var(--accent);font-style:italic;}
+.logo{font-family:var(--serif);font-size:18px;font-weight:300;letter-spacing:-0.5px;display:flex;align-items:baseline;gap:0;}
+.logo-prefix{color:var(--text2);}
+.logo-seg{color:var(--text3);cursor:pointer;font-style:italic;transition:color .15s;padding:0 2px;}
+.logo-seg.active{color:var(--accent);}
+.logo-seg:hover:not(.active){color:var(--text2);}
+.logo-sep{color:var(--border2);font-style:normal;font-size:13px;margin:0 1px;}
 .hdate{font-size:11px;color:var(--text3);}
 
 .nav{display:flex;border-bottom:1px solid var(--border);padding:0 1.5rem;background:var(--bg);overflow-x:auto;}
@@ -302,7 +306,12 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 <body>
 
 <header class="header">
-  <div class="logo">bonos<span>AR</span></div>
+  <div class="logo">
+    <span class="logo-prefix">bonos</span>
+    <span class="logo-seg active" id="logo-ar"  onclick="switchSection('pesos')">AR</span>
+    <span class="logo-sep">·</span>
+    <span class="logo-seg"        id="logo-usd" onclick="switchSection('usd')">USD</span>
+  </div>
   <div style="display:flex;align-items:center;gap:10px;">
     <div class="mode-row" id="theme-switcher">
       <button class="mode-btn active" id="theme-btn-dark"  onclick="setTheme('dark')" title="Oscuro">◐</button>
@@ -316,7 +325,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
   </div>
 </header>
 
-<nav class="nav">
+<nav class="nav" id="nav-pesos">
   <button class="nav-tab active" id="nav-breakeven" onclick="switchTab('breakeven')">Resumen</button>
   <button class="nav-tab" id="nav-forwards" onclick="switchTab('forwards')">Forwards</button>
   <button class="nav-tab" id="nav-lecap" onclick="switchTab('lecap')">Tasa Fija</button>
@@ -327,6 +336,14 @@ tbody tr.selected .c-ticker{color:var(--accent);}
   <button class="nav-tab" id="nav-calendario" onclick="switchTab('calendario')">Calendario</button>
   <button class="nav-tab" id="nav-proyecciones" onclick="switchTab('proyecciones')">Proyecciones</button>
   <button class="nav-tab" id="nav-feriados" onclick="switchTab('feriados')" style="margin-left:auto">Feriados</button>
+</nav>
+<nav class="nav" id="nav-usd" style="display:none">
+  <button class="nav-tab active" id="nav-usd-resumen"   onclick="switchUsdTab('usd-resumen')">Resumen</button>
+  <button class="nav-tab"        id="nav-usd-forwards"  onclick="switchUsdTab('usd-forwards')">Forwards</button>
+  <button class="nav-tab"        id="nav-usd-spreadleg" onclick="switchUsdTab('usd-spreadleg')">Spread Leg.</button>
+  <button class="nav-tab"        id="nav-usd-bonares"   onclick="switchUsdTab('usd-bonares')">Bonares</button>
+  <button class="nav-tab"        id="nav-usd-globales"  onclick="switchUsdTab('usd-globales')">Globales</button>
+  <button class="nav-tab"        id="nav-usd-bopreales" onclick="switchUsdTab('usd-bopreales')">Bopreales</button>
 </nav>
 
 <!-- USD BAR -->
@@ -1631,6 +1648,14 @@ tbody tr.selected .c-ticker{color:var(--accent);}
     </div>
   </div>
 </div>
+
+<!-- USD PAGES -->
+<div id="page-usd-resumen"   style="display:none;height:calc(100vh - 164px);overflow:auto;"></div>
+<div id="page-usd-forwards"  style="display:none;height:calc(100vh - 164px);overflow:auto;"></div>
+<div id="page-usd-spreadleg" style="display:none;height:calc(100vh - 164px);overflow:auto;"></div>
+<div id="page-usd-bonares"   style="display:none;height:calc(100vh - 164px);overflow:auto;"></div>
+<div id="page-usd-globales"  style="display:none;height:calc(100vh - 164px);overflow:auto;"></div>
+<div id="page-usd-bopreales" style="display:none;height:calc(100vh - 164px);overflow:auto;"></div>
 
 <!-- CALENDARIO MODAL -->
 <div class="modal-backdrop" id="cal-modal">
@@ -3073,6 +3098,33 @@ function renderChart(){
 
 // ══════════════════════════════════════════════════════════════ TAB SWITCHER
 let currentTab='lecap';
+let currentSection='pesos';
+let currentUsdTab='usd-resumen';
+const USD_TABS=['usd-resumen','usd-forwards','usd-spreadleg','usd-bonares','usd-globales','usd-bopreales'];
+
+function switchSection(s){
+  currentSection=s;
+  document.getElementById('nav-pesos').style.display=s==='pesos'?'flex':'none';
+  document.getElementById('nav-usd').style.display=s==='usd'?'flex':'none';
+  const arEl=document.getElementById('logo-ar');
+  const usdEl=document.getElementById('logo-usd');
+  if(arEl)  arEl.classList.toggle('active', s==='pesos');
+  if(usdEl) usdEl.classList.toggle('active', s==='usd');
+  USD_TABS.forEach(t=>{const p=document.getElementById('page-'+t);if(p)p.style.display='none';});
+  if(s==='pesos') switchTab(currentTab);
+  else            switchUsdTab(currentUsdTab);
+}
+
+function switchUsdTab(tab){
+  currentUsdTab=tab;
+  USD_TABS.forEach(t=>{
+    const b=document.getElementById('nav-'+t);
+    if(b) b.classList.toggle('active', t===tab);
+    const p=document.getElementById('page-'+t);
+    if(p) p.style.display=t===tab?'block':'none';
+  });
+}
+
 function switchTab(tab){
   currentTab=tab;
   document.querySelectorAll('.nav-tab:not(.disabled)').forEach(b=>{
@@ -3094,6 +3146,7 @@ function switchTab(tab){
   document.getElementById('page-dlk').style.display='none';
   document.getElementById('page-sintetico').style.display='none';
   document.getElementById('page-calendario').style.display='none';
+  USD_TABS.forEach(t=>{const p=document.getElementById('page-'+t);if(p)p.style.display='none';});
 
   if(tab==='lecap'){
     lecapWorkspace.style.display='flex';
