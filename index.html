@@ -9667,7 +9667,7 @@ function bopAccrued(bond,liqD,flows){
 
 // ── EQUIVALENCIAS ────────────────────────────────────────────────────────────
 const EQUIV_LS_KEY='bonosAR_equiv_v1';
-let EQUIV_DATA=[];
+var EQUIV_DATA=[];
 
 function equivLoad(){
   try{const r=localStorage.getItem(EQUIV_LS_KEY);if(r)EQUIV_DATA=JSON.parse(r);}catch(e){EQUIV_DATA=[];}
