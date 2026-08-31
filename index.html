@@ -7164,6 +7164,7 @@ function calDeleteEvento(){
   calRender();
 }
 
+EQUIV_LS_KEY='bonosAR_equiv_v1';
 switchTab('breakeven');
 authInit();
 equivInit();
@@ -9842,6 +9843,7 @@ function usdStartAutoRefresh(){
 
 function equivInit(){
   equivLoad();
+  equivRender();
   usdSetCurrency('MEP');
   usdStartAutoRefresh();
 }
