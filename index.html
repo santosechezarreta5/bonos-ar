@@ -9822,6 +9822,26 @@ async function usdRefreshPrices(){
     if(updated)bopSave();
     if(document.getElementById('page-usd-bopreales').style.display!=='none')bopRenderSummaryRows();
 
+    // update Globales bonds
+    let gloUpdated=0;
+    for(const bond of GLO_BONDS){
+      const row=EQUIV_DATA.find(e=>e.ticker===bond.ticker);
+      if(!row)continue;
+      let gloPrecio=null;
+      if(usdCurrency==='ARS'){
+        const raw=map[row.ars];
+        if(raw!=null&&mepRate)gloPrecio=raw/mepRate;
+      }else if(usdCurrency==='MEP'){
+        const raw=map[row.mep];
+        if(raw!=null)gloPrecio=raw;
+      }else{
+        const raw=map[row.cable];
+        if(raw!=null)gloPrecio=raw;
+      }
+      if(gloPrecio!=null){bond.lastPrecio=+gloPrecio.toFixed(4);gloUpdated++;}
+    }
+    if(gloUpdated){gloSave();if(document.getElementById('page-usd-globales').style.display!=='none')gloRenderSummaryRows();}
+
     const now=new Date();
     const hhmm=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
     if(statusEl)statusEl.textContent=`${hhmm} · ${updated} bonos · MEP ${mepRate?mepRate.toFixed(0):'—'}`;
