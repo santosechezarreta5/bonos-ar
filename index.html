@@ -9603,8 +9603,22 @@ function bopDuracion(bond,liq,tirPct,flows){
   }
   if(!pv)return{mac:0,mod:0};
   const mac=num/pv;
-  // ModDur = Mac/(1+y) con TIR efectiva anual
-  return{mac:+mac.toFixed(2),mod:+(mac/(1+y)).toFixed(2)};
+  const m={mensual:12,trimestral:4,semestral:2,anual:1}[bond.periodicidad]||2;
+  return{mac:+mac.toFixed(2),mod:+(mac/(1+y/m)).toFixed(2)};
+}
+
+// Intereses corridos como % del VN residual
+function bopAccrued(bond,liqD,flows){
+  let prevNominal=parseDate(bond.emision);
+  let hasNext=false;
+  for(const f of flows){
+    const nomD=parseDate(f.fechaNominal||f.fecha);
+    if(nomD<=liqD){prevNominal=nomD;}
+    else{hasNext=true;break;}
+  }
+  if(!hasNext)return 0;
+  const rate=bopGetRate(bond,prevNominal);
+  return rate*bopYearFrac(prevNominal,liqD,bond.convencion);
 }
 
 // ── UI ──────────────────────────────────────────────────────────────────────
@@ -9636,8 +9650,8 @@ function bopRenderSummaryRows(){
         tirStr=tir.toFixed(2)+'%';
         const dur=bopDuracion(b,b.lastLiq,tir,flows);
         mdStr=dur.mod.toFixed(2);
-        const out=bopGetOutstanding(flows,liqD);
-        parStr=(b.lastPrecio*out/100).toFixed(2);
+        const accrued=bopAccrued(b,liqD,flows);
+        parStr=(b.lastPrecio/(100+accrued)*100).toFixed(2);
       }
     }
     const isSel=bopSelTicker===b.ticker;
@@ -9794,11 +9808,11 @@ function bopDCalc(){
     durEl.textContent=`MD ${dur.mod} · Mac ${dur.mac}`;
     bopDRenderFlows(liq,tir);
     const liqD=parseDate(liq);
-    const out=bopGetOutstanding(bopCurrentFlows,liqD);
-    // precio ya está en %VN residual; paridad = precio × outstanding/100 = %VN original
-    const par=(precio*out/100).toFixed(2);
+    const accrued=bopAccrued(bond,liqD,bopCurrentFlows);
+    const valorTec=(100+accrued).toFixed(4);
+    const par=(precio/(100+accrued)*100).toFixed(2);
     const infoEl=document.getElementById('bop-d-flows-info');
-    if(infoEl)infoEl.textContent=`Precio: ${precio.toFixed(4)} %VN residual · Paridad: ${par} %VN original · Pagos pasados en gris`;
+    if(infoEl)infoEl.textContent=`Precio: ${precio.toFixed(4)} · Val. Técnico: ${valorTec} · Paridad: ${par} · Pagos pasados en gris`;
     // persist for summary and refresh rows
     bond.lastPrecio=precio;bond.lastLiq=liq;
     bopSave();
