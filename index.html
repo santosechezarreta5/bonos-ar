@@ -1667,7 +1667,49 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 <div id="page-usd-resumen"   style="display:none;height:calc(100vh - 200px);overflow:auto;"></div>
 <div id="page-usd-forwards"  style="display:none;height:calc(100vh - 200px);overflow:auto;"></div>
 <div id="page-usd-spreadleg" style="display:none;height:calc(100vh - 200px);overflow:auto;"></div>
-<div id="page-usd-bonares"   style="display:none;height:calc(100vh - 200px);overflow:auto;"></div>
+<div id="page-usd-bonares" style="display:none;height:calc(100vh - 200px);overflow:hidden;">
+  <div style="display:flex;flex-direction:column;height:100%">
+    <div style="display:flex;align-items:center;gap:8px;padding:0 1rem;height:40px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface)">
+      <span style="font-family:var(--serif);font-size:13px;font-weight:300;font-style:italic;color:var(--accent);flex-shrink:0">Bonares</span>
+      <div style="flex:1"></div>
+      <button class="btn primary" style="margin:0;padding:2px 9px;font-size:10px;flex-shrink:0" onclick="bopModalCtx='bon';bopOpenModal(null)">+ Nuevo</button>
+    </div>
+    <div style="flex:1;display:flex;overflow:hidden;min-height:0">
+      <div id="bon-view-summary" style="flex:1;overflow:auto;min-width:0;transition:flex .15s">
+        <div id="bon-empty" style="display:flex;height:100%;align-items:center;justify-content:center;color:var(--text3);font-size:13px;">Agregá un bono con + Nuevo</div>
+        <table id="bon-summary-table" style="display:none;width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px;">
+          <thead>
+            <tr style="border-bottom:2px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:1">
+              <th style="padding:7px 14px;text-align:left;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">TICKER</th>
+              <th style="padding:7px 12px;text-align:right;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">PRECIO</th>
+              <th style="padding:7px 12px;text-align:right;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">VAR.</th>
+              <th style="padding:7px 12px;text-align:right;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">MD</th>
+              <th style="padding:7px 12px;text-align:right;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">VTO</th>
+              <th style="padding:7px 12px;text-align:right;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">PARIDAD</th>
+              <th style="padding:7px 12px;text-align:right;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">TIR</th>
+            </tr>
+          </thead>
+          <tbody id="bon-summary-tbody"></tbody>
+        </table>
+      </div>
+      <div id="bon-view-detail" style="display:none;flex-direction:column;width:62%;min-width:360px;border-left:1px solid var(--border);overflow:hidden">
+        <div style="display:flex;align-items:center;gap:8px;padding:0 .9rem;height:36px;border-bottom:1px solid var(--border);background:var(--surface2);flex-shrink:0">
+          <span id="bon-detail-name" style="font-family:var(--mono);font-size:12px;color:var(--accent);font-weight:600"></span>
+          <div style="flex:1"></div>
+          <button style="background:none;border:1px solid var(--border2);border-radius:3px;cursor:pointer;color:var(--text3);font-size:10px;font-family:var(--mono);padding:1px 7px" onclick="bopModalCtx='bon';bopOpenModal(bonSelTicker)">✎ Editar</button>
+          <button style="background:none;border:1px solid var(--danger,#e55);border-radius:3px;cursor:pointer;color:var(--danger,#e55);font-size:10px;font-family:var(--mono);padding:1px 7px" onclick="bonDeleteDirect()">🗑 Eliminar</button>
+          <button style="background:none;border:1px solid var(--border2);border-radius:3px;cursor:pointer;color:var(--text3);font-size:11px;font-family:var(--mono);padding:1px 7px;line-height:1.5" onclick="bonBack()" title="Cerrar">✕</button>
+        </div>
+        <div id="bon-detail-content" style="flex:1;overflow:auto;"></div>
+      </div>
+    </div>
+    <div class="chart-area" id="bon-chart-area" style="height:200px;">
+      <div class="chart-resize-handle" id="bon-chart-handle"></div>
+      <div class="chart-toolbar"><span class="chart-title">Curva TIR vs MD</span></div>
+      <div class="chart-wrap"><canvas id="bon-yield-chart"></canvas></div>
+    </div>
+  </div>
+</div>
 <div id="page-usd-globales" style="display:none;height:calc(100vh - 200px);overflow:hidden;">
   <div style="display:flex;flex-direction:column;height:100%">
     <div style="display:flex;align-items:center;gap:8px;padding:0 1rem;height:40px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface)">
@@ -3360,6 +3402,7 @@ function switchUsdTab(tab){
   });
   if(tab==='usd-bopreales') bopInit();
   if(tab==='usd-globales') gloInit();
+  if(tab==='usd-bonares') bonInit();
   if(tab==='usd-equiv') equivRender();
 }
 
@@ -9524,7 +9567,7 @@ const BOP_LS_KEY='bonosAR_bop_v1';
 let BOP_BONDS=[];
 let bopSelTicker=null;
 let bopDetailEditMode=false;
-var bopModalCtx='bop'; // 'bop' | 'glo'
+var bopModalCtx='bop'; // 'bop' | 'glo' | 'bon'
 let bopCurrentFlows=[];
 let bopStepRows=[];
 let bopAmortRows=[];
@@ -9871,6 +9914,26 @@ async function usdRefreshPrices(){
     }
     if(gloUpdated){gloSave();if(document.getElementById('page-usd-globales').style.display!=='none')gloRenderSummaryRows();}
 
+    // update Bonares bonds
+    let bonUpdated=0;
+    for(const bond of BON_BONDS){
+      const row=EQUIV_DATA.find(e=>e.ticker===bond.ticker);
+      if(!row)continue;
+      let bonPrecio=null,bonSym=null;
+      if(usdCurrency==='ARS'){
+        const raw=map[row.ars];
+        if(raw!=null&&mepRate){bonPrecio=raw/mepRate;bonSym=row.ars;}
+      }else if(usdCurrency==='MEP'){
+        const raw=map[row.mep];
+        if(raw!=null){bonPrecio=raw;bonSym=row.mep;}
+      }else{
+        const raw=map[row.cable];
+        if(raw!=null){bonPrecio=raw;bonSym=row.cable;}
+      }
+      if(bonPrecio!=null){bond.lastPrecio=+bonPrecio.toFixed(4);bond.lastPctChange=bonSym&&pctMap[bonSym]!=null?pctMap[bonSym]:null;bonUpdated++;}
+    }
+    if(bonUpdated){bonSave();if(document.getElementById('page-usd-bonares').style.display!=='none')bonRenderSummaryRows();}
+
     const now=new Date();
     const hhmm=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
     if(statusEl)statusEl.textContent=`${hhmm} · ${updated} bonos · MEP ${mepRate?mepRate.toFixed(0):'—'}`;
@@ -9889,6 +9952,8 @@ function equivInit(){
   equivRender();
   usdSetCurrency('MEP');
   usdStartAutoRefresh();
+  bonLoad();
+  gloLoad();
 }
 
 // ── UI ──────────────────────────────────────────────────────────────────────
@@ -10466,7 +10531,7 @@ function bopSaveModal(){
     }:null,
     amortCustom:bopAmortiza&&bopAmortRows.length?bopAmortRows.map(r=>({...r})):null,
   };
-  const BONDS=bopModalCtx==='glo'?GLO_BONDS:BOP_BONDS;
+  const BONDS=bopModalCtx==='glo'?GLO_BONDS:bopModalCtx==='bon'?BON_BONDS:BOP_BONDS;
   const idx=BONDS.findIndex(b=>b.ticker===ticker);
   if(idx>=0){
     const old=BONDS[idx];
@@ -10480,6 +10545,8 @@ function bopSaveModal(){
   bopCloseModal();
   if(bopModalCtx==='glo'){
     gloSave();gloSelTicker=ticker;gloCurrentFlows=bopGenFlows(bond);gloSelect(ticker);
+  }else if(bopModalCtx==='bon'){
+    bonSave();bonSelTicker=ticker;bonCurrentFlows=bopGenFlows(bond);bonSelect(ticker);
   }else{
     bopSave();bopSelTicker=ticker;bopCurrentFlows=bopGenFlows(bond);bopSelect(ticker);
   }
@@ -10490,6 +10557,9 @@ function bopDeleteBond(){
   if(bopModalCtx==='glo'){
     GLO_BONDS=GLO_BONDS.filter(b=>b.ticker!==bopEditingTicker);
     gloSave();bopCloseModal();gloSelTicker=null;gloRenderSummary();
+  }else if(bopModalCtx==='bon'){
+    BON_BONDS=BON_BONDS.filter(b=>b.ticker!==bopEditingTicker);
+    bonSave();bopCloseModal();bonSelTicker=null;bonRenderSummary();
   }else{
     BOP_BONDS=BOP_BONDS.filter(b=>b.ticker!==bopEditingTicker);
     bopSave();bopCloseModal();bopSelTicker=null;bopRenderSummary();
@@ -10510,6 +10580,424 @@ function gloDeleteDirect(){
   GLO_BONDS=GLO_BONDS.filter(b=>b.ticker!==gloSelTicker);
   gloSave();gloSelTicker=null;gloRenderSummary();
 }
+
+// ══════════════════════════════════════════════════════ BONARES ══════════════
+const BON_LS_KEY='bonosAR_bon_v1';
+var BON_BONDS=[];
+var bonSelTicker=null;
+var bonCurrentFlows=null;
+var bonDetailEditMode=false;
+var bonYieldChart=null;
+
+function bonLoad(){try{const r=localStorage.getItem(BON_LS_KEY);if(r)BON_BONDS=JSON.parse(r);}catch(e){}}
+function bonSave(){try{localStorage.setItem(BON_LS_KEY,JSON.stringify(BON_BONDS));}catch(e){}}
+
+function bonInit(){bonLoad();bonRenderSummary();}
+
+function bonRenderSummaryRows(){
+  const empty=document.getElementById('bon-empty');
+  const table=document.getElementById('bon-summary-table');
+  if(!BON_BONDS.length){
+    if(empty)empty.style.display='flex';
+    if(table)table.style.display='none';
+    return;
+  }
+  if(empty)empty.style.display='none';
+  if(table)table.style.display='table';
+  const tbody=document.getElementById('bon-summary-tbody');
+  if(!tbody)return;
+  const bonSumLiq=bopFmtDate(G_LIQ||addHabiles(TODAY,1));
+  tbody.innerHTML=BON_BONDS.map(b=>{
+    const flows=bopGenFlows(b);
+    var precioStr='—',varStr='—',mdStr='—',parStr='—',tirStr='—';
+    if(b.lastPrecio!=null){
+      const liq=bonSumLiq;
+      const liqD=parseDate(liq);
+      const tir=bopTIR(b,liq,b.lastPrecio,flows);
+      precioStr=b.lastPrecio.toFixed(2);
+      if(b.lastPctChange!=null){const chg=b.lastPctChange;varStr=`<span class="${chg>=0?'c-chg-pos':'c-chg-neg'}">${chg>=0?'+':''}${chg.toFixed(2)}%</span>`;}
+      if(tir!=null){
+        tirStr=tir.toFixed(2)+'%';
+        const dur=bopDuracion(b,liq,tir,flows);
+        mdStr=dur.mod.toFixed(2);
+        const accrued=bopAccrued(b,liqD,flows);
+        const outS=bopGetOutstanding(flows,liqD);
+        parStr=outS>0?(b.lastPrecio/(outS*(1+accrued/100))*100).toFixed(2):'—';
+      }
+    }
+    const isSel=bonSelTicker===b.ticker;
+    const bg=isSel?'background:var(--accent-dim);':'';
+    const hov=isSel?'':`onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background=''"`;
+    return`<tr style="cursor:pointer;border-bottom:1px solid var(--border);${bg}" onclick="bonSelect('${b.ticker}')" ${hov}>
+      <td style="padding:9px 14px;color:var(--accent);font-weight:600">${b.ticker}</td>
+      <td style="padding:9px 12px;text-align:right;color:var(--text);font-variant-numeric:tabular-nums">${precioStr}</td>
+      <td style="padding:9px 12px;text-align:right;color:var(--text3)">${varStr}</td>
+      <td style="padding:9px 12px;text-align:right;color:var(--warn);font-variant-numeric:tabular-nums">${mdStr}</td>
+      <td style="padding:9px 12px;text-align:right;color:var(--text2)">${bopFmtDateDisp(b.vencimiento)}</td>
+      <td style="padding:9px 12px;text-align:right;color:var(--text);font-variant-numeric:tabular-nums">${parStr}</td>
+      <td style="padding:9px 12px;text-align:right;color:var(--accent2);font-weight:600;font-variant-numeric:tabular-nums">${tirStr}</td>
+    </tr>`;
+  }).join('');
+  bonChartRender();
+}
+
+function bonRenderSummary(){
+  bonSelTicker=null;
+  const detView=document.getElementById('bon-view-detail');
+  const sumView=document.getElementById('bon-view-summary');
+  if(detView)detView.style.display='none';
+  if(sumView){sumView.style.flex='1';sumView.style.minWidth='';}
+  bonRenderSummaryRows();
+}
+
+function bonBack(){bonRenderSummary();}
+
+function bonSelect(ticker){
+  const bond=BON_BONDS.find(b=>b.ticker===ticker);
+  if(!bond)return;
+  bonDetailEditMode=false;
+  bonSelTicker=ticker;
+  bonCurrentFlows=bopGenFlows(bond);
+  bonRenderSummaryRows();
+  const sumView=document.getElementById('bon-view-summary');
+  const detView=document.getElementById('bon-view-detail');
+  if(sumView){sumView.style.flex='0 0 38%';sumView.style.minWidth='200px';}
+  if(detView){detView.style.display='flex';}
+  const nameEl=document.getElementById('bon-detail-name');
+  if(nameEl)nameEl.textContent=bond.ticker;
+  bonShowDetail(bond);
+}
+
+function bonShowDetail(bond){
+  const detEl=document.getElementById('bon-detail-content');
+  if(!detEl)return;
+  const perMap={mensual:'Mensual (1m)',trimestral:'Trimestral (3m)',semestral:'Semestral (6m)',anual:'Anual (12m)'};
+  const card='background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:1rem';
+  const secTitle='font-size:9px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.1em;font-weight:600;margin-bottom:.75rem;display:block';
+  const flbl='font-size:9px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;display:block';
+  const finp='font-family:var(--mono);font-size:12px;background:var(--surface2);border:1px solid var(--border2);border-radius:3px;padding:4px 7px;color:var(--text);width:100%;box-sizing:border-box';
+  const finpRo='font-family:var(--mono);font-size:12px;background:var(--surface2);border:1px solid var(--border2);border-radius:3px;padding:4px 7px;color:var(--text2);width:100%;box-sizing:border-box;cursor:default';
+  const liqDefault=bopFmtDate(G_LIQ||addHabiles(TODAY,1));
+  detEl.innerHTML=`<div style="padding:1rem 1.2rem;display:flex;flex-direction:column;gap:1rem;max-width:860px">
+    <div style="${card}">
+      <span style="${secTitle}">Precio y Tasa</span>
+      <div style="display:grid;grid-template-columns:130px 1fr 1fr 1fr;gap:.75rem;margin-bottom:.65rem;align-items:end">
+        <div><span style="${flbl}">Liquidación</span><input id="bon-d-liq" type="date" value="${liqDefault}" style="${finp}"></div>
+        <div><span style="${flbl}">Precio USD (% VN)</span><input id="bon-d-precio" type="number" step="0.01" placeholder="ej: 98.50" style="${finp}"></div>
+        <div><span style="${flbl}">TIR (%)</span><input id="bon-d-tir" type="number" step="0.001" placeholder="calculada" style="${finp}"></div>
+        <div><span style="${flbl}">TNA (%)</span><input id="bon-d-tna" type="number" step="0.001" placeholder="calculada" readonly style="${finpRo}"></div>
+      </div>
+      <button class="btn primary" style="width:100%;margin:0;justify-content:center;padding:5px 0" onclick="bonDCalc()">▶ Calcular</button>
+      <div id="bon-d-dur" style="font-size:10px;font-family:var(--mono);color:var(--text3);margin-top:.5rem;min-height:14px"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+      <div style="${card}">
+        <span style="${secTitle}">Datos del Bono</span>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem .75rem">
+          <div><span style="${flbl}">Ticker</span><span style="font-family:var(--mono);font-size:12px;color:var(--text)">${bond.ticker}</span></div>
+          <div><span style="${flbl}">Vencimiento</span><span style="font-family:var(--mono);font-size:12px;color:var(--text)">${bopFmtDateDisp(bond.vencimiento)}</span></div>
+          <div><span style="${flbl}">Fecha Emisión</span><span style="font-family:var(--mono);font-size:12px;color:var(--text)">${bopFmtDateDisp(bond.emision)}</span></div>
+          <div><span style="${flbl}">Inicio Pago Int.</span><span style="font-family:var(--mono);font-size:12px;color:var(--text)">${bond.inicioInteres?bopFmtDateDisp(bond.inicioInteres):'—'}</span></div>
+        </div>
+      </div>
+      <div style="${card}">
+        <span style="${secTitle}">Cupón e Intereses</span>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem .75rem">
+          <div><span style="${flbl}">Tipo Cupón</span><span style="font-family:var(--mono);font-size:12px;color:var(--text)">${bond.tipoCupon==='fijo'?'Tasa fija':'Step Up'}</span></div>
+          <div><span style="${flbl}">Tasa / Spread (%)</span><span style="font-family:var(--mono);font-size:12px;color:var(--text)">${bond.tipoCupon==='fijo'?bond.tasa.toFixed(4):'Step Up'}</span></div>
+          <div><span style="${flbl}">Periodicidad</span><span style="font-family:var(--mono);font-size:12px;color:var(--text)">${perMap[bond.periodicidad]||bond.periodicidad}</span></div>
+          <div><span style="${flbl}">Base de Días</span><span style="font-family:var(--mono);font-size:12px;color:var(--text)">${bond.convencion}</span></div>
+        </div>
+      </div>
+    </div>
+    <div style="${card}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem">
+        <span style="${secTitle};margin-bottom:0">Flujos de Caja</span>
+        <div style="display:flex;gap:5px">
+          <button id="bon-d-cancel-btn" class="btn" style="display:none;padding:1px 7px;font-size:10px;margin:0" onclick="bonDCancelEdit()">✕ Cancelar</button>
+          <button id="bon-d-edit-btn" class="btn" style="padding:1px 7px;font-size:10px;margin:0" onclick="bonDToggleEdit()">✎ Editar FF</button>
+        </div>
+      </div>
+      <div id="bon-d-flows-info" style="font-size:10px;font-family:var(--mono);color:var(--text3);margin-bottom:.6rem">Ingresá un precio o TIR y presioná Calcular</div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;min-width:600px">
+          <thead><tr style="border-bottom:2px solid var(--border);background:var(--surface2)">
+            <th style="padding:5px 10px;text-align:left;font-size:9px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Fecha</th>
+            <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Días</th>
+            <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Cap.Vig.</th>
+            <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Tasa %</th>
+            <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--accent2);text-transform:uppercase;letter-spacing:.06em">Interés</th>
+            <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--warn);text-transform:uppercase;letter-spacing:.06em">Amort.</th>
+            <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--accent);text-transform:uppercase;letter-spacing:.06em">Total</th>
+            <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">VP(TIR)</th>
+          </tr></thead>
+          <tbody id="bon-d-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>`;
+  bonDRenderFlows(null,null);
+  if(bond.lastPrecio!=null){
+    document.getElementById('bon-d-precio').value=bond.lastPrecio.toFixed(4);
+    bonDCalc();
+  }
+}
+
+function bonDCalc(){
+  const bond=BON_BONDS.find(b=>b.ticker===bonSelTicker);
+  if(!bond)return;
+  const liq=document.getElementById('bon-d-liq').value;
+  if(!liq)return;
+  const precioEl=document.getElementById('bon-d-precio');
+  const tirEl=document.getElementById('bon-d-tir');
+  const tnaEl=document.getElementById('bon-d-tna');
+  const durEl=document.getElementById('bon-d-dur');
+  const precioVal=parseFloat(precioEl.value);
+  const tirVal=parseFloat(tirEl.value);
+  var tir,precio;
+  if(!isNaN(precioVal)){
+    precio=precioVal;
+    tir=bopTIR(bond,liq,precio,bonCurrentFlows);
+    if(tir!=null)tirEl.value=tir.toFixed(4);
+  }else if(!isNaN(tirVal)){
+    tir=tirVal;
+    precio=bopPrecio(bond,liq,tir,bonCurrentFlows);
+    precioEl.value=precio.toFixed(4);
+  }else return;
+  if(tir!=null){
+    const tna=bopGetTNA(tir,bond.periodicidad);
+    tnaEl.value=tna.toFixed(4);
+    const dur=bopDuracion(bond,liq,tir,bonCurrentFlows);
+    durEl.textContent='MD '+dur.mod+' · Mac '+dur.mac;
+    bonDRenderFlows(liq,tir);
+    const liqD=parseDate(liq);
+    const accrued=bopAccrued(bond,liqD,bonCurrentFlows);
+    const outB=bopGetOutstanding(bonCurrentFlows,liqD);
+    const valorTecB=(outB*(1+accrued/100)).toFixed(4);
+    const parB=outB>0?(precio/(outB*(1+accrued/100))*100).toFixed(2):'—';
+    const infoEl=document.getElementById('bon-d-flows-info');
+    if(infoEl)infoEl.textContent='Precio: '+precio.toFixed(4)+' · Val. Técnico: '+valorTecB+' · Paridad: '+parB+' · Pagos pasados en gris';
+    bond.lastPrecio=precio;bond.lastLiq=liq;
+    bonSave();
+    bonRenderSummaryRows();
+  }
+}
+
+function bonDRenderFlows(liq,tirPct){
+  const tbody=document.getElementById('bon-d-tbody');
+  if(!tbody)return;
+  const flows=bonCurrentFlows;
+  if(!flows||!flows.length){tbody.innerHTML='';return;}
+  const liqD=liq?parseDate(liq):null;
+  const y=tirPct!=null?tirPct/100:null;
+  var totInt=0,totAmort=0,totFlujo=0,totPV=0;
+  const em=bonDetailEditMode;
+  const einp='font-family:var(--mono);font-size:10px;background:var(--surface);border:1px solid var(--border2);border-radius:2px;padding:1px 4px;color:var(--text);width:62px;text-align:right;box-sizing:border-box';
+  tbody.innerHTML=flows.map((f,i)=>{
+    const fd=parseDate(f.fecha);
+    const isPast=liqD&&fd<=liqD;
+    var pv=null;
+    if(!isPast&&y!=null&&liqD){const t=diasACT(liqD,fd)/365;pv=f.flujo/Math.pow(1+y,t);}
+    if(!isPast){totInt+=f.cupon;totAmort+=f.amortAmt;totFlujo+=f.flujo;}
+    if(pv!=null)totPV+=pv;
+    const op=isPast?'opacity:.3;':'';
+    const rateTd=em&&!isPast
+      ?`<td style="padding:2px 4px;text-align:right"><input id="bon-ff-rate-${i}" type="number" step="0.0001" value="${f.rate}" style="${einp}" oninput="bonDPreviewRow(${i})"></td>`
+      :`<td style="padding:4px 8px;text-align:right;color:var(--text3)">${f.rate.toFixed(4)}</td>`;
+    const amortTd=em&&!isPast
+      ?`<td style="padding:2px 4px;text-align:right"><input id="bon-ff-amort-${i}" type="number" step="0.0001" value="${f.amortAmt}" style="${einp}" oninput="bonDPreviewRow(${i})"></td>`
+      :`<td style="padding:4px 8px;text-align:right;color:${f.amortAmt>0?'var(--warn)':'var(--text3)'}">${f.amortAmt>0?f.amortAmt.toFixed(4):'—'}</td>`;
+    return`<tr id="bon-ff-row-${i}" style="${op}border-bottom:1px solid var(--border)">
+      <td style="padding:4px 10px;white-space:nowrap;color:var(--text2)">${bopFmtDateDisp(f.fecha)}</td>
+      <td style="padding:4px 8px;text-align:right;color:var(--text3)">${f.dias}</td>
+      <td style="padding:4px 8px;text-align:right;color:var(--text3)">${f.saldoInicio.toFixed(2)}</td>
+      ${rateTd}
+      <td style="padding:4px 8px;text-align:right;color:var(--accent2)" id="bon-ff-int-${i}">${f.cupon.toFixed(4)}</td>
+      ${amortTd}
+      <td style="padding:4px 8px;text-align:right;color:var(--accent);font-weight:600" id="bon-ff-flujo-${i}">${f.flujo.toFixed(4)}</td>
+      <td style="padding:4px 8px;text-align:right;color:var(--text3)">${pv!=null?pv.toFixed(4):'—'}</td>
+    </tr>`;
+  }).join('');
+  tbody.innerHTML+=`<tr style="border-top:2px solid var(--border);background:var(--surface)">
+    <td colspan="4" style="padding:4px 10px;color:var(--text3);font-size:9px;font-weight:600;letter-spacing:.05em">FLUJOS FUTUROS (en %VN original)</td>
+    <td style="padding:4px 8px;text-align:right;color:var(--accent2);font-weight:600">${totInt.toFixed(4)}</td>
+    <td style="padding:4px 8px;text-align:right;color:var(--warn);font-weight:600">${totAmort.toFixed(4)}</td>
+    <td style="padding:4px 8px;text-align:right;color:var(--accent);font-weight:600">${totFlujo.toFixed(4)}</td>
+    <td style="padding:4px 8px;text-align:right;color:var(--text3);font-weight:600">${y!=null&&liqD?totPV.toFixed(4):'—'}</td>
+  </tr>`;
+}
+
+function bonDPreviewRow(i){
+  const f=bonCurrentFlows[i];if(!f)return;
+  const rEl=document.getElementById(`bon-ff-rate-${i}`);
+  const aEl=document.getElementById(`bon-ff-amort-${i}`);
+  const rate=rEl?parseFloat(rEl.value)||f.rate:f.rate;
+  const amort=aEl?parseFloat(aEl.value)||0:f.amortAmt;
+  const cupon=rate/100*f.saldoInicio*(f.dias/365);
+  const intEl=document.getElementById(`bon-ff-int-${i}`);
+  const flujoEl=document.getElementById(`bon-ff-flujo-${i}`);
+  if(intEl)intEl.textContent=cupon.toFixed(4);
+  if(flujoEl)flujoEl.textContent=(cupon+amort).toFixed(4);
+}
+
+function bonDToggleEdit(){
+  if(!bonDetailEditMode){
+    bonDetailEditMode=true;
+    const btn=document.getElementById('bon-d-edit-btn');
+    const cBtn=document.getElementById('bon-d-cancel-btn');
+    if(btn){btn.textContent='✓ Guardar FF';btn.classList.add('primary');}
+    if(cBtn)cBtn.style.display='inline-block';
+    const liq=document.getElementById('bon-d-liq').value;
+    const tir=parseFloat(document.getElementById('bon-d-tir').value);
+    bonDRenderFlows(liq||null,isNaN(tir)?null:tir);
+  }else{
+    bonDSaveEdits();
+  }
+}
+
+function bonDCancelEdit(){
+  bonDetailEditMode=false;
+  const btn=document.getElementById('bon-d-edit-btn');
+  const cBtn=document.getElementById('bon-d-cancel-btn');
+  if(btn){btn.textContent='✎ Editar FF';btn.classList.remove('primary');}
+  if(cBtn)cBtn.style.display='none';
+  const liq=document.getElementById('bon-d-liq').value;
+  const tir=parseFloat(document.getElementById('bon-d-tir').value);
+  bonDRenderFlows(liq||null,isNaN(tir)?null:tir);
+}
+
+function bonDSaveEdits(){
+  const bond=BON_BONDS.find(b=>b.ticker===bonSelTicker);
+  if(!bond)return;
+  const flows=bonCurrentFlows;if(!flows)return;
+  const rateOverrides=[],amortCustom=[];
+  flows.forEach((f,i)=>{
+    const rEl=document.getElementById(`bon-ff-rate-${i}`);
+    const aEl=document.getElementById(`bon-ff-amort-${i}`);
+    const rateVal=rEl?parseFloat(rEl.value):f.rate;
+    const amortVal=aEl?parseFloat(aEl.value):f.amortAmt;
+    if(!isNaN(rateVal))rateOverrides.push({fechaNominal:f.fechaNominal,rate:rateVal});
+    if(!isNaN(amortVal))amortCustom.push({fecha:f.fechaNominal,pct:amortVal});
+  });
+  bond.rateOverrides=rateOverrides.length?rateOverrides:null;
+  bond.amortCustom=amortCustom.length?amortCustom:null;
+  bonCurrentFlows=bopGenFlows(bond);
+  bonDetailEditMode=false;
+  const btn=document.getElementById('bon-d-edit-btn');
+  const cBtn=document.getElementById('bon-d-cancel-btn');
+  if(btn){btn.textContent='✎ Editar FF';btn.classList.remove('primary');}
+  if(cBtn)cBtn.style.display='none';
+  bonSave();
+  bonRenderSummaryRows();
+  bonDCalc();
+}
+
+function bonDeleteDirect(){
+  if(!bonSelTicker)return;
+  if(!confirm(`¿Eliminar ${bonSelTicker}?`))return;
+  BON_BONDS=BON_BONDS.filter(b=>b.ticker!==bonSelTicker);
+  bonSave();bonSelTicker=null;bonRenderSummary();
+}
+
+function bonChartRender(){
+  const canvas=document.getElementById('bon-yield-chart');
+  if(!canvas)return;
+  const bonChartLiq=bopFmtDate(G_LIQ||addHabiles(TODAY,1));
+  const pts=[];
+  for(const b of BON_BONDS){
+    if(b.lastPrecio==null)continue;
+    const flows=bopGenFlows(b);
+    const tir=bopTIR(b,bonChartLiq,b.lastPrecio,flows);
+    if(tir==null)continue;
+    const dur=bopDuracion(b,bonChartLiq,tir,flows);
+    pts.push({x:+dur.mod,y:+tir,ticker:b.ticker});
+  }
+  if(bonYieldChart){bonYieldChart.destroy();bonYieldChart=null;}
+  if(!pts.length)return;
+  const n=pts.length;
+  const sx=pts.reduce((s,p)=>s+p.x,0),sy=pts.reduce((s,p)=>s+p.y,0);
+  const sxx=pts.reduce((s,p)=>s+p.x*p.x,0),sxy=pts.reduce((s,p)=>s+p.x*p.y,0);
+  const den=n*sxx-sx*sx;
+  var trendData=[];
+  if(den!==0){
+    const slope=(n*sxy-sx*sy)/den,intercept=(sy-slope*sx)/n;
+    const xMin=Math.min(...pts.map(p=>p.x)),xMax=Math.max(...pts.map(p=>p.x));
+    const pad=(xMax-xMin)*0.15||0.3;
+    for(var i=0;i<=60;i++){
+      const x=xMin-pad+(xMax-xMin+2*pad)*i/60;
+      trendData.push({x:+x.toFixed(3),y:+(intercept+slope*x).toFixed(3)});
+    }
+  }
+  if(window.ChartDataLabels)Chart.register(ChartDataLabels);
+  bonYieldChart=new Chart(canvas,{
+    type:'scatter',
+    data:{datasets:[
+      {
+        label:'Bonares',data:pts,
+        pointBackgroundColor:'#a2c4d5',pointBorderColor:'#5a9ab8',
+        pointBorderWidth:1.5,pointRadius:6,pointHoverRadius:9,showLine:false,
+        datalabels:{
+          display:true,
+          formatter:function(_,ctx){return pts[ctx.dataIndex].ticker;},
+          color:'#7a9aac',font:{size:10,family:'DM Mono, monospace'},
+          anchor:'end',align:'top',offset:4,clip:false,
+        },
+      },
+      {
+        label:'Tendencia',data:trendData,
+        borderColor:'rgba(162,196,213,0.45)',borderWidth:1.5,
+        pointRadius:0,showLine:true,fill:false,tension:0,
+        datalabels:{display:false},
+      },
+    ]},
+    options:{
+      responsive:true,maintainAspectRatio:false,layout:{padding:{top:22}},
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:function(ctx){
+          if(ctx.datasetIndex!==0)return null;
+          var p=pts[ctx.dataIndex];
+          return p.ticker+': TIR '+p.y.toFixed(2)+'% · MD '+p.x.toFixed(2);
+        }}},
+        datalabels:{},
+      },
+      scales:{
+        x:{type:'linear',
+          title:{display:true,text:'Modified Duration',color:'#4d554e',font:{size:10,family:'DM Mono, monospace'}},
+          ticks:{color:'#4d554e',font:{size:10,family:'DM Mono, monospace'},callback:function(v){return v.toFixed(2);}},
+          grid:{color:'#252825'},
+        },
+        y:{
+          title:{display:true,text:'TIR (%)',color:'#4d554e',font:{size:10,family:'DM Mono, monospace'}},
+          ticks:{color:'#4d554e',font:{size:10,family:'DM Mono, monospace'},callback:function(v){return v.toFixed(2)+'%';}},
+          grid:{color:'#252825'},
+        },
+      },
+    },
+  });
+}
+
+(function(){
+  var handle=document.getElementById('bon-chart-handle');
+  var area=document.getElementById('bon-chart-area');
+  if(!handle||!area)return;
+  var MIN_H=100,MAX_H=500,dragging=false,startY=0,startH=0;
+  handle.addEventListener('mousedown',function(e){
+    dragging=true;startY=e.clientY;startH=area.offsetHeight;
+    document.body.style.cursor='ns-resize';document.body.style.userSelect='none';
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove',function(e){
+    if(!dragging)return;
+    area.style.height=Math.min(500,Math.max(100,startH+(startY-e.clientY)))+'px';
+    if(bonYieldChart)bonYieldChart.resize();
+  });
+  document.addEventListener('mouseup',function(){
+    if(!dragging)return;
+    dragging=false;document.body.style.cursor='';document.body.style.userSelect='';
+    if(bonYieldChart)bonYieldChart.resize();
+  });
+}());
 
 // ══════════════════════════════════════════════════════ GLOBALES ══════════════
 const GLO_LS_KEY='bonosAR_glo_v1';
