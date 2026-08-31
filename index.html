@@ -9546,36 +9546,43 @@ function bopPrecio(bond,liq,tirPct,flows){
   if(!flows)flows=bopGenFlows(bond);
   const liqD=parseDate(liq);
   const y=tirPct/100;
-  return flows.reduce((pv,f)=>{
+  // PV en %VN original
+  const pvOrig=flows.reduce((pv,f)=>{
     const fd=parseDate(f.fecha);
     if(fd<=liqD)return pv;
     const t=diasACT(liqD,fd)/365;
     return pv+f.flujo/Math.pow(1+y,t);
   },0);
+  // Convertir a %VN residual (norma de mercado)
+  const out=bopGetOutstanding(flows,liqD);
+  return out>0?pvOrig*100/out:0;
 }
 
 function bopTIR(bond,liq,precio,flows){
+  // precio en %VN residual (norma de mercado)
   if(!flows)flows=bopGenFlows(bond);
   const liqD=parseDate(liq);
   const ff=flows.filter(f=>parseDate(f.fecha)>liqD);
   if(!ff.length)return null;
+  // Convertir a %VN original para calibrar contra los flujos
+  const out=bopGetOutstanding(flows,liqD);
+  const precioOrig=precio*out/100;
   const ts=ff.map(f=>({t:diasACT(liqD,parseDate(f.fecha))/365,cf:f.flujo}));
   let y=0.06;
   for(let i=0;i<200;i++){
     let pv=0,dpv=0;
     for(const{t,cf}of ts){const df=Math.pow(1+y,t);pv+=cf/df;dpv-=cf*t/(df*(1+y));}
-    const err=pv-precio;
+    const err=pv-precioOrig;
     if(Math.abs(err)<0.00001)return y*100;
     if(Math.abs(dpv)<1e-10)break;
     y-=err/dpv;
     if(y<-0.99||y>50)break;
   }
-  // bisection fallback
   let lo=-0.99,hi=50;
   for(let i=0;i<80;i++){
     const mid=(lo+hi)/2;
     const pv=ts.reduce((s,{t,cf})=>s+cf/Math.pow(1+mid,t),0);
-    if(pv>precio)lo=mid;else hi=mid;
+    if(pv>precioOrig)lo=mid;else hi=mid;
     if(hi-lo<0.000001)return mid*100;
   }
   return null;
@@ -9585,6 +9592,7 @@ function bopDuracion(bond,liq,tirPct,flows){
   if(!flows)flows=bopGenFlows(bond);
   const liqD=parseDate(liq);
   const y=tirPct/100;
+  // Mac se calcula sobre %VN original (escala no afecta el ratio)
   let pv=0,num=0;
   for(const f of flows){
     const fd=parseDate(f.fecha);
@@ -9595,6 +9603,7 @@ function bopDuracion(bond,liq,tirPct,flows){
   }
   if(!pv)return{mac:0,mod:0};
   const mac=num/pv;
+  // ModDur = Mac/(1+y) con TIR efectiva anual
   return{mac:+mac.toFixed(2),mod:+(mac/(1+y)).toFixed(2)};
 }
 
@@ -9786,9 +9795,10 @@ function bopDCalc(){
     bopDRenderFlows(liq,tir);
     const liqD=parseDate(liq);
     const out=bopGetOutstanding(bopCurrentFlows,liqD);
+    // precio ya está en %VN residual; paridad = precio × outstanding/100 = %VN original
     const par=(precio*out/100).toFixed(2);
     const infoEl=document.getElementById('bop-d-flows-info');
-    if(infoEl)infoEl.textContent=`Precio: ${precio.toFixed(4)} %VN · Paridad: ${par} · Valores en USD (% sobre 100 VN) · Pagos pasados en gris`;
+    if(infoEl)infoEl.textContent=`Precio: ${precio.toFixed(4)} %VN residual · Paridad: ${par} %VN original · Pagos pasados en gris`;
     // persist for summary and refresh rows
     bond.lastPrecio=precio;bond.lastLiq=liq;
     bopSave();
@@ -9823,7 +9833,7 @@ function bopDRenderFlows(liq,tirPct){
     </tr>`;
   }).join('');
   tbody.innerHTML+=`<tr style="border-top:2px solid var(--border);background:var(--surface)">
-    <td colspan="3" style="padding:4px 10px;color:var(--text3);font-size:9px;font-weight:600;letter-spacing:.05em">SUMA VP (= precio sucio en %VN USD)</td>
+    <td colspan="3" style="padding:4px 10px;color:var(--text3);font-size:9px;font-weight:600;letter-spacing:.05em">SUMA VP (= paridad, en %VN original)</td>
     <td style="padding:4px 8px;text-align:right;color:var(--accent2);font-weight:600">${totInt.toFixed(4)}</td>
     <td style="padding:4px 8px;text-align:right;color:var(--warn);font-weight:600">${totAmort.toFixed(4)}</td>
     <td style="padding:4px 8px;text-align:right;color:var(--accent);font-weight:600">${totFlujo.toFixed(4)}</td>
