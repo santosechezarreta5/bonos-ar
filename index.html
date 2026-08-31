@@ -1708,6 +1708,14 @@ tbody tr.selected .c-ticker{color:var(--accent);}
         <div id="bop-detail-content" style="flex:1;overflow:auto;"></div>
       </div>
     </div>
+    <!-- bop yield curve -->
+    <div class="chart-area" id="bop-chart-area" style="height:200px;">
+      <div class="chart-resize-handle" id="bop-chart-handle"></div>
+      <div class="chart-toolbar">
+        <span class="chart-title">Curva TIR vs MD</span>
+      </div>
+      <div class="chart-wrap"><canvas id="bop-yield-chart"></canvas></div>
+    </div>
   </div>
 </div>
 
@@ -9841,6 +9849,7 @@ function bopRenderSummaryRows(){
       <td style="padding:9px 12px;text-align:right;color:var(--accent2);font-weight:600;font-variant-numeric:tabular-nums">${tirStr}</td>
     </tr>`;
   }).join('');
+  bopChartRender();
 }
 
 function bopRenderSummary(){
@@ -9851,6 +9860,110 @@ function bopRenderSummary(){
   if(sumView){sumView.style.flex='1';sumView.style.minWidth='';}
   bopRenderSummaryRows();
 }
+
+// ── BOP YIELD CURVE ──────────────────────────────────────────────────────────
+var bopYieldChart=null;
+
+function bopChartRender(){
+  const canvas=document.getElementById('bop-yield-chart');
+  if(!canvas)return;
+  const pts=[];
+  for(const b of BOP_BONDS){
+    if(b.lastPrecio==null||!b.lastLiq)continue;
+    const flows=bopGenFlows(b);
+    const tir=bopTIR(b,b.lastLiq,b.lastPrecio,flows);
+    if(tir==null)continue;
+    const dur=bopDuracion(b,b.lastLiq,tir,flows);
+    pts.push({x:+dur.mod,y:+tir,ticker:b.ticker});
+  }
+  if(bopYieldChart){bopYieldChart.destroy();bopYieldChart=null;}
+  if(!pts.length)return;
+  // linear trend
+  const n=pts.length;
+  const sx=pts.reduce((s,p)=>s+p.x,0),sy=pts.reduce((s,p)=>s+p.y,0);
+  const sxx=pts.reduce((s,p)=>s+p.x*p.x,0),sxy=pts.reduce((s,p)=>s+p.x*p.y,0);
+  const den=n*sxx-sx*sx;
+  var trendData=[];
+  if(den!==0){
+    const slope=(n*sxy-sx*sy)/den,intercept=(sy-slope*sx)/n;
+    const xMin=Math.min(...pts.map(p=>p.x)),xMax=Math.max(...pts.map(p=>p.x));
+    const pad=(xMax-xMin)*0.15||0.3;
+    for(var i=0;i<=60;i++){
+      const x=xMin-pad+(xMax-xMin+2*pad)*i/60;
+      trendData.push({x:+x.toFixed(3),y:+(intercept+slope*x).toFixed(3)});
+    }
+  }
+  if(window.ChartDataLabels)Chart.register(ChartDataLabels);
+  bopYieldChart=new Chart(canvas,{
+    type:'scatter',
+    data:{datasets:[
+      {
+        label:'Bopreales',data:pts,
+        pointBackgroundColor:'#7ab3d4',pointBorderColor:'#4a8db8',
+        pointBorderWidth:1.5,pointRadius:6,pointHoverRadius:9,showLine:false,
+        datalabels:{
+          display:true,
+          formatter:function(_,ctx){return pts[ctx.dataIndex].ticker;},
+          color:'#8a9489',font:{size:10,family:'DM Mono, monospace'},
+          anchor:'end',align:'top',offset:4,clip:false,
+        },
+      },
+      {
+        label:'Tendencia',data:trendData,
+        borderColor:'rgba(122,179,212,0.45)',borderWidth:1.5,
+        pointRadius:0,showLine:true,fill:false,tension:0,
+        datalabels:{display:false},
+      },
+    ]},
+    options:{
+      responsive:true,maintainAspectRatio:false,layout:{padding:{top:22}},
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:function(ctx){
+          if(ctx.datasetIndex!==0)return null;
+          var p=pts[ctx.dataIndex];
+          return p.ticker+': TIR '+p.y.toFixed(2)+'% · MD '+p.x.toFixed(2);
+        }}},
+        datalabels:{},
+      },
+      scales:{
+        x:{type:'linear',
+          title:{display:true,text:'Modified Duration',color:'#4d554e',font:{size:10,family:'DM Mono, monospace'}},
+          ticks:{color:'#4d554e',font:{size:10,family:'DM Mono, monospace'},callback:function(v){return v.toFixed(2);}},
+          grid:{color:'#252825'},
+        },
+        y:{
+          title:{display:true,text:'TIR (%)',color:'#4d554e',font:{size:10,family:'DM Mono, monospace'}},
+          ticks:{color:'#4d554e',font:{size:10,family:'DM Mono, monospace'},callback:function(v){return v.toFixed(2)+'%';}},
+          grid:{color:'#252825'},
+        },
+      },
+    },
+  });
+}
+
+(function(){
+  var handle=document.getElementById('bop-chart-handle');
+  var area=document.getElementById('bop-chart-area');
+  if(!handle||!area)return;
+  var MIN_H=100,MAX_H=500,dragging=false,startY=0,startH=0;
+  handle.addEventListener('mousedown',function(e){
+    dragging=true;startY=e.clientY;startH=area.offsetHeight;
+    document.body.style.cursor='ns-resize';document.body.style.userSelect='none';
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove',function(e){
+    if(!dragging)return;
+    var newH=Math.min(MAX_H,Math.max(MIN_H,startH+(startY-e.clientY)));
+    area.style.height=newH+'px';
+    if(bopYieldChart)bopYieldChart.resize();
+  });
+  document.addEventListener('mouseup',function(){
+    if(!dragging)return;
+    dragging=false;document.body.style.cursor='';document.body.style.userSelect='';
+    if(bopYieldChart)bopYieldChart.resize();
+  });
+}());
 
 function bopGetOutstanding(flows,liqD){
   let out=100;
