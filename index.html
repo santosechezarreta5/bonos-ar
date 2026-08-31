@@ -338,13 +338,26 @@ tbody tr.selected .c-ticker{color:var(--accent);}
   <button class="nav-tab" id="nav-feriados" onclick="switchTab('feriados')" style="margin-left:auto">Feriados</button>
 </nav>
 <nav class="nav" id="nav-usd" style="display:none">
-  <button class="nav-tab active" id="nav-usd-resumen"   onclick="switchUsdTab('usd-resumen')">Resumen</button>
-  <button class="nav-tab"        id="nav-usd-forwards"  onclick="switchUsdTab('usd-forwards')">Forwards</button>
-  <button class="nav-tab"        id="nav-usd-spreadleg" onclick="switchUsdTab('usd-spreadleg')">Spread Leg.</button>
-  <button class="nav-tab"        id="nav-usd-bonares"   onclick="switchUsdTab('usd-bonares')">Bonares</button>
-  <button class="nav-tab"        id="nav-usd-globales"  onclick="switchUsdTab('usd-globales')">Globales</button>
-  <button class="nav-tab"        id="nav-usd-bopreales" onclick="switchUsdTab('usd-bopreales')">Bopreales</button>
+  <button class="nav-tab active" id="nav-usd-resumen"     onclick="switchUsdTab('usd-resumen')">Resumen</button>
+  <button class="nav-tab"        id="nav-usd-forwards"    onclick="switchUsdTab('usd-forwards')">Forwards</button>
+  <button class="nav-tab"        id="nav-usd-spreadleg"   onclick="switchUsdTab('usd-spreadleg')">Spread Leg.</button>
+  <button class="nav-tab"        id="nav-usd-bonares"     onclick="switchUsdTab('usd-bonares')">Bonares</button>
+  <button class="nav-tab"        id="nav-usd-globales"    onclick="switchUsdTab('usd-globales')">Globales</button>
+  <button class="nav-tab"        id="nav-usd-bopreales"   onclick="switchUsdTab('usd-bopreales')">Bopreales</button>
+  <button class="nav-tab"        id="nav-usd-equiv"       onclick="switchUsdTab('usd-equiv')">Equivalencias</button>
 </nav>
+<!-- USD sub-bar: currency selector + price status -->
+<div id="usd-subbar" style="display:none;align-items:center;height:36px;padding:0 1rem;gap:10px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0">
+  <span style="font-size:11px;color:var(--text3);font-family:var(--mono)">MONEDA</span>
+  <div style="display:flex;gap:3px">
+    <button id="usd-cur-ARS"   class="btn" style="padding:2px 8px;font-size:10px" onclick="usdSetCurrency('ARS')">ARS</button>
+    <button id="usd-cur-MEP"   class="btn" style="padding:2px 8px;font-size:10px" onclick="usdSetCurrency('MEP')">USD MEP</button>
+    <button id="usd-cur-Cable" class="btn" style="padding:2px 8px;font-size:10px" onclick="usdSetCurrency('Cable')">Cable</button>
+  </div>
+  <div style="flex:1"></div>
+  <span id="usd-price-status" style="font-size:10px;color:var(--text3);font-family:var(--mono)">—</span>
+  <button class="btn" style="padding:2px 8px;font-size:10px" onclick="usdRefreshPrices()">↻ Actualizar</button>
+</div>
 
 <!-- USD BAR -->
 <div id="usd-bar" style="display:flex;align-items:center;gap:0;background:var(--surface);border-bottom:1px solid var(--border);padding:0 1rem;height:28px;font-family:var(--mono);font-size:11px;flex-shrink:0;">
@@ -1650,12 +1663,12 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 </div>
 
 <!-- USD PAGES -->
-<div id="page-usd-resumen"   style="display:none;height:calc(100vh - 164px);overflow:auto;"></div>
-<div id="page-usd-forwards"  style="display:none;height:calc(100vh - 164px);overflow:auto;"></div>
-<div id="page-usd-spreadleg" style="display:none;height:calc(100vh - 164px);overflow:auto;"></div>
-<div id="page-usd-bonares"   style="display:none;height:calc(100vh - 164px);overflow:auto;"></div>
-<div id="page-usd-globales"  style="display:none;height:calc(100vh - 164px);overflow:auto;"></div>
-<div id="page-usd-bopreales" style="display:none;height:calc(100vh - 164px);overflow:hidden;">
+<div id="page-usd-resumen"   style="display:none;height:calc(100vh - 200px);overflow:auto;"></div>
+<div id="page-usd-forwards"  style="display:none;height:calc(100vh - 200px);overflow:auto;"></div>
+<div id="page-usd-spreadleg" style="display:none;height:calc(100vh - 200px);overflow:auto;"></div>
+<div id="page-usd-bonares"   style="display:none;height:calc(100vh - 200px);overflow:auto;"></div>
+<div id="page-usd-globales"  style="display:none;height:calc(100vh - 200px);overflow:auto;"></div>
+<div id="page-usd-bopreales" style="display:none;height:calc(100vh - 200px);overflow:hidden;">
   <div style="display:flex;flex-direction:column;height:100%">
     <!-- top bar -->
     <div style="display:flex;align-items:center;gap:8px;padding:0 1rem;height:40px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface)">
@@ -1723,6 +1736,31 @@ tbody tr.selected .c-ticker{color:var(--accent);}
       <button class="btn" onclick="calCloseModal()">Cancelar</button>
       <button id="cal-m-delete-btn" class="btn" style="color:var(--warn);display:none" onclick="calDeleteEvento()">Eliminar</button>
       <button class="btn primary" onclick="calSaveModal()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- EQUIVALENCIAS PAGE -->
+<div id="page-usd-equiv" style="display:none;height:calc(100vh - 200px);overflow:hidden;">
+  <div style="display:flex;flex-direction:column;height:100%">
+    <div style="display:flex;align-items:center;height:40px;padding:0 1rem;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface);gap:8px">
+      <span style="font-family:var(--serif);font-size:13px;font-weight:300;font-style:italic;color:var(--accent)">Equivalencias de Tickers</span>
+      <div style="flex:1"></div>
+      <button class="btn primary" style="padding:2px 9px;font-size:10px" onclick="equivAddRow()">+ Agregar</button>
+    </div>
+    <div style="flex:1;overflow:auto;padding:1rem">
+      <table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px">
+        <thead>
+          <tr style="border-bottom:2px solid var(--border)">
+            <th style="text-align:left;padding:6px 12px;color:var(--text3);font-weight:500;font-size:10px;letter-spacing:.05em">TICKER</th>
+            <th style="text-align:left;padding:6px 12px;color:var(--text3);font-weight:500;font-size:10px;letter-spacing:.05em">ARS</th>
+            <th style="text-align:left;padding:6px 12px;color:var(--text3);font-weight:500;font-size:10px;letter-spacing:.05em">USD MEP</th>
+            <th style="text-align:left;padding:6px 12px;color:var(--text3);font-weight:500;font-size:10px;letter-spacing:.05em">Cable</th>
+            <th style="width:32px"></th>
+          </tr>
+        </thead>
+        <tbody id="equiv-tbody"></tbody>
+      </table>
     </div>
   </div>
 </div>
@@ -3215,7 +3253,7 @@ function renderChart(){
 let currentTab='lecap';
 let currentSection='pesos';
 let currentUsdTab='usd-resumen';
-const USD_TABS=['usd-resumen','usd-forwards','usd-spreadleg','usd-bonares','usd-globales','usd-bopreales'];
+const USD_TABS=['usd-resumen','usd-forwards','usd-spreadleg','usd-bonares','usd-globales','usd-bopreales','usd-equiv'];
 
 function hideAllPages(){
   const ids=['lecap-workspace','chart-area','page-cer','page-feriados',
@@ -3230,6 +3268,8 @@ function switchSection(s){
   hideAllPages();
   document.getElementById('nav-pesos').style.display=s==='pesos'?'flex':'none';
   document.getElementById('nav-usd').style.display=s==='usd'?'flex':'none';
+  const sb=document.getElementById('usd-subbar');
+  if(sb)sb.style.display=s==='usd'?'flex':'none';
   const arEl=document.getElementById('logo-ar');
   const usdEl=document.getElementById('logo-usd');
   if(arEl)  arEl.classList.toggle('active', s==='pesos');
@@ -3247,6 +3287,7 @@ function switchUsdTab(tab){
     if(p) p.style.display=t===tab?'block':'none';
   });
   if(tab==='usd-bopreales') bopInit();
+  if(tab==='usd-equiv') equivRender();
 }
 
 function switchTab(tab){
@@ -7074,6 +7115,7 @@ function calDeleteEvento(){
 
 switchTab('breakeven');
 authInit();
+equivInit();
 
 // ══════════════════════════════════════════════════════════════ THEME
 function setTheme(t){
@@ -9619,6 +9661,137 @@ function bopAccrued(bond,liqD,flows){
   if(!hasNext)return 0;
   const rate=bopGetRate(bond,prevNominal);
   return rate*bopYearFrac(prevNominal,liqD,bond.convencion);
+}
+
+// ── EQUIVALENCIAS ────────────────────────────────────────────────────────────
+const EQUIV_LS_KEY='bonosAR_equiv_v1';
+let EQUIV_DATA=[];
+
+function equivLoad(){
+  try{const r=localStorage.getItem(EQUIV_LS_KEY);if(r)EQUIV_DATA=JSON.parse(r);}catch(e){EQUIV_DATA=[];}
+}
+function equivSave(){
+  localStorage.setItem(EQUIV_LS_KEY,JSON.stringify(EQUIV_DATA));
+}
+function equivAddRow(){
+  EQUIV_DATA.push({ticker:'',ars:'',mep:'',cable:''});
+  equivSave();
+  equivRender();
+  // focus first input of new row
+  const rows=document.querySelectorAll('#equiv-tbody tr');
+  if(rows.length){const inp=rows[rows.length-1].querySelector('input');if(inp)inp.focus();}
+}
+function equivDeleteRow(i){
+  EQUIV_DATA.splice(i,1);
+  equivSave();
+  equivRender();
+}
+function equivUpdate(i,field,value){
+  if(!EQUIV_DATA[i])return;
+  EQUIV_DATA[i][field]=value.trim().toUpperCase();
+  equivSave();
+}
+function equivRender(){
+  const tbody=document.getElementById('equiv-tbody');
+  if(!tbody)return;
+  const inp=s=>`<input type="text" style="width:100%;background:transparent;border:none;border-bottom:1px solid transparent;color:var(--text);font-family:var(--mono);font-size:12px;padding:2px 0;outline:none" onfocus="this.style.borderBottomColor='var(--border2)'" onblur="this.style.borderBottomColor='transparent'" onchange="equivUpdate(${s})">`;
+  tbody.innerHTML=EQUIV_DATA.map((row,i)=>`
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:5px 12px">${inp(`${i},'ticker',this.value`)} </td>
+      <td style="padding:5px 12px">${inp(`${i},'ars',this.value`)}</td>
+      <td style="padding:5px 12px">${inp(`${i},'mep',this.value`)}</td>
+      <td style="padding:5px 12px">${inp(`${i},'cable',this.value`)}</td>
+      <td style="padding:5px 8px;text-align:center"><button onclick="equivDeleteRow(${i})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;line-height:1">✕</button></td>
+    </tr>`).join('');
+  // fill values after render (using .value to avoid HTML injection)
+  const inputs=tbody.querySelectorAll('input');
+  EQUIV_DATA.forEach((row,i)=>{
+    const base=i*4;
+    if(inputs[base])  inputs[base].value=row.ticker||'';
+    if(inputs[base+1])inputs[base+1].value=row.ars||'';
+    if(inputs[base+2])inputs[base+2].value=row.mep||'';
+    if(inputs[base+3])inputs[base+3].value=row.cable||'';
+  });
+}
+
+// ── USD PRICE FETCH ──────────────────────────────────────────────────────────
+let usdCurrency='ARS';
+let usdRefreshTimer=null;
+const USD_PRICE_API='https://data912.com/live/arg_bonds';
+
+function usdSetCurrency(cur){
+  usdCurrency=cur;
+  ['ARS','MEP','Cable'].forEach(c=>{
+    const btn=document.getElementById('usd-cur-'+c);
+    if(btn){
+      btn.style.color=c===cur?'var(--accent)':'';
+      btn.style.borderColor=c===cur?'var(--accent-dim)':'';
+    }
+  });
+}
+
+async function usdFetchPriceMap(){
+  const res=await fetch(USD_PRICE_API,{cache:'no-store'});
+  if(!res.ok)throw new Error('HTTP '+res.status);
+  const data=await res.json();
+  const map={};
+  for(const item of data)if(item.symbol&&item.c!=null)map[item.symbol]=+item.c;
+  return map;
+}
+
+function usdNextHabil(){
+  const d=new Date();d.setDate(d.getDate()+1);
+  while(!esHabil(d))d.setDate(d.getDate()+1);
+  return bopFmtDate(d);
+}
+
+async function usdRefreshPrices(){
+  const statusEl=document.getElementById('usd-price-status');
+  if(statusEl)statusEl.textContent='Actualizando...';
+  try{
+    const map=await usdFetchPriceMap();
+    const mepRate=(map['AL30']&&map['AL30D'])?map['AL30']/map['AL30D']:null;
+    const liq=usdNextHabil();
+    let updated=0;
+
+    // update Bopreales bonds
+    for(const bond of BOP_BONDS){
+      const row=EQUIV_DATA.find(e=>e.ticker===bond.ticker);
+      if(!row)continue;
+      let usdPrecio=null;
+      if(usdCurrency==='ARS'){
+        const raw=map[row.ars];
+        if(raw!=null&&mepRate)usdPrecio=raw/mepRate;
+      }else if(usdCurrency==='MEP'){
+        const raw=map[row.mep];
+        if(raw!=null)usdPrecio=raw;
+      }else{
+        const raw=map[row.cable];
+        if(raw!=null)usdPrecio=raw;
+      }
+      if(usdPrecio!=null){bond.lastPrecio=+usdPrecio.toFixed(4);bond.lastLiq=liq;updated++;}
+    }
+
+    if(updated)bopSave();
+    if(document.getElementById('page-usd-bopreales').style.display!=='none')bopRenderSummaryRows();
+
+    const now=new Date();
+    const hhmm=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+    if(statusEl)statusEl.textContent=`${hhmm} · ${updated} bonos · MEP ${mepRate?mepRate.toFixed(0):'—'}`;
+  }catch(e){
+    if(statusEl)statusEl.textContent='Error: '+e.message;
+  }
+}
+
+function usdStartAutoRefresh(){
+  if(usdRefreshTimer)clearInterval(usdRefreshTimer);
+  usdRefreshTimer=setInterval(usdRefreshPrices,5*60*1000);
+}
+
+function equivInit(){
+  equivLoad();
+  usdSetCurrency('ARS');
+  usdStartAutoRefresh();
 }
 
 // ── UI ──────────────────────────────────────────────────────────────────────
