@@ -129,6 +129,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13
 .btn.primary{border-color:var(--accent-dim);color:var(--accent);}
 .btn.primary:hover{background:var(--accent-dim);}
 .btn.danger{border-color:var(--danger-dim);color:var(--danger);}
+.equiv-inp{width:100%;background:transparent;border:none;border-bottom:1px solid transparent;color:var(--text);font-family:var(--mono);font-size:12px;padding:2px 0;outline:none;}
+.equiv-inp:focus{border-bottom-color:var(--border2);}
 .api-status{font-size:11px;color:var(--text3);}
 .api-status.ok{color:var(--accent2);}
 .api-status.err{color:var(--danger);}
@@ -9694,24 +9696,24 @@ function equivUpdate(i,field,value){
 function equivRender(){
   const tbody=document.getElementById('equiv-tbody');
   if(!tbody)return;
-  const inp=s=>`<input type="text" style="width:100%;background:transparent;border:none;border-bottom:1px solid transparent;color:var(--text);font-family:var(--mono);font-size:12px;padding:2px 0;outline:none" onfocus="this.style.borderBottomColor='var(--border2)'" onblur="this.style.borderBottomColor='transparent'" onchange="equivUpdate(${s})">`;
-  tbody.innerHTML=EQUIV_DATA.map((row,i)=>`
-    <tr style="border-bottom:1px solid var(--border)">
-      <td style="padding:5px 12px">${inp(`${i},'ticker',this.value`)} </td>
-      <td style="padding:5px 12px">${inp(`${i},'ars',this.value`)}</td>
-      <td style="padding:5px 12px">${inp(`${i},'mep',this.value`)}</td>
-      <td style="padding:5px 12px">${inp(`${i},'cable',this.value`)}</td>
-      <td style="padding:5px 8px;text-align:center"><button onclick="equivDeleteRow(${i})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;line-height:1">✕</button></td>
-    </tr>`).join('');
-  // fill values after render (using .value to avoid HTML injection)
-  const inputs=tbody.querySelectorAll('input');
-  EQUIV_DATA.forEach((row,i)=>{
-    const base=i*4;
-    if(inputs[base])  inputs[base].value=row.ticker||'';
-    if(inputs[base+1])inputs[base+1].value=row.ars||'';
-    if(inputs[base+2])inputs[base+2].value=row.mep||'';
-    if(inputs[base+3])inputs[base+3].value=row.cable||'';
-  });
+  var html='';
+  for(var i=0;i<EQUIV_DATA.length;i++){
+    html+='<tr style="border-bottom:1px solid var(--border)">'
+      +'<td style="padding:5px 12px"><input class="equiv-inp" id="eqt'+i+'" onchange="equivUpdate('+i+',\'ticker\',this.value)"></td>'
+      +'<td style="padding:5px 12px"><input class="equiv-inp" id="eqa'+i+'" onchange="equivUpdate('+i+',\'ars\',this.value)"></td>'
+      +'<td style="padding:5px 12px"><input class="equiv-inp" id="eqm'+i+'" onchange="equivUpdate('+i+',\'mep\',this.value)"></td>'
+      +'<td style="padding:5px 12px"><input class="equiv-inp" id="eqc'+i+'" onchange="equivUpdate('+i+',\'cable\',this.value)"></td>'
+      +'<td style="padding:5px 8px;text-align:center"><button onclick="equivDeleteRow('+i+')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px">&#x2715;</button></td>'
+      +'</tr>';
+  }
+  tbody.innerHTML=html;
+  for(var j=0;j<EQUIV_DATA.length;j++){
+    var r=EQUIV_DATA[j];
+    var t=document.getElementById('eqt'+j);if(t)t.value=r.ticker||'';
+    var a=document.getElementById('eqa'+j);if(a)a.value=r.ars||'';
+    var m=document.getElementById('eqm'+j);if(m)m.value=r.mep||'';
+    var c=document.getElementById('eqc'+j);if(c)c.value=r.cable||'';
+  }
 }
 
 // ── USD PRICE FETCH ──────────────────────────────────────────────────────────
