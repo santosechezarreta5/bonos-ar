@@ -1817,7 +1817,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 
 <!-- BOPREALES MODAL -->
 <div class="modal-backdrop" id="bop-modal" onclick="if(event.target===this)bopCloseModal()" style="display:none">
-  <div class="modal" style="width:500px;max-height:92vh;overflow-y:auto;">
+  <div class="modal" style="width:620px;max-height:92vh;overflow-y:auto;">
     <div class="modal-title" id="bop-modal-title">Nuevo Bono</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:.7rem;margin-bottom:.7rem;">
       <div class="field"><label>Ticker</label><input id="bop-f-ticker" type="text" placeholder="BPRL3" style="text-transform:uppercase"></div>
@@ -1852,15 +1852,18 @@ tbody tr.selected .c-ticker{color:var(--accent);}
         <label style="font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em">Tasas Step Up</label>
         <button class="btn" style="padding:1px 6px;font-size:10px;margin:0" onclick="bopAddStepRow()">+ Fila</button>
       </div>
-      <table style="width:100%;border-collapse:collapse;font-size:11px;font-family:var(--mono)">
-        <thead><tr style="border-bottom:1px solid var(--border2)">
-          <th style="padding:2px 6px;text-align:left;font-weight:400;color:var(--text3);font-size:10px">Desde</th>
-          <th style="padding:2px 6px;text-align:left;font-weight:400;color:var(--text3);font-size:10px">Hasta</th>
-          <th style="padding:2px 6px;text-align:right;font-weight:400;color:var(--text3);font-size:10px">Tasa%</th>
-          <th style="width:24px"></th>
-        </tr></thead>
-        <tbody id="bop-stepup-rows"></tbody>
-      </table>
+      <div style="max-height:160px;overflow-y:auto;border:1px solid var(--border2);border-radius:3px;">
+        <table style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:11px;font-family:var(--mono)">
+          <colgroup><col style="width:39%"><col style="width:39%"><col style="width:16%"><col style="width:24px"></colgroup>
+          <thead style="position:sticky;top:0;background:var(--surface2);z-index:1"><tr style="border-bottom:1px solid var(--border2)">
+            <th style="padding:3px 6px;text-align:left;font-weight:400;color:var(--text3);font-size:10px">Desde</th>
+            <th style="padding:3px 6px;text-align:left;font-weight:400;color:var(--text3);font-size:10px">Hasta</th>
+            <th style="padding:3px 6px;text-align:right;font-weight:400;color:var(--text3);font-size:10px">Tasa%</th>
+            <th></th>
+          </tr></thead>
+          <tbody id="bop-stepup-rows"></tbody>
+        </table>
+      </div>
     </div>
     <!-- Amortización -->
     <div style="margin-bottom:.7rem">
@@ -1880,14 +1883,17 @@ tbody tr.selected .c-ticker{color:var(--accent);}
           <div class="field"><label>Cantidad</label><input id="bop-f-amort-cant" type="number" min="1" max="200" placeholder="4"></div>
           <button class="btn" style="padding:3px 8px;font-size:11px;margin:0" onclick="bopGenAmortRows()" title="Generar cronograma lineal">↺ Generar</button>
         </div>
-        <table style="width:100%;border-collapse:collapse;font-size:11px;font-family:var(--mono);margin-bottom:.35rem">
-          <thead><tr style="border-bottom:1px solid var(--border2)">
-            <th style="padding:2px 6px;text-align:left;font-weight:400;color:var(--text3);font-size:10px">Fecha pago</th>
-            <th style="padding:2px 6px;text-align:right;font-weight:400;color:var(--text3);font-size:10px">% del VN</th>
-            <th style="width:20px"></th>
-          </tr></thead>
-          <tbody id="bop-amort-rows"></tbody>
-        </table>
+        <div style="max-height:220px;overflow-y:auto;border:1px solid var(--border2);border-radius:3px;margin-bottom:.4rem">
+          <table style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:11px;font-family:var(--mono)">
+            <colgroup><col style="width:62%"><col style="width:30%"><col style="width:24px"></colgroup>
+            <thead style="position:sticky;top:0;background:var(--surface2);z-index:1"><tr style="border-bottom:1px solid var(--border2)">
+              <th style="padding:3px 6px;text-align:left;font-weight:400;color:var(--text3);font-size:10px">Fecha pago</th>
+              <th style="padding:3px 6px;text-align:right;font-weight:400;color:var(--text3);font-size:10px">% del VN</th>
+              <th></th>
+            </tr></thead>
+            <tbody id="bop-amort-rows"></tbody>
+          </table>
+        </div>
         <div style="display:flex;align-items:center;justify-content:space-between">
           <button class="btn" style="padding:1px 6px;font-size:10px;margin:0" onclick="bopAddAmortRow()">+ Fila</button>
           <span id="bop-amort-total" style="font-size:10px;font-family:var(--mono);color:var(--text3)">Total: 0%</span>
@@ -10301,11 +10307,12 @@ function bopRemoveStepRow(i){bopStepRows.splice(i,1);bopRenderStepRows();}
 function bopRenderStepRows(){
   const tbody=document.getElementById('bop-stepup-rows');
   if(!tbody)return;
-  tbody.innerHTML=bopStepRows.map((r,i)=>`<tr>
-    <td style="padding:2px 4px"><input type="date" value="${r.desde||''}" oninput="bopStepRows[${i}].desde=this.value" style="font-family:var(--mono);font-size:10px;background:var(--surface);border:1px solid var(--border2);border-radius:3px;padding:1px 4px;color:var(--text);width:100%"></td>
-    <td style="padding:2px 4px"><input type="date" value="${r.hasta||''}" oninput="bopStepRows[${i}].hasta=this.value" style="font-family:var(--mono);font-size:10px;background:var(--surface);border:1px solid var(--border2);border-radius:3px;padding:1px 4px;color:var(--text);width:100%"></td>
-    <td style="padding:2px 4px"><input type="number" step="0.01" value="${r.tasa||''}" oninput="bopStepRows[${i}].tasa=parseFloat(this.value)||0" style="font-family:var(--mono);font-size:10px;background:var(--surface);border:1px solid var(--border2);border-radius:3px;padding:1px 4px;color:var(--text);width:60px;text-align:right"></td>
-    <td style="padding:2px 4px;text-align:center"><button onclick="bopRemoveStepRow(${i})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px">✕</button></td>
+  const inp='font-family:var(--mono);font-size:11px;background:var(--surface);border:1px solid var(--border2);border-radius:3px;padding:2px 5px;color:var(--text);width:100%;box-sizing:border-box';
+  tbody.innerHTML=bopStepRows.map((r,i)=>`<tr style="border-bottom:1px solid var(--border)">
+    <td style="padding:3px 5px"><input type="date" value="${r.desde||''}" oninput="bopStepRows[${i}].desde=this.value" style="${inp}"></td>
+    <td style="padding:3px 5px"><input type="date" value="${r.hasta||''}" oninput="bopStepRows[${i}].hasta=this.value" style="${inp}"></td>
+    <td style="padding:3px 5px"><input type="number" step="0.01" value="${r.tasa||''}" oninput="bopStepRows[${i}].tasa=parseFloat(this.value)||0" style="${inp};text-align:right"></td>
+    <td style="padding:3px 4px;text-align:center"><button onclick="bopRemoveStepRow(${i})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;line-height:1">✕</button></td>
   </tr>`).join('');
 }
 function bopGenAmortRows(){
@@ -10328,10 +10335,11 @@ function bopGenAmortRows(){
 function bopRenderAmortRows(){
   const tbody=document.getElementById('bop-amort-rows');
   if(!tbody)return;
-  tbody.innerHTML=bopAmortRows.map((r,i)=>`<tr>
-    <td style="padding:2px 4px"><input type="date" value="${r.fecha||''}" oninput="bopAmortRows[${i}].fecha=this.value" style="font-family:var(--mono);font-size:10px;background:var(--surface);border:1px solid var(--border2);border-radius:3px;padding:1px 4px;color:var(--text);width:100%"></td>
-    <td style="padding:2px 4px"><input type="number" step="0.0001" value="${r.pct!==undefined?r.pct:''}" oninput="bopAmortRows[${i}].pct=parseFloat(this.value)||0;bopUpdateAmortTotal()" style="font-family:var(--mono);font-size:10px;background:var(--surface);border:1px solid var(--border2);border-radius:3px;padding:1px 4px;color:var(--text);width:70px;text-align:right"></td>
-    <td style="padding:2px 4px;text-align:center"><button onclick="bopRemoveAmortRow(${i})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px">✕</button></td>
+  const inp='font-family:var(--mono);font-size:11px;background:var(--surface);border:1px solid var(--border2);border-radius:3px;padding:2px 5px;color:var(--text);width:100%;box-sizing:border-box';
+  tbody.innerHTML=bopAmortRows.map((r,i)=>`<tr style="border-bottom:1px solid var(--border)">
+    <td style="padding:3px 5px"><input type="date" value="${r.fecha||''}" oninput="bopAmortRows[${i}].fecha=this.value" style="${inp}"></td>
+    <td style="padding:3px 5px"><input type="number" step="0.0001" value="${r.pct!==undefined?r.pct:''}" oninput="bopAmortRows[${i}].pct=parseFloat(this.value)||0;bopUpdateAmortTotal()" style="${inp};text-align:right"></td>
+    <td style="padding:3px 4px;text-align:center"><button onclick="bopRemoveAmortRow(${i})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;line-height:1">✕</button></td>
   </tr>`).join('');
   bopUpdateAmortTotal();
 }
