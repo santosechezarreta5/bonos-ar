@@ -9674,10 +9674,10 @@ function bopAccrued(bond,liqD,flows){
 
 // ── EQUIVALENCIAS ────────────────────────────────────────────────────────────
 var EQUIV_LS_KEY='bonosAR_equiv_v1';
-var EQUIV_DATA=[];
+var EQUIV_DATA; // initialized by equivLoad() at startup before this line runs
 
 function equivLoad(){
-  try{const r=localStorage.getItem(EQUIV_LS_KEY);if(r)EQUIV_DATA=JSON.parse(r);}catch(e){EQUIV_DATA=[];}
+  try{const r=localStorage.getItem(EQUIV_LS_KEY);EQUIV_DATA=r?JSON.parse(r):[];}catch(e){EQUIV_DATA=[];}
 }
 function equivSave(){
   localStorage.setItem(EQUIV_LS_KEY,JSON.stringify(EQUIV_DATA));
