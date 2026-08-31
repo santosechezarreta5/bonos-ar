@@ -10299,8 +10299,11 @@ function bopDSaveEdits(){
   flows.forEach((f,i)=>{
     const rEl=document.getElementById(`bop-ff-rate-${i}`);
     const aEl=document.getElementById(`bop-ff-amort-${i}`);
-    if(rEl){const v=parseFloat(rEl.value);if(!isNaN(v))rateOverrides.push({fechaNominal:f.fechaNominal,rate:v});}
-    if(aEl){const v=parseFloat(aEl.value);if(!isNaN(v))amortCustom.push({fecha:f.fechaNominal,pct:v});}
+    // past rows have no inputs — preserve their original values
+    const rateVal=rEl?parseFloat(rEl.value):f.rate;
+    const amortVal=aEl?parseFloat(aEl.value):f.amortAmt;
+    if(!isNaN(rateVal))rateOverrides.push({fechaNominal:f.fechaNominal,rate:rateVal});
+    if(!isNaN(amortVal))amortCustom.push({fecha:f.fechaNominal,pct:amortVal});
   });
   bond.rateOverrides=rateOverrides.length?rateOverrides:null;
   bond.amortCustom=amortCustom.length?amortCustom:null;
@@ -10786,8 +10789,10 @@ function gloDSaveEdits(){
   flows.forEach((f,i)=>{
     const rEl=document.getElementById(`glo-ff-rate-${i}`);
     const aEl=document.getElementById(`glo-ff-amort-${i}`);
-    if(rEl){const v=parseFloat(rEl.value);if(!isNaN(v))rateOverrides.push({fechaNominal:f.fechaNominal,rate:v});}
-    if(aEl){const v=parseFloat(aEl.value);if(!isNaN(v))amortCustom.push({fecha:f.fechaNominal,pct:v});}
+    const rateVal=rEl?parseFloat(rEl.value):f.rate;
+    const amortVal=aEl?parseFloat(aEl.value):f.amortAmt;
+    if(!isNaN(rateVal))rateOverrides.push({fechaNominal:f.fechaNominal,rate:rateVal});
+    if(!isNaN(amortVal))amortCustom.push({fecha:f.fechaNominal,pct:amortVal});
   });
   bond.rateOverrides=rateOverrides.length?rateOverrides:null;
   bond.amortCustom=amortCustom.length?amortCustom:null;
