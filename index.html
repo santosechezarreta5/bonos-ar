@@ -9521,6 +9521,7 @@ document.addEventListener('keydown',e=>{
 const BOP_LS_KEY='bonosAR_bop_v1';
 let BOP_BONDS=[];
 let bopSelTicker=null;
+let bopDetailEditMode=false;
 var bopModalCtx='bop'; // 'bop' | 'glo'
 let bopCurrentFlows=[];
 let bopStepRows=[];
@@ -9622,6 +9623,10 @@ function bopGenFlows(bond){
       amortMap[k]=(amortMap[k]||0)+pct;
     }
   }
+  const rateMap={};
+  if(bond.rateOverrides&&bond.rateOverrides.length){
+    for(const r of bond.rateOverrides)if(r.fechaNominal!=null)rateMap[r.fechaNominal]=r.rate;
+  }
   const flows=[];
   const anchor=bond.inicioInteres?parseDate(bond.inicioInteres):bopAddPeriod(emision,bond.periodicidad);
   const anchorDay=anchor.getDate();
@@ -9632,7 +9637,7 @@ function bopGenFlows(bond){
     const key=bopFmtDate(curr);
     const payDate=bopSiguienteHabil(curr);
     const yf=bopYearFrac(prev,curr,bond.convencion);
-    const rate=bopGetRate(bond,prev);
+    const rate=rateMap[key]!=null?rateMap[key]:bopGetRate(bond,prev);
     const cupon=rate/100*yf*outstanding;
     let amortPct=amortMap[key]||0;
     if(key===vencKey)amortPct=Math.max(amortPct,outstanding);
@@ -10069,6 +10074,7 @@ function bopBack(){
 function bopSelect(ticker){
   const bond=BOP_BONDS.find(b=>b.ticker===ticker);
   if(!bond)return;
+  bopDetailEditMode=false;
   bopSelTicker=ticker;
   bopCurrentFlows=bopGenFlows(bond);
   // update selection highlight in summary
@@ -10127,14 +10133,21 @@ function bopShowDetail(bond){
       </div>
     </div>
     <div style="${card}">
-      <span style="${secTitle}">Flujos de Caja</span>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem">
+        <span style="${secTitle};margin-bottom:0">Flujos de Caja</span>
+        <div style="display:flex;gap:5px">
+          <button id="bop-d-cancel-btn" class="btn" style="display:none;padding:1px 7px;font-size:10px;margin:0" onclick="bopDCancelEdit()">✕ Cancelar</button>
+          <button id="bop-d-edit-btn" class="btn" style="padding:1px 7px;font-size:10px;margin:0" onclick="bopDToggleEdit()">✎ Editar FF</button>
+        </div>
+      </div>
       <div id="bop-d-flows-info" style="font-size:10px;font-family:var(--mono);color:var(--text3);margin-bottom:.6rem">Ingresá un precio o TIR y presioná Calcular</div>
       <div style="overflow-x:auto">
-        <table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;min-width:520px">
+        <table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;min-width:600px">
           <thead><tr style="border-bottom:2px solid var(--border);background:var(--surface2)">
             <th style="padding:5px 10px;text-align:left;font-size:9px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Fecha</th>
             <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Días</th>
             <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Cap.Vig.</th>
+            <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Tasa %</th>
             <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--accent2);text-transform:uppercase;letter-spacing:.06em">Interés</th>
             <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--warn);text-transform:uppercase;letter-spacing:.06em">Amort.</th>
             <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--accent);text-transform:uppercase;letter-spacing:.06em">Total</th>
@@ -10202,7 +10215,9 @@ function bopDRenderFlows(liq,tirPct){
   const liqD=liq?parseDate(liq):null;
   const y=tirPct!=null?tirPct/100:null;
   let totInt=0,totAmort=0,totFlujo=0,totPV=0;
-  tbody.innerHTML=flows.map(f=>{
+  const em=bopDetailEditMode;
+  const einp='font-family:var(--mono);font-size:10px;background:var(--surface);border:1px solid var(--border2);border-radius:2px;padding:1px 4px;color:var(--text);width:62px;text-align:right;box-sizing:border-box';
+  tbody.innerHTML=flows.map((f,i)=>{
     const fd=parseDate(f.fecha);
     const isPast=liqD&&fd<=liqD;
     let pv=null;
@@ -10210,23 +10225,94 @@ function bopDRenderFlows(liq,tirPct){
     if(!isPast){totInt+=f.cupon;totAmort+=f.amortAmt;totFlujo+=f.flujo;}
     if(pv!=null)totPV+=pv;
     const op=isPast?'opacity:.3;':'';
-    return`<tr style="${op}border-bottom:1px solid var(--border)">
+    const rateTd=em&&!isPast
+      ?`<td style="padding:2px 4px;text-align:right"><input id="bop-ff-rate-${i}" type="number" step="0.0001" value="${f.rate}" style="${einp}" oninput="bopDPreviewRow(${i})"></td>`
+      :`<td style="padding:4px 8px;text-align:right;color:var(--text3)">${f.rate.toFixed(4)}</td>`;
+    const amortTd=em&&!isPast
+      ?`<td style="padding:2px 4px;text-align:right"><input id="bop-ff-amort-${i}" type="number" step="0.0001" value="${f.amortAmt}" style="${einp}" oninput="bopDPreviewRow(${i})"></td>`
+      :`<td style="padding:4px 8px;text-align:right;color:${f.amortAmt>0?'var(--warn)':'var(--text3)'}">${f.amortAmt>0?f.amortAmt.toFixed(4):'—'}</td>`;
+    return`<tr id="bop-ff-row-${i}" style="${op}border-bottom:1px solid var(--border)">
       <td style="padding:4px 10px;white-space:nowrap;color:var(--text2)">${bopFmtDateDisp(f.fecha)}</td>
       <td style="padding:4px 8px;text-align:right;color:var(--text3)">${f.dias}</td>
       <td style="padding:4px 8px;text-align:right;color:var(--text3)">${f.saldoInicio.toFixed(2)}</td>
-      <td style="padding:4px 8px;text-align:right;color:var(--accent2)">${f.cupon.toFixed(4)}</td>
-      <td style="padding:4px 8px;text-align:right;color:${f.amortAmt>0?'var(--warn)':'var(--text3)'}">${f.amortAmt>0?f.amortAmt.toFixed(4):'—'}</td>
-      <td style="padding:4px 8px;text-align:right;color:var(--accent);font-weight:600">${f.flujo.toFixed(4)}</td>
+      ${rateTd}
+      <td style="padding:4px 8px;text-align:right;color:var(--accent2)" id="bop-ff-int-${i}">${f.cupon.toFixed(4)}</td>
+      ${amortTd}
+      <td style="padding:4px 8px;text-align:right;color:var(--accent);font-weight:600" id="bop-ff-flujo-${i}">${f.flujo.toFixed(4)}</td>
       <td style="padding:4px 8px;text-align:right;color:var(--text3)">${pv!=null?pv.toFixed(4):'—'}</td>
     </tr>`;
   }).join('');
   tbody.innerHTML+=`<tr style="border-top:2px solid var(--border);background:var(--surface)">
-    <td colspan="3" style="padding:4px 10px;color:var(--text3);font-size:9px;font-weight:600;letter-spacing:.05em">FLUJOS FUTUROS (en %VN original)</td>
+    <td colspan="4" style="padding:4px 10px;color:var(--text3);font-size:9px;font-weight:600;letter-spacing:.05em">FLUJOS FUTUROS (en %VN original)</td>
     <td style="padding:4px 8px;text-align:right;color:var(--accent2);font-weight:600">${totInt.toFixed(4)}</td>
     <td style="padding:4px 8px;text-align:right;color:var(--warn);font-weight:600">${totAmort.toFixed(4)}</td>
     <td style="padding:4px 8px;text-align:right;color:var(--accent);font-weight:600">${totFlujo.toFixed(4)}</td>
     <td style="padding:4px 8px;text-align:right;color:var(--text3);font-weight:600">${y!=null&&liqD?totPV.toFixed(4):'—'}</td>
   </tr>`;
+}
+
+function bopDPreviewRow(i){
+  const f=bopCurrentFlows[i];if(!f)return;
+  const rEl=document.getElementById(`bop-ff-rate-${i}`);
+  const aEl=document.getElementById(`bop-ff-amort-${i}`);
+  const rate=rEl?parseFloat(rEl.value)||f.rate:f.rate;
+  const amort=aEl?parseFloat(aEl.value)||0:f.amortAmt;
+  const yf=f.dias/365;// approximate for preview
+  const cupon=rate/100*f.saldoInicio*yf;
+  const intEl=document.getElementById(`bop-ff-int-${i}`);
+  const flujoEl=document.getElementById(`bop-ff-flujo-${i}`);
+  if(intEl)intEl.textContent=cupon.toFixed(4);
+  if(flujoEl)flujoEl.textContent=(cupon+amort).toFixed(4);
+}
+
+function bopDToggleEdit(){
+  if(!bopDetailEditMode){
+    bopDetailEditMode=true;
+    const btn=document.getElementById('bop-d-edit-btn');
+    const cBtn=document.getElementById('bop-d-cancel-btn');
+    if(btn){btn.textContent='✓ Guardar FF';btn.classList.add('primary');}
+    if(cBtn)cBtn.style.display='inline-block';
+    const liq=document.getElementById('bop-d-liq').value;
+    const tir=parseFloat(document.getElementById('bop-d-tir').value);
+    bopDRenderFlows(liq||null,isNaN(tir)?null:tir);
+  }else{
+    bopDSaveEdits();
+  }
+}
+
+function bopDCancelEdit(){
+  bopDetailEditMode=false;
+  const btn=document.getElementById('bop-d-edit-btn');
+  const cBtn=document.getElementById('bop-d-cancel-btn');
+  if(btn){btn.textContent='✎ Editar FF';btn.classList.remove('primary');}
+  if(cBtn)cBtn.style.display='none';
+  const liq=document.getElementById('bop-d-liq').value;
+  const tir=parseFloat(document.getElementById('bop-d-tir').value);
+  bopDRenderFlows(liq||null,isNaN(tir)?null:tir);
+}
+
+function bopDSaveEdits(){
+  const bond=BOP_BONDS.find(b=>b.ticker===bopSelTicker);
+  if(!bond)return;
+  const flows=bopCurrentFlows;if(!flows)return;
+  const rateOverrides=[],amortCustom=[];
+  flows.forEach((f,i)=>{
+    const rEl=document.getElementById(`bop-ff-rate-${i}`);
+    const aEl=document.getElementById(`bop-ff-amort-${i}`);
+    if(rEl){const v=parseFloat(rEl.value);if(!isNaN(v))rateOverrides.push({fechaNominal:f.fechaNominal,rate:v});}
+    if(aEl){const v=parseFloat(aEl.value);if(!isNaN(v))amortCustom.push({fecha:f.fechaNominal,pct:v});}
+  });
+  bond.rateOverrides=rateOverrides.length?rateOverrides:null;
+  bond.amortCustom=amortCustom.length?amortCustom:null;
+  bopCurrentFlows=bopGenFlows(bond);
+  bopDetailEditMode=false;
+  const btn=document.getElementById('bop-d-edit-btn');
+  const cBtn=document.getElementById('bop-d-cancel-btn');
+  if(btn){btn.textContent='✎ Editar FF';btn.classList.remove('primary');}
+  if(cBtn)cBtn.style.display='none';
+  bopSave();
+  bopRenderSummaryRows();
+  bopDCalc();
 }
 
 // ── MODAL ───────────────────────────────────────────────────────────────────
@@ -10379,7 +10465,9 @@ function bopSaveModal(){
   const idx=BONDS.findIndex(b=>b.ticker===ticker);
   if(idx>=0){
     const old=BONDS[idx];
-    const amortUnchanged=JSON.stringify(old.amort)===JSON.stringify(bond.amort)&&old.amortiza===bond.amortiza&&JSON.stringify(old.amortCustom)===JSON.stringify(bond.amortCustom);
+    // rateOverrides come from FF edit mode, not the modal — always preserve them
+    bond.rateOverrides=old.rateOverrides||null;
+    const amortUnchanged=JSON.stringify(old.amort)===JSON.stringify(bond.amort)&&old.amortiza===bond.amortiza&&JSON.stringify(old.amortCustom)===JSON.stringify(bond.amortCustom)&&JSON.stringify(old.rateOverrides)===JSON.stringify(bond.rateOverrides);
     if(amortUnchanged&&old.lastPrecio!=null)bond.lastPrecio=old.lastPrecio;
     if(amortUnchanged&&old.lastLiq)bond.lastLiq=old.lastLiq;
     BONDS[idx]=bond;
