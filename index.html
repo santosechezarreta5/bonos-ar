@@ -9866,16 +9866,18 @@ function bopRenderSummaryRows(){
   if(table)table.style.display='table';
   const tbody=document.getElementById('bop-summary-tbody');
   if(!tbody)return;
+  const bopSumLiq=bopFmtDate(G_LIQ||addHabiles(TODAY,1));
   tbody.innerHTML=BOP_BONDS.map(b=>{
     const flows=bopGenFlows(b);
     let precioStr='—',varStr='—',mdStr='—',parStr='—',tirStr='—';
-    if(b.lastPrecio!=null&&b.lastLiq){
-      const liqD=parseDate(b.lastLiq);
-      const tir=bopTIR(b,b.lastLiq,b.lastPrecio,flows);
+    if(b.lastPrecio!=null){
+      const liq=bopSumLiq;
+      const liqD=parseDate(liq);
+      const tir=bopTIR(b,liq,b.lastPrecio,flows);
       precioStr=b.lastPrecio.toFixed(2);
       if(tir!=null){
         tirStr=tir.toFixed(2)+'%';
-        const dur=bopDuracion(b,b.lastLiq,tir,flows);
+        const dur=bopDuracion(b,liq,tir,flows);
         mdStr=dur.mod.toFixed(2);
         const accrued=bopAccrued(b,liqD,flows);
         parStr=(b.lastPrecio/(100+accrued)*100).toFixed(2);
@@ -9912,13 +9914,14 @@ var bopYieldChart=null;
 function bopChartRender(){
   const canvas=document.getElementById('bop-yield-chart');
   if(!canvas)return;
+  const bopChartLiq=bopFmtDate(G_LIQ||addHabiles(TODAY,1));
   const pts=[];
   for(const b of BOP_BONDS){
-    if(b.lastPrecio==null||!b.lastLiq)continue;
+    if(b.lastPrecio==null)continue;
     const flows=bopGenFlows(b);
-    const tir=bopTIR(b,b.lastLiq,b.lastPrecio,flows);
+    const tir=bopTIR(b,bopChartLiq,b.lastPrecio,flows);
     if(tir==null)continue;
-    const dur=bopDuracion(b,b.lastLiq,tir,flows);
+    const dur=bopDuracion(b,bopChartLiq,tir,flows);
     pts.push({x:+dur.mod,y:+tir,ticker:b.ticker});
   }
   if(bopYieldChart){bopYieldChart.destroy();bopYieldChart=null;}
@@ -10165,7 +10168,7 @@ function bopDRenderFlows(liq,tirPct){
     const isPast=liqD&&fd<=liqD;
     let pv=null;
     if(!isPast&&y!=null&&liqD){const t=diasACT(liqD,fd)/365;pv=f.flujo/Math.pow(1+y,t);}
-    totInt+=f.cupon;totAmort+=f.amortAmt;totFlujo+=f.flujo;
+    if(!isPast){totInt+=f.cupon;totAmort+=f.amortAmt;totFlujo+=f.flujo;}
     if(pv!=null)totPV+=pv;
     const op=isPast?'opacity:.3;':'';
     return`<tr style="${op}border-bottom:1px solid var(--border)">
@@ -10179,7 +10182,7 @@ function bopDRenderFlows(liq,tirPct){
     </tr>`;
   }).join('');
   tbody.innerHTML+=`<tr style="border-top:2px solid var(--border);background:var(--surface)">
-    <td colspan="3" style="padding:4px 10px;color:var(--text3);font-size:9px;font-weight:600;letter-spacing:.05em">SUMA VP (= paridad, en %VN original)</td>
+    <td colspan="3" style="padding:4px 10px;color:var(--text3);font-size:9px;font-weight:600;letter-spacing:.05em">FLUJOS FUTUROS (en %VN original)</td>
     <td style="padding:4px 8px;text-align:right;color:var(--accent2);font-weight:600">${totInt.toFixed(4)}</td>
     <td style="padding:4px 8px;text-align:right;color:var(--warn);font-weight:600">${totAmort.toFixed(4)}</td>
     <td style="padding:4px 8px;text-align:right;color:var(--accent);font-weight:600">${totFlujo.toFixed(4)}</td>
@@ -10343,16 +10346,18 @@ function gloRenderSummaryRows(){
   if(table)table.style.display='table';
   const tbody=document.getElementById('glo-summary-tbody');
   if(!tbody)return;
+  const gloSumLiq=bopFmtDate(G_LIQ||addHabiles(TODAY,1));
   tbody.innerHTML=GLO_BONDS.map(b=>{
     const flows=bopGenFlows(b);
     var precioStr='—',varStr='—',mdStr='—',parStr='—',tirStr='—';
-    if(b.lastPrecio!=null&&b.lastLiq){
-      const liqD=parseDate(b.lastLiq);
-      const tir=bopTIR(b,b.lastLiq,b.lastPrecio,flows);
+    if(b.lastPrecio!=null){
+      const liq=gloSumLiq;
+      const liqD=parseDate(liq);
+      const tir=bopTIR(b,liq,b.lastPrecio,flows);
       precioStr=b.lastPrecio.toFixed(2);
       if(tir!=null){
         tirStr=tir.toFixed(2)+'%';
-        const dur=bopDuracion(b,b.lastLiq,tir,flows);
+        const dur=bopDuracion(b,liq,tir,flows);
         mdStr=dur.mod.toFixed(2);
         const accrued=bopAccrued(b,liqD,flows);
         parStr=(b.lastPrecio/(100+accrued)*100).toFixed(2);
@@ -10463,7 +10468,6 @@ function gloShowDetail(bond){
     </div>
   </div>`;
   gloDRenderFlows(null,null);
-  if(bond.lastLiq){document.getElementById('glo-d-liq').value=bond.lastLiq;}
   if(bond.lastPrecio!=null){
     document.getElementById('glo-d-precio').value=bond.lastPrecio.toFixed(4);
     gloDCalc();
@@ -10520,7 +10524,7 @@ function gloDRenderFlows(liq,tirPct){
     const isPast=liqD&&fd<=liqD;
     var pv=null;
     if(!isPast&&y!=null&&liqD){const t=diasACT(liqD,fd)/365;pv=f.flujo/Math.pow(1+y,t);}
-    totInt+=f.cupon;totAmort+=f.amortAmt;totFlujo+=f.flujo;
+    if(!isPast){totInt+=f.cupon;totAmort+=f.amortAmt;totFlujo+=f.flujo;}
     if(pv!=null)totPV+=pv;
     const op=isPast?'opacity:.3;':'';
     return`<tr style="${op}border-bottom:1px solid var(--border)">
@@ -10534,7 +10538,7 @@ function gloDRenderFlows(liq,tirPct){
     </tr>`;
   }).join('');
   tbody.innerHTML+=`<tr style="border-top:2px solid var(--border);background:var(--surface)">
-    <td colspan="3" style="padding:4px 10px;color:var(--text3);font-size:9px;font-weight:600;letter-spacing:.05em">SUMA VP (= paridad, en %VN original)</td>
+    <td colspan="3" style="padding:4px 10px;color:var(--text3);font-size:9px;font-weight:600;letter-spacing:.05em">FLUJOS FUTUROS (en %VN original)</td>
     <td style="padding:4px 8px;text-align:right;color:var(--accent2);font-weight:600">${totInt.toFixed(4)}</td>
     <td style="padding:4px 8px;text-align:right;color:var(--warn);font-weight:600">${totAmort.toFixed(4)}</td>
     <td style="padding:4px 8px;text-align:right;color:var(--accent);font-weight:600">${totFlujo.toFixed(4)}</td>
@@ -10545,13 +10549,14 @@ function gloDRenderFlows(liq,tirPct){
 function gloChartRender(){
   const canvas=document.getElementById('glo-yield-chart');
   if(!canvas)return;
+  const gloChartLiq=bopFmtDate(G_LIQ||addHabiles(TODAY,1));
   const pts=[];
   for(const b of GLO_BONDS){
-    if(b.lastPrecio==null||!b.lastLiq)continue;
+    if(b.lastPrecio==null)continue;
     const flows=bopGenFlows(b);
-    const tir=bopTIR(b,b.lastLiq,b.lastPrecio,flows);
+    const tir=bopTIR(b,gloChartLiq,b.lastPrecio,flows);
     if(tir==null)continue;
-    const dur=bopDuracion(b,b.lastLiq,tir,flows);
+    const dur=bopDuracion(b,gloChartLiq,tir,flows);
     pts.push({x:+dur.mod,y:+tir,ticker:b.ticker});
   }
   if(gloYieldChart){gloYieldChart.destroy();gloYieldChart=null;}
