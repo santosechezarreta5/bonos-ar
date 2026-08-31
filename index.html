@@ -439,7 +439,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
   </div>
   <div class="sbar-sep"></div>
   <div class="sbar-refresh">
-    <button class="btn primary" onclick="fetchAllPrices();usdRefreshPrices()">↻ Precios</button>
+    <button class="btn primary" onclick="fetchAllPrices()">↻ Precios</button>
     <span class="api-status" id="api-status">sin datos</span>
   </div>
 </div>
@@ -609,7 +609,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
         <span class="api-status" id="cer-data-status" style="font-size:10px;"></span>
         <input type="text" class="search-box" id="cer-search" placeholder="Buscar…" oninput="cerRenderTable()">
         <label class="chk"><input type="checkbox" id="cer-show-vencidas" onchange="cerRenderTable()"> Vencidas</label>
-        <button class="btn" id="cer-fetch-btn" onclick="cerFetchPrices()">↻ Precios</button>
+        <button class="btn" id="cer-fetch-btn" onclick="fetchAllPrices()">↻ Precios</button>
         <span class="api-status" id="cer-api-status"></span>
         <button class="btn" onclick="exportTableCSV('cer')" title="Exportar tabla a CSV" style="font-size:11px;padding:3px 7px">⬇ CSV</button>
         <button class="btn primary" onclick="cerOpenModal()">+ Nueva</button>
@@ -907,7 +907,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
         </label>
         <div style="margin-left:auto;display:flex;gap:6px;align-items:center;">
           <span class="api-status" id="tamar-api-status">sin datos</span>
-          <button class="btn" id="tamar-fetch-btn" onclick="tamarFetchPrices()">↻ Precios</button>
+          <button class="btn" id="tamar-fetch-btn" onclick="fetchAllPrices()">↻ Precios</button>
           <button class="btn" onclick="exportTableCSV('tamar')" title="Exportar tabla a CSV" style="font-size:11px;padding:3px 7px">⬇ CSV</button>
           <button class="btn primary" onclick="tamarOpenModal()">+ Nueva</button>
         </div>
@@ -2753,6 +2753,8 @@ async function fetchAllPrices(){
     document.getElementById('api-status').textContent='error de conexión';
     document.getElementById('api-status').className='api-status err';
   }
+  // siempre actualizar bonos USD también
+  usdRefreshPrices();
 }
 
 // ── TABLA ─────────────────────────────────────────────────────────────────────
