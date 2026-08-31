@@ -9485,18 +9485,32 @@ function bopGenFlows(bond){
   if(!emision||!venc||venc<=emision)return[];
   const vencKey=bopFmtDate(venc);
   // amortization schedule keyed by YYYY-MM-DD
+  // helper: nth date from anchor preserving original day (EOM-safe)
+  function bopAnchorDate(anchor,anchorDay,nthPeriod,periodMonths){
+    const m=anchor.getMonth()+nthPeriod*periodMonths;
+    const yr=anchor.getFullYear()+Math.floor(m/12);
+    const mo=((m%12)+12)%12;
+    const maxD=new Date(yr,mo+1,0).getDate();
+    return new Date(yr,mo,Math.min(anchorDay,maxD));
+  }
+  const PER_MO={mensual:1,trimestral:3,semestral:6,anual:12};
   const amortMap={};
   if(bond.amortiza&&bond.amort&&bond.amort.cantidad>0){
-    let d=parseDate(bond.amort.inicio);
+    const aa=parseDate(bond.amort.inicio);
+    const aDay=aa.getDate();
+    const aMo=PER_MO[bond.amort.periodicidad]||6;
     const N=bond.amort.cantidad,pct=100/N;
     for(let i=0;i<N;i++){
-      const k=bopFmtDate(d);
+      const k=bopFmtDate(bopAnchorDate(aa,aDay,i,aMo));
       amortMap[k]=(amortMap[k]||0)+pct;
-      d=bopAddPeriod(d,bond.amort.periodicidad);
     }
   }
   const flows=[];
-  let prev=emision,curr=bond.inicioInteres?parseDate(bond.inicioInteres):bopAddPeriod(emision,bond.periodicidad),outstanding=100;
+  const anchor=bond.inicioInteres?parseDate(bond.inicioInteres):bopAddPeriod(emision,bond.periodicidad);
+  const anchorDay=anchor.getDate();
+  const periodMo=PER_MO[bond.periodicidad]||6;
+  let prev=emision,step=0,outstanding=100;
+  let curr=new Date(anchor);
   while(curr<=venc&&outstanding>0.0005){
     const key=bopFmtDate(curr);
     const payDate=bopSiguienteHabil(curr);
@@ -9522,7 +9536,8 @@ function bopGenFlows(bond){
     outstanding=newSaldo;
     prev=curr;
     if(key===vencKey)break;
-    curr=bopAddPeriod(curr,bond.periodicidad);
+    step++;
+    curr=bopAnchorDate(anchor,anchorDay,step,periodMo);
   }
   return flows;
 }
