@@ -10497,6 +10497,7 @@ const GLO_LS_KEY='bonosAR_glo_v1';
 var GLO_BONDS=[];
 var gloSelTicker=null;
 var gloCurrentFlows=null;
+var gloDetailEditMode=false;
 var gloYieldChart=null;
 
 function gloLoad(){try{const r=localStorage.getItem(GLO_LS_KEY);if(r)GLO_BONDS=JSON.parse(r);}catch(e){}}
@@ -10565,6 +10566,7 @@ function gloBack(){gloRenderSummary();}
 function gloSelect(ticker){
   const bond=GLO_BONDS.find(b=>b.ticker===ticker);
   if(!bond)return;
+  gloDetailEditMode=false;
   gloSelTicker=ticker;
   gloCurrentFlows=bopGenFlows(bond);
   gloRenderSummaryRows();
@@ -10621,14 +10623,21 @@ function gloShowDetail(bond){
       </div>
     </div>
     <div style="${card}">
-      <span style="${secTitle}">Flujos de Caja</span>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem">
+        <span style="${secTitle};margin-bottom:0">Flujos de Caja</span>
+        <div style="display:flex;gap:5px">
+          <button id="glo-d-cancel-btn" class="btn" style="display:none;padding:1px 7px;font-size:10px;margin:0" onclick="gloDCancelEdit()">✕ Cancelar</button>
+          <button id="glo-d-edit-btn" class="btn" style="padding:1px 7px;font-size:10px;margin:0" onclick="gloDToggleEdit()">✎ Editar FF</button>
+        </div>
+      </div>
       <div id="glo-d-flows-info" style="font-size:10px;font-family:var(--mono);color:var(--text3);margin-bottom:.6rem">Ingresá un precio o TIR y presioná Calcular</div>
       <div style="overflow-x:auto">
-        <table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;min-width:520px">
+        <table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;min-width:600px">
           <thead><tr style="border-bottom:2px solid var(--border);background:var(--surface2)">
             <th style="padding:5px 10px;text-align:left;font-size:9px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Fecha</th>
             <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Días</th>
             <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Cap.Vig.</th>
+            <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Tasa %</th>
             <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--accent2);text-transform:uppercase;letter-spacing:.06em">Interés</th>
             <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--warn);text-transform:uppercase;letter-spacing:.06em">Amort.</th>
             <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--accent);text-transform:uppercase;letter-spacing:.06em">Total</th>
@@ -10694,7 +10703,9 @@ function gloDRenderFlows(liq,tirPct){
   const liqD=liq?parseDate(liq):null;
   const y=tirPct!=null?tirPct/100:null;
   var totInt=0,totAmort=0,totFlujo=0,totPV=0;
-  tbody.innerHTML=flows.map(f=>{
+  const em=gloDetailEditMode;
+  const einp='font-family:var(--mono);font-size:10px;background:var(--surface);border:1px solid var(--border2);border-radius:2px;padding:1px 4px;color:var(--text);width:62px;text-align:right;box-sizing:border-box';
+  tbody.innerHTML=flows.map((f,i)=>{
     const fd=parseDate(f.fecha);
     const isPast=liqD&&fd<=liqD;
     var pv=null;
@@ -10702,23 +10713,93 @@ function gloDRenderFlows(liq,tirPct){
     if(!isPast){totInt+=f.cupon;totAmort+=f.amortAmt;totFlujo+=f.flujo;}
     if(pv!=null)totPV+=pv;
     const op=isPast?'opacity:.3;':'';
-    return`<tr style="${op}border-bottom:1px solid var(--border)">
+    const rateTd=em&&!isPast
+      ?`<td style="padding:2px 4px;text-align:right"><input id="glo-ff-rate-${i}" type="number" step="0.0001" value="${f.rate}" style="${einp}" oninput="gloDPreviewRow(${i})"></td>`
+      :`<td style="padding:4px 8px;text-align:right;color:var(--text3)">${f.rate.toFixed(4)}</td>`;
+    const amortTd=em&&!isPast
+      ?`<td style="padding:2px 4px;text-align:right"><input id="glo-ff-amort-${i}" type="number" step="0.0001" value="${f.amortAmt}" style="${einp}" oninput="gloDPreviewRow(${i})"></td>`
+      :`<td style="padding:4px 8px;text-align:right;color:${f.amortAmt>0?'var(--warn)':'var(--text3)'}">${f.amortAmt>0?f.amortAmt.toFixed(4):'—'}</td>`;
+    return`<tr id="glo-ff-row-${i}" style="${op}border-bottom:1px solid var(--border)">
       <td style="padding:4px 10px;white-space:nowrap;color:var(--text2)">${bopFmtDateDisp(f.fecha)}</td>
       <td style="padding:4px 8px;text-align:right;color:var(--text3)">${f.dias}</td>
       <td style="padding:4px 8px;text-align:right;color:var(--text3)">${f.saldoInicio.toFixed(2)}</td>
-      <td style="padding:4px 8px;text-align:right;color:var(--accent2)">${f.cupon.toFixed(4)}</td>
-      <td style="padding:4px 8px;text-align:right;color:${f.amortAmt>0?'var(--warn)':'var(--text3)'}">${f.amortAmt>0?f.amortAmt.toFixed(4):'—'}</td>
-      <td style="padding:4px 8px;text-align:right;color:var(--accent);font-weight:600">${f.flujo.toFixed(4)}</td>
+      ${rateTd}
+      <td style="padding:4px 8px;text-align:right;color:var(--accent2)" id="glo-ff-int-${i}">${f.cupon.toFixed(4)}</td>
+      ${amortTd}
+      <td style="padding:4px 8px;text-align:right;color:var(--accent);font-weight:600" id="glo-ff-flujo-${i}">${f.flujo.toFixed(4)}</td>
       <td style="padding:4px 8px;text-align:right;color:var(--text3)">${pv!=null?pv.toFixed(4):'—'}</td>
     </tr>`;
   }).join('');
   tbody.innerHTML+=`<tr style="border-top:2px solid var(--border);background:var(--surface)">
-    <td colspan="3" style="padding:4px 10px;color:var(--text3);font-size:9px;font-weight:600;letter-spacing:.05em">FLUJOS FUTUROS (en %VN original)</td>
+    <td colspan="4" style="padding:4px 10px;color:var(--text3);font-size:9px;font-weight:600;letter-spacing:.05em">FLUJOS FUTUROS (en %VN original)</td>
     <td style="padding:4px 8px;text-align:right;color:var(--accent2);font-weight:600">${totInt.toFixed(4)}</td>
     <td style="padding:4px 8px;text-align:right;color:var(--warn);font-weight:600">${totAmort.toFixed(4)}</td>
     <td style="padding:4px 8px;text-align:right;color:var(--accent);font-weight:600">${totFlujo.toFixed(4)}</td>
     <td style="padding:4px 8px;text-align:right;color:var(--text3);font-weight:600">${y!=null&&liqD?totPV.toFixed(4):'—'}</td>
   </tr>`;
+}
+
+function gloDPreviewRow(i){
+  const f=gloCurrentFlows[i];if(!f)return;
+  const rEl=document.getElementById(`glo-ff-rate-${i}`);
+  const aEl=document.getElementById(`glo-ff-amort-${i}`);
+  const rate=rEl?parseFloat(rEl.value)||f.rate:f.rate;
+  const amort=aEl?parseFloat(aEl.value)||0:f.amortAmt;
+  const cupon=rate/100*f.saldoInicio*(f.dias/365);
+  const intEl=document.getElementById(`glo-ff-int-${i}`);
+  const flujoEl=document.getElementById(`glo-ff-flujo-${i}`);
+  if(intEl)intEl.textContent=cupon.toFixed(4);
+  if(flujoEl)flujoEl.textContent=(cupon+amort).toFixed(4);
+}
+
+function gloDToggleEdit(){
+  if(!gloDetailEditMode){
+    gloDetailEditMode=true;
+    const btn=document.getElementById('glo-d-edit-btn');
+    const cBtn=document.getElementById('glo-d-cancel-btn');
+    if(btn){btn.textContent='✓ Guardar FF';btn.classList.add('primary');}
+    if(cBtn)cBtn.style.display='inline-block';
+    const liq=document.getElementById('glo-d-liq').value;
+    const tir=parseFloat(document.getElementById('glo-d-tir').value);
+    gloDRenderFlows(liq||null,isNaN(tir)?null:tir);
+  }else{
+    gloDSaveEdits();
+  }
+}
+
+function gloDCancelEdit(){
+  gloDetailEditMode=false;
+  const btn=document.getElementById('glo-d-edit-btn');
+  const cBtn=document.getElementById('glo-d-cancel-btn');
+  if(btn){btn.textContent='✎ Editar FF';btn.classList.remove('primary');}
+  if(cBtn)cBtn.style.display='none';
+  const liq=document.getElementById('glo-d-liq').value;
+  const tir=parseFloat(document.getElementById('glo-d-tir').value);
+  gloDRenderFlows(liq||null,isNaN(tir)?null:tir);
+}
+
+function gloDSaveEdits(){
+  const bond=GLO_BONDS.find(b=>b.ticker===gloSelTicker);
+  if(!bond)return;
+  const flows=gloCurrentFlows;if(!flows)return;
+  const rateOverrides=[],amortCustom=[];
+  flows.forEach((f,i)=>{
+    const rEl=document.getElementById(`glo-ff-rate-${i}`);
+    const aEl=document.getElementById(`glo-ff-amort-${i}`);
+    if(rEl){const v=parseFloat(rEl.value);if(!isNaN(v))rateOverrides.push({fechaNominal:f.fechaNominal,rate:v});}
+    if(aEl){const v=parseFloat(aEl.value);if(!isNaN(v))amortCustom.push({fecha:f.fechaNominal,pct:v});}
+  });
+  bond.rateOverrides=rateOverrides.length?rateOverrides:null;
+  bond.amortCustom=amortCustom.length?amortCustom:null;
+  gloCurrentFlows=bopGenFlows(bond);
+  gloDetailEditMode=false;
+  const btn=document.getElementById('glo-d-edit-btn');
+  const cBtn=document.getElementById('glo-d-cancel-btn');
+  if(btn){btn.textContent='✎ Editar FF';btn.classList.remove('primary');}
+  if(cBtn)cBtn.style.display='none';
+  gloSave();
+  gloRenderSummaryRows();
+  gloDCalc();
 }
 
 function gloChartRender(){
