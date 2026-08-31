@@ -1872,14 +1872,26 @@ tbody tr.selected .c-ticker{color:var(--accent);}
         </div>
       </div>
       <div id="bop-f-amort-div" style="background:var(--surface2);border-radius:4px;padding:.55rem .75rem;border:1px solid var(--border)">
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.55rem;margin-bottom:.4rem">
-          <div class="field"><label>Inicio pago amort.</label><input id="bop-f-amort-inicio" type="date" oninput="bopPreviewAmort()"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:.55rem;margin-bottom:.55rem;align-items:flex-end">
+          <div class="field"><label>Inicio pago amort.</label><input id="bop-f-amort-inicio" type="date"></div>
           <div class="field"><label>Periodicidad</label>
-            <select id="bop-f-amort-per" oninput="bopPreviewAmort()"><option value="mensual">Mensual</option><option value="trimestral">Trimestral</option><option value="semestral">Semestral</option><option value="anual">Anual</option></select>
+            <select id="bop-f-amort-per"><option value="mensual">Mensual</option><option value="trimestral">Trimestral</option><option value="semestral">Semestral</option><option value="anual">Anual</option></select>
           </div>
-          <div class="field"><label>Cantidad</label><input id="bop-f-amort-cant" type="number" min="1" max="200" placeholder="4" oninput="bopPreviewAmort()"></div>
+          <div class="field"><label>Cantidad</label><input id="bop-f-amort-cant" type="number" min="1" max="200" placeholder="4"></div>
+          <button class="btn" style="padding:3px 8px;font-size:11px;margin:0" onclick="bopGenAmortRows()" title="Generar cronograma lineal">↺ Generar</button>
         </div>
-        <div id="bop-amort-preview" style="font-size:10px;color:var(--accent2);font-family:var(--mono);min-height:14px"></div>
+        <table style="width:100%;border-collapse:collapse;font-size:11px;font-family:var(--mono);margin-bottom:.35rem">
+          <thead><tr style="border-bottom:1px solid var(--border2)">
+            <th style="padding:2px 6px;text-align:left;font-weight:400;color:var(--text3);font-size:10px">Fecha pago</th>
+            <th style="padding:2px 6px;text-align:right;font-weight:400;color:var(--text3);font-size:10px">% del VN</th>
+            <th style="width:20px"></th>
+          </tr></thead>
+          <tbody id="bop-amort-rows"></tbody>
+        </table>
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <button class="btn" style="padding:1px 6px;font-size:10px;margin:0" onclick="bopAddAmortRow()">+ Fila</button>
+          <span id="bop-amort-total" style="font-size:10px;font-family:var(--mono);color:var(--text3)">Total: 0%</span>
+        </div>
       </div>
     </div>
     <div style="display:flex;gap:.5rem;justify-content:flex-end;margin-top:.5rem;border-top:1px solid var(--border);padding-top:.75rem">
@@ -9504,6 +9516,7 @@ let bopSelTicker=null;
 var bopModalCtx='bop'; // 'bop' | 'glo'
 let bopCurrentFlows=[];
 let bopStepRows=[];
+let bopAmortRows=[];
 let bopTipoCupon='fijo';
 let bopAmortiza=true;
 let bopEditingTicker=null;
@@ -9575,22 +9588,23 @@ function bopGetRate(bond,d1){
   return arr.length?arr[arr.length-1].tasa:0;
 }
 
+function bopAnchorDate(anchor,anchorDay,nthPeriod,periodMonths){
+  const m=anchor.getMonth()+nthPeriod*periodMonths;
+  const yr=anchor.getFullYear()+Math.floor(m/12);
+  const mo=((m%12)+12)%12;
+  const maxD=new Date(yr,mo+1,0).getDate();
+  return new Date(yr,mo,Math.min(anchorDay,maxD));
+}
+
 function bopGenFlows(bond){
   const emision=parseDate(bond.emision),venc=parseDate(bond.vencimiento);
   if(!emision||!venc||venc<=emision)return[];
   const vencKey=bopFmtDate(venc);
-  // amortization schedule keyed by YYYY-MM-DD
-  // helper: nth date from anchor preserving original day (EOM-safe)
-  function bopAnchorDate(anchor,anchorDay,nthPeriod,periodMonths){
-    const m=anchor.getMonth()+nthPeriod*periodMonths;
-    const yr=anchor.getFullYear()+Math.floor(m/12);
-    const mo=((m%12)+12)%12;
-    const maxD=new Date(yr,mo+1,0).getDate();
-    return new Date(yr,mo,Math.min(anchorDay,maxD));
-  }
   const PER_MO={mensual:1,trimestral:3,semestral:6,anual:12};
   const amortMap={};
-  if(bond.amortiza&&bond.amort&&bond.amort.cantidad>0){
+  if(bond.amortCustom&&bond.amortCustom.length){
+    for(const r of bond.amortCustom)if(r.fecha&&r.pct)amortMap[r.fecha]=(amortMap[r.fecha]||0)+r.pct;
+  }else if(bond.amortiza&&bond.amort&&bond.amort.cantidad>0){
     const aa=parseDate(bond.amort.inicio);
     const aDay=aa.getDate();
     const aMo=PER_MO[bond.amort.periodicidad]||6;
@@ -9781,9 +9795,9 @@ async function usdFetchPriceMap(){
   const res=await fetch(USD_PRICE_API,{cache:'no-store'});
   if(!res.ok)throw new Error('HTTP '+res.status);
   const data=await res.json();
-  const map={};
-  for(const item of data)if(item.symbol&&item.c!=null)map[item.symbol]=+item.c;
-  return map;
+  const map={},pctMap={};
+  for(const item of data)if(item.symbol&&item.c!=null){map[item.symbol]=+item.c;if(item.pct_change!=null)pctMap[item.symbol]=+item.pct_change;}
+  return{map,pctMap};
 }
 
 function usdNextHabil(){
@@ -9796,7 +9810,7 @@ async function usdRefreshPrices(){
   const statusEl=document.getElementById('usd-price-status');
   if(statusEl)statusEl.textContent='Actualizando...';
   try{
-    const map=await usdFetchPriceMap();
+    const{map,pctMap}=await usdFetchPriceMap();
     const mepRate=(map['AL30']&&map['AL30D'])?map['AL30']/map['AL30D']:null;
     const liq=usdNextHabil();
     let updated=0;
@@ -9805,18 +9819,18 @@ async function usdRefreshPrices(){
     for(const bond of BOP_BONDS){
       const row=EQUIV_DATA.find(e=>e.ticker===bond.ticker);
       if(!row)continue;
-      let usdPrecio=null;
+      let usdPrecio=null,sym=null;
       if(usdCurrency==='ARS'){
         const raw=map[row.ars];
-        if(raw!=null&&mepRate)usdPrecio=raw/mepRate;
+        if(raw!=null&&mepRate){usdPrecio=raw/mepRate;sym=row.ars;}
       }else if(usdCurrency==='MEP'){
         const raw=map[row.mep];
-        if(raw!=null)usdPrecio=raw;
+        if(raw!=null){usdPrecio=raw;sym=row.mep;}
       }else{
         const raw=map[row.cable];
-        if(raw!=null)usdPrecio=raw;
+        if(raw!=null){usdPrecio=raw;sym=row.cable;}
       }
-      if(usdPrecio!=null){bond.lastPrecio=+usdPrecio.toFixed(4);if(!bond.lastLiq)bond.lastLiq=liq;updated++;}
+      if(usdPrecio!=null){bond.lastPrecio=+usdPrecio.toFixed(4);bond.lastPctChange=sym&&pctMap[sym]!=null?pctMap[sym]:null;if(!bond.lastLiq)bond.lastLiq=liq;updated++;}
     }
 
     if(updated)bopSave();
@@ -9827,18 +9841,18 @@ async function usdRefreshPrices(){
     for(const bond of GLO_BONDS){
       const row=EQUIV_DATA.find(e=>e.ticker===bond.ticker);
       if(!row)continue;
-      let gloPrecio=null;
+      let gloPrecio=null,gloSym=null;
       if(usdCurrency==='ARS'){
         const raw=map[row.ars];
-        if(raw!=null&&mepRate)gloPrecio=raw/mepRate;
+        if(raw!=null&&mepRate){gloPrecio=raw/mepRate;gloSym=row.ars;}
       }else if(usdCurrency==='MEP'){
         const raw=map[row.mep];
-        if(raw!=null)gloPrecio=raw;
+        if(raw!=null){gloPrecio=raw;gloSym=row.mep;}
       }else{
         const raw=map[row.cable];
-        if(raw!=null)gloPrecio=raw;
+        if(raw!=null){gloPrecio=raw;gloSym=row.cable;}
       }
-      if(gloPrecio!=null){bond.lastPrecio=+gloPrecio.toFixed(4);gloUpdated++;}
+      if(gloPrecio!=null){bond.lastPrecio=+gloPrecio.toFixed(4);bond.lastPctChange=gloSym&&pctMap[gloSym]!=null?pctMap[gloSym]:null;gloUpdated++;}
     }
     if(gloUpdated){gloSave();if(document.getElementById('page-usd-globales').style.display!=='none')gloRenderSummaryRows();}
 
@@ -9889,6 +9903,7 @@ function bopRenderSummaryRows(){
       const liqD=parseDate(liq);
       const tir=bopTIR(b,liq,b.lastPrecio,flows);
       precioStr=b.lastPrecio.toFixed(2);
+      if(b.lastPctChange!=null){const chg=b.lastPctChange;varStr=`<span class="${chg>=0?'c-chg-pos':'c-chg-neg'}">${chg>=0?'+':''}${chg.toFixed(2)}%</span>`;}
       if(tir!=null){
         tirStr=tir.toFixed(2)+'%';
         const dur=bopDuracion(b,liq,tir,flows);
@@ -10235,6 +10250,20 @@ function bopOpenModal(ticker){
       document.getElementById('bop-f-amort-per').value='trimestral';
       document.getElementById('bop-f-amort-cant').value='';
     }
+    // load amort schedule: custom rows take precedence, else generate from linear params
+    if(bond.amortCustom&&bond.amortCustom.length){
+      bopAmortRows=bond.amortCustom.map(r=>({...r}));
+    }else if(bond.amortiza&&bond.amort&&bond.amort.cantidad>0&&bond.amort.inicio){
+      const PER_MO={mensual:1,trimestral:3,semestral:6,anual:12};
+      const aa=parseDate(bond.amort.inicio);
+      const aDay=aa.getDate();
+      const aMo=PER_MO[bond.amort.periodicidad]||6;
+      const N=bond.amort.cantidad,pct=+(100/N).toFixed(6);
+      bopAmortRows=[];
+      for(let i=0;i<N;i++){const d=bopAnchorDate(aa,aDay,i,aMo);bopAmortRows.push({fecha:bopFmtDate(d),pct});}
+    }else{
+      bopAmortRows=[];
+    }
   }else{
     tf.value='';tf.disabled=false;
     document.getElementById('bop-f-emision').value='';
@@ -10247,8 +10276,9 @@ function bopOpenModal(ticker){
     document.getElementById('bop-f-amort-inicio').value='';
     document.getElementById('bop-f-amort-per').value='trimestral';
     document.getElementById('bop-f-amort-cant').value='';
+    bopAmortRows=[];
   }
-  bopSyncTipoCupon();bopSyncAmort();bopRenderStepRows();bopPreviewAmort();
+  bopSyncTipoCupon();bopSyncAmort();bopRenderStepRows();bopRenderAmortRows();
   document.getElementById('bop-modal').style.display='flex';
 }
 function bopCloseModal(){document.getElementById('bop-modal').style.display='none';}
@@ -10278,17 +10308,42 @@ function bopRenderStepRows(){
     <td style="padding:2px 4px;text-align:center"><button onclick="bopRemoveStepRow(${i})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px">✕</button></td>
   </tr>`).join('');
 }
-function bopPreviewAmort(){
-  const el=document.getElementById('bop-amort-preview');
-  if(!el)return;
+function bopGenAmortRows(){
   const inicio=document.getElementById('bop-f-amort-inicio').value;
   const per=document.getElementById('bop-f-amort-per').value;
   const cant=parseInt(document.getElementById('bop-f-amort-cant').value)||0;
-  if(!inicio||!cant){el.textContent='';return;}
-  const pct=(100/cant).toFixed(4);
-  const perMap={mensual:'mes',trimestral:'trimestre',semestral:'semestre',anual:'año'};
-  el.textContent=`→ ${cant} cuota${cant>1?'s':''} de ${pct}% c/u · cada ${perMap[per]||per} · inicio ${bopFmtDateDisp(inicio)}`;
+  if(!inicio||!cant)return;
+  const PER_MO={mensual:1,trimestral:3,semestral:6,anual:12};
+  const mo=PER_MO[per]||6;
+  const pct=+(100/cant).toFixed(6);
+  const anchor=parseDate(inicio);
+  const anchorDay=anchor.getDate();
+  bopAmortRows=[];
+  for(let i=0;i<cant;i++){
+    const d=bopAnchorDate(anchor,anchorDay,i,mo);
+    bopAmortRows.push({fecha:bopFmtDate(d),pct});
+  }
+  bopRenderAmortRows();
 }
+function bopRenderAmortRows(){
+  const tbody=document.getElementById('bop-amort-rows');
+  if(!tbody)return;
+  tbody.innerHTML=bopAmortRows.map((r,i)=>`<tr>
+    <td style="padding:2px 4px"><input type="date" value="${r.fecha||''}" oninput="bopAmortRows[${i}].fecha=this.value" style="font-family:var(--mono);font-size:10px;background:var(--surface);border:1px solid var(--border2);border-radius:3px;padding:1px 4px;color:var(--text);width:100%"></td>
+    <td style="padding:2px 4px"><input type="number" step="0.0001" value="${r.pct!==undefined?r.pct:''}" oninput="bopAmortRows[${i}].pct=parseFloat(this.value)||0;bopUpdateAmortTotal()" style="font-family:var(--mono);font-size:10px;background:var(--surface);border:1px solid var(--border2);border-radius:3px;padding:1px 4px;color:var(--text);width:70px;text-align:right"></td>
+    <td style="padding:2px 4px;text-align:center"><button onclick="bopRemoveAmortRow(${i})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px">✕</button></td>
+  </tr>`).join('');
+  bopUpdateAmortTotal();
+}
+function bopUpdateAmortTotal(){
+  const el=document.getElementById('bop-amort-total');
+  if(!el)return;
+  const total=bopAmortRows.reduce((s,r)=>s+(r.pct||0),0);
+  el.textContent=`Total: ${total.toFixed(4)}%`;
+  el.style.color=Math.abs(total-100)<0.01?'var(--accent2)':'var(--danger)';
+}
+function bopAddAmortRow(){bopAmortRows.push({fecha:'',pct:0});bopRenderAmortRows();}
+function bopRemoveAmortRow(i){bopAmortRows.splice(i,1);bopRenderAmortRows();}
 function bopSaveModal(){
   const ticker=document.getElementById('bop-f-ticker').value.trim().toUpperCase();
   const emision=document.getElementById('bop-f-emision').value;
@@ -10308,12 +10363,13 @@ function bopSaveModal(){
       periodicidad:document.getElementById('bop-f-amort-per').value,
       cantidad:parseInt(document.getElementById('bop-f-amort-cant').value)||0,
     }:null,
+    amortCustom:bopAmortiza&&bopAmortRows.length?bopAmortRows.map(r=>({...r})):null,
   };
   const BONDS=bopModalCtx==='glo'?GLO_BONDS:BOP_BONDS;
   const idx=BONDS.findIndex(b=>b.ticker===ticker);
   if(idx>=0){
     const old=BONDS[idx];
-    const amortUnchanged=JSON.stringify(old.amort)===JSON.stringify(bond.amort)&&old.amortiza===bond.amortiza;
+    const amortUnchanged=JSON.stringify(old.amort)===JSON.stringify(bond.amort)&&old.amortiza===bond.amortiza&&JSON.stringify(old.amortCustom)===JSON.stringify(bond.amortCustom);
     if(amortUnchanged&&old.lastPrecio!=null)bond.lastPrecio=old.lastPrecio;
     if(amortUnchanged&&old.lastLiq)bond.lastLiq=old.lastLiq;
     BONDS[idx]=bond;
@@ -10371,6 +10427,7 @@ function gloRenderSummaryRows(){
       const liqD=parseDate(liq);
       const tir=bopTIR(b,liq,b.lastPrecio,flows);
       precioStr=b.lastPrecio.toFixed(2);
+      if(b.lastPctChange!=null){const chg=b.lastPctChange;varStr=`<span class="${chg>=0?'c-chg-pos':'c-chg-neg'}">${chg>=0?'+':''}${chg.toFixed(2)}%</span>`;}
       if(tir!=null){
         tirStr=tir.toFixed(2)+'%';
         const dur=bopDuracion(b,liq,tir,flows);
