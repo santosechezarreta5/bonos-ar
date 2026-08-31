@@ -10293,8 +10293,10 @@ function bopSaveModal(){
   const BONDS=bopModalCtx==='glo'?GLO_BONDS:BOP_BONDS;
   const idx=BONDS.findIndex(b=>b.ticker===ticker);
   if(idx>=0){
-    if(BONDS[idx].lastPrecio!=null)bond.lastPrecio=BONDS[idx].lastPrecio;
-    if(BONDS[idx].lastLiq)bond.lastLiq=BONDS[idx].lastLiq;
+    const old=BONDS[idx];
+    const amortUnchanged=JSON.stringify(old.amort)===JSON.stringify(bond.amort)&&old.amortiza===bond.amortiza;
+    if(amortUnchanged&&old.lastPrecio!=null)bond.lastPrecio=old.lastPrecio;
+    if(amortUnchanged&&old.lastLiq)bond.lastLiq=old.lastLiq;
     BONDS[idx]=bond;
   }else BONDS.push(bond);
   bopCloseModal();
