@@ -9641,33 +9641,27 @@ function bopPrecio(bond,liq,tirPct,flows){
   if(!flows)flows=bopGenFlows(bond);
   const liqD=parseDate(liq);
   const y=tirPct/100;
-  // PV en %VN original
-  const pvOrig=flows.reduce((pv,f)=>{
+  // PV en %VN original (= precio dirty)
+  return flows.reduce((pv,f)=>{
     const fd=parseDate(f.fecha);
     if(fd<=liqD)return pv;
     const t=diasACT(liqD,fd)/365;
     return pv+f.flujo/Math.pow(1+y,t);
   },0);
-  // Convertir a %VN residual (norma de mercado)
-  const out=bopGetOutstanding(flows,liqD);
-  return out>0?pvOrig*100/out:0;
 }
 
 function bopTIR(bond,liq,precio,flows){
-  // precio en %VN residual (norma de mercado)
+  // precio en %VN original (precio dirty = precio de mercado)
   if(!flows)flows=bopGenFlows(bond);
   const liqD=parseDate(liq);
   const ff=flows.filter(f=>parseDate(f.fecha)>liqD);
   if(!ff.length)return null;
-  // Convertir a %VN original para calibrar contra los flujos
-  const out=bopGetOutstanding(flows,liqD);
-  const precioOrig=precio*out/100;
   const ts=ff.map(f=>({t:diasACT(liqD,parseDate(f.fecha))/365,cf:f.flujo}));
   let y=0.06;
   for(let i=0;i<200;i++){
     let pv=0,dpv=0;
     for(const{t,cf}of ts){const df=Math.pow(1+y,t);pv+=cf/df;dpv-=cf*t/(df*(1+y));}
-    const err=pv-precioOrig;
+    const err=pv-precio;
     if(Math.abs(err)<0.00001)return y*100;
     if(Math.abs(dpv)<1e-10)break;
     y-=err/dpv;
@@ -9677,7 +9671,7 @@ function bopTIR(bond,liq,precio,flows){
   for(let i=0;i<80;i++){
     const mid=(lo+hi)/2;
     const pv=ts.reduce((s,{t,cf})=>s+cf/Math.pow(1+mid,t),0);
-    if(pv>precioOrig)lo=mid;else hi=mid;
+    if(pv>precio)lo=mid;else hi=mid;
     if(hi-lo<0.000001)return mid*100;
   }
   return null;
@@ -9880,7 +9874,8 @@ function bopRenderSummaryRows(){
         const dur=bopDuracion(b,liq,tir,flows);
         mdStr=dur.mod.toFixed(2);
         const accrued=bopAccrued(b,liqD,flows);
-        parStr=(b.lastPrecio/(100+accrued)*100).toFixed(2);
+        const outS=bopGetOutstanding(flows,liqD);
+        parStr=outS>0?(b.lastPrecio/(outS*(1+accrued/100))*100).toFixed(2):'—';
       }
     }
     const isSel=bopSelTicker===b.ticker;
@@ -10144,8 +10139,9 @@ function bopDCalc(){
     bopDRenderFlows(liq,tir);
     const liqD=parseDate(liq);
     const accrued=bopAccrued(bond,liqD,bopCurrentFlows);
-    const valorTec=(100+accrued).toFixed(4);
-    const par=(precio/(100+accrued)*100).toFixed(2);
+    const outD=bopGetOutstanding(bopCurrentFlows,liqD);
+    const valorTec=(outD*(1+accrued/100)).toFixed(4);
+    const par=outD>0?(precio/(outD*(1+accrued/100))*100).toFixed(2):'—';
     const infoEl=document.getElementById('bop-d-flows-info');
     if(infoEl)infoEl.textContent=`Precio: ${precio.toFixed(4)} · Val. Técnico: ${valorTec} · Paridad: ${par} · Pagos pasados en gris`;
     // persist for summary and refresh rows
@@ -10360,7 +10356,8 @@ function gloRenderSummaryRows(){
         const dur=bopDuracion(b,liq,tir,flows);
         mdStr=dur.mod.toFixed(2);
         const accrued=bopAccrued(b,liqD,flows);
-        parStr=(b.lastPrecio/(100+accrued)*100).toFixed(2);
+        const outS=bopGetOutstanding(flows,liqD);
+        parStr=outS>0?(b.lastPrecio/(outS*(1+accrued/100))*100).toFixed(2):'—';
       }
     }
     const isSel=gloSelTicker===b.ticker;
@@ -10503,8 +10500,11 @@ function gloDCalc(){
     gloDRenderFlows(liq,tir);
     const liqD=parseDate(liq);
     const accrued=bopAccrued(bond,liqD,gloCurrentFlows);
+    const outG=bopGetOutstanding(gloCurrentFlows,liqD);
+    const valorTecG=(outG*(1+accrued/100)).toFixed(4);
+    const parG=outG>0?(precio/(outG*(1+accrued/100))*100).toFixed(2):'—';
     const infoEl=document.getElementById('glo-d-flows-info');
-    if(infoEl)infoEl.textContent='Precio: '+precio.toFixed(4)+' · Val. Técnico: '+(100+accrued).toFixed(4)+' · Paridad: '+(precio/(100+accrued)*100).toFixed(2)+' · Pagos pasados en gris';
+    if(infoEl)infoEl.textContent='Precio: '+precio.toFixed(4)+' · Val. Técnico: '+valorTecG+' · Paridad: '+parG+' · Pagos pasados en gris';
     bond.lastPrecio=precio;bond.lastLiq=liq;
     gloSave();
     gloRenderSummaryRows();
