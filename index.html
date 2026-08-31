@@ -1668,7 +1668,48 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 <div id="page-usd-forwards"  style="display:none;height:calc(100vh - 200px);overflow:auto;"></div>
 <div id="page-usd-spreadleg" style="display:none;height:calc(100vh - 200px);overflow:auto;"></div>
 <div id="page-usd-bonares"   style="display:none;height:calc(100vh - 200px);overflow:auto;"></div>
-<div id="page-usd-globales"  style="display:none;height:calc(100vh - 200px);overflow:auto;"></div>
+<div id="page-usd-globales" style="display:none;height:calc(100vh - 200px);overflow:hidden;">
+  <div style="display:flex;flex-direction:column;height:100%">
+    <div style="display:flex;align-items:center;gap:8px;padding:0 1rem;height:40px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface)">
+      <span style="font-family:var(--serif);font-size:13px;font-weight:300;font-style:italic;color:var(--accent);flex-shrink:0">Globales</span>
+      <div style="flex:1"></div>
+      <button class="btn primary" style="margin:0;padding:2px 9px;font-size:10px;flex-shrink:0" onclick="bopModalCtx='glo';bopOpenModal(null)">+ Nuevo</button>
+    </div>
+    <div style="flex:1;display:flex;overflow:hidden;min-height:0">
+      <div id="glo-view-summary" style="flex:1;overflow:auto;min-width:0;transition:flex .15s">
+        <div id="glo-empty" style="display:flex;height:100%;align-items:center;justify-content:center;color:var(--text3);font-size:13px;">Agregá un bono con + Nuevo</div>
+        <table id="glo-summary-table" style="display:none;width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px;">
+          <thead>
+            <tr style="border-bottom:2px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:1">
+              <th style="padding:7px 14px;text-align:left;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">TICKER</th>
+              <th style="padding:7px 12px;text-align:right;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">PRECIO</th>
+              <th style="padding:7px 12px;text-align:right;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">VAR.</th>
+              <th style="padding:7px 12px;text-align:right;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">MD</th>
+              <th style="padding:7px 12px;text-align:right;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">VTO</th>
+              <th style="padding:7px 12px;text-align:right;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">PARIDAD</th>
+              <th style="padding:7px 12px;text-align:right;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">TIR</th>
+            </tr>
+          </thead>
+          <tbody id="glo-summary-tbody"></tbody>
+        </table>
+      </div>
+      <div id="glo-view-detail" style="display:none;flex-direction:column;width:62%;min-width:360px;border-left:1px solid var(--border);overflow:hidden">
+        <div style="display:flex;align-items:center;gap:8px;padding:0 .9rem;height:36px;border-bottom:1px solid var(--border);background:var(--surface2);flex-shrink:0">
+          <span id="glo-detail-name" style="font-family:var(--mono);font-size:12px;color:var(--accent);font-weight:600"></span>
+          <div style="flex:1"></div>
+          <button style="background:none;border:1px solid var(--border2);border-radius:3px;cursor:pointer;color:var(--text3);font-size:10px;font-family:var(--mono);padding:1px 7px" onclick="bopModalCtx='glo';bopOpenModal(gloSelTicker)">✎ Editar</button>
+          <button style="background:none;border:1px solid var(--border2);border-radius:3px;cursor:pointer;color:var(--text3);font-size:11px;font-family:var(--mono);padding:1px 7px;line-height:1.5" onclick="gloBack()" title="Cerrar">✕</button>
+        </div>
+        <div id="glo-detail-content" style="flex:1;overflow:auto;"></div>
+      </div>
+    </div>
+    <div class="chart-area" id="glo-chart-area" style="height:200px;">
+      <div class="chart-resize-handle" id="glo-chart-handle"></div>
+      <div class="chart-toolbar"><span class="chart-title">Curva TIR vs MD</span></div>
+      <div class="chart-wrap"><canvas id="glo-yield-chart"></canvas></div>
+    </div>
+  </div>
+</div>
 <div id="page-usd-bopreales" style="display:none;height:calc(100vh - 200px);overflow:hidden;">
   <div style="display:flex;flex-direction:column;height:100%">
     <!-- top bar -->
@@ -3296,6 +3337,7 @@ function switchUsdTab(tab){
     if(p) p.style.display=t===tab?'block':'none';
   });
   if(tab==='usd-bopreales') bopInit();
+  if(tab==='usd-globales') gloInit();
   if(tab==='usd-equiv') equivRender();
 }
 
@@ -9458,6 +9500,7 @@ document.addEventListener('keydown',e=>{
 const BOP_LS_KEY='bonosAR_bop_v1';
 let BOP_BONDS=[];
 let bopSelTicker=null;
+var bopModalCtx='bop'; // 'bop' | 'glo'
 let bopCurrentFlows=[];
 let bopStepRows=[];
 let bopTipoCupon='fijo';
@@ -10245,27 +10288,354 @@ function bopSaveModal(){
       cantidad:parseInt(document.getElementById('bop-f-amort-cant').value)||0,
     }:null,
   };
-  const idx=BOP_BONDS.findIndex(b=>b.ticker===ticker);
+  const BONDS=bopModalCtx==='glo'?GLO_BONDS:BOP_BONDS;
+  const idx=BONDS.findIndex(b=>b.ticker===ticker);
   if(idx>=0){
-    // preserve calculated values
-    if(BOP_BONDS[idx].lastPrecio!=null)bond.lastPrecio=BOP_BONDS[idx].lastPrecio;
-    if(BOP_BONDS[idx].lastLiq)bond.lastLiq=BOP_BONDS[idx].lastLiq;
-    BOP_BONDS[idx]=bond;
-  }else BOP_BONDS.push(bond);
-  bopSave();bopCloseModal();
-  bopSelTicker=ticker;
-  bopCurrentFlows=bopGenFlows(bond);
-  bopSelect(ticker);
+    if(BONDS[idx].lastPrecio!=null)bond.lastPrecio=BONDS[idx].lastPrecio;
+    if(BONDS[idx].lastLiq)bond.lastLiq=BONDS[idx].lastLiq;
+    BONDS[idx]=bond;
+  }else BONDS.push(bond);
+  bopCloseModal();
+  if(bopModalCtx==='glo'){
+    gloSave();gloSelTicker=ticker;gloCurrentFlows=bopGenFlows(bond);gloSelect(ticker);
+  }else{
+    bopSave();bopSelTicker=ticker;bopCurrentFlows=bopGenFlows(bond);bopSelect(ticker);
+  }
 }
 function bopDeleteBond(){
   if(!bopEditingTicker)return;
   if(!confirm(`¿Eliminar ${bopEditingTicker}?`))return;
-  BOP_BONDS=BOP_BONDS.filter(b=>b.ticker!==bopEditingTicker);
-  bopSave();bopCloseModal();
-  bopSelTicker=null;
-  bopRenderSummary();
+  if(bopModalCtx==='glo'){
+    GLO_BONDS=GLO_BONDS.filter(b=>b.ticker!==bopEditingTicker);
+    gloSave();bopCloseModal();gloSelTicker=null;gloRenderSummary();
+  }else{
+    BOP_BONDS=BOP_BONDS.filter(b=>b.ticker!==bopEditingTicker);
+    bopSave();bopCloseModal();bopSelTicker=null;bopRenderSummary();
+  }
   bopEditingTicker=null;
 }
+
+// ══════════════════════════════════════════════════════ GLOBALES ══════════════
+const GLO_LS_KEY='bonosAR_glo_v1';
+var GLO_BONDS=[];
+var gloSelTicker=null;
+var gloCurrentFlows=null;
+var gloYieldChart=null;
+
+function gloLoad(){try{const r=localStorage.getItem(GLO_LS_KEY);if(r)GLO_BONDS=JSON.parse(r);}catch(e){}}
+function gloSave(){try{localStorage.setItem(GLO_LS_KEY,JSON.stringify(GLO_BONDS));}catch(e){}}
+
+function gloInit(){gloLoad();gloRenderSummary();}
+
+function gloRenderSummaryRows(){
+  const empty=document.getElementById('glo-empty');
+  const table=document.getElementById('glo-summary-table');
+  if(!GLO_BONDS.length){
+    if(empty)empty.style.display='flex';
+    if(table)table.style.display='none';
+    return;
+  }
+  if(empty)empty.style.display='none';
+  if(table)table.style.display='table';
+  const tbody=document.getElementById('glo-summary-tbody');
+  if(!tbody)return;
+  tbody.innerHTML=GLO_BONDS.map(b=>{
+    const flows=bopGenFlows(b);
+    var precioStr='—',varStr='—',mdStr='—',parStr='—',tirStr='—';
+    if(b.lastPrecio!=null&&b.lastLiq){
+      const liqD=parseDate(b.lastLiq);
+      const tir=bopTIR(b,b.lastLiq,b.lastPrecio,flows);
+      precioStr=b.lastPrecio.toFixed(2);
+      if(tir!=null){
+        tirStr=tir.toFixed(2)+'%';
+        const dur=bopDuracion(b,b.lastLiq,tir,flows);
+        mdStr=dur.mod.toFixed(2);
+        const accrued=bopAccrued(b,liqD,flows);
+        parStr=(b.lastPrecio/(100+accrued)*100).toFixed(2);
+      }
+    }
+    const isSel=gloSelTicker===b.ticker;
+    const bg=isSel?'background:var(--accent-dim);':'';
+    const hov=isSel?'':`onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background=''"`;
+    return`<tr style="cursor:pointer;border-bottom:1px solid var(--border);${bg}" onclick="gloSelect('${b.ticker}')" ${hov}>
+      <td style="padding:9px 14px;color:var(--accent);font-weight:600">${b.ticker}</td>
+      <td style="padding:9px 12px;text-align:right;color:var(--text);font-variant-numeric:tabular-nums">${precioStr}</td>
+      <td style="padding:9px 12px;text-align:right;color:var(--text3)">${varStr}</td>
+      <td style="padding:9px 12px;text-align:right;color:var(--warn);font-variant-numeric:tabular-nums">${mdStr}</td>
+      <td style="padding:9px 12px;text-align:right;color:var(--text2)">${bopFmtDateDisp(b.vencimiento)}</td>
+      <td style="padding:9px 12px;text-align:right;color:var(--text);font-variant-numeric:tabular-nums">${parStr}</td>
+      <td style="padding:9px 12px;text-align:right;color:var(--accent2);font-weight:600;font-variant-numeric:tabular-nums">${tirStr}</td>
+    </tr>`;
+  }).join('');
+  gloChartRender();
+}
+
+function gloRenderSummary(){
+  gloSelTicker=null;
+  const detView=document.getElementById('glo-view-detail');
+  const sumView=document.getElementById('glo-view-summary');
+  if(detView)detView.style.display='none';
+  if(sumView){sumView.style.flex='1';sumView.style.minWidth='';}
+  gloRenderSummaryRows();
+}
+
+function gloBack(){gloRenderSummary();}
+
+function gloSelect(ticker){
+  const bond=GLO_BONDS.find(b=>b.ticker===ticker);
+  if(!bond)return;
+  gloSelTicker=ticker;
+  gloCurrentFlows=bopGenFlows(bond);
+  gloRenderSummaryRows();
+  const sumView=document.getElementById('glo-view-summary');
+  const detView=document.getElementById('glo-view-detail');
+  if(sumView){sumView.style.flex='0 0 38%';sumView.style.minWidth='200px';}
+  if(detView){detView.style.display='flex';}
+  const nameEl=document.getElementById('glo-detail-name');
+  if(nameEl)nameEl.textContent=bond.ticker;
+  gloShowDetail(bond);
+}
+
+function gloShowDetail(bond){
+  const flows=gloCurrentFlows;
+  const detEl=document.getElementById('glo-detail-content');
+  if(!detEl)return;
+  const perMap={mensual:'Mensual (1m)',trimestral:'Trimestral (3m)',semestral:'Semestral (6m)',anual:'Anual (12m)'};
+  const card='background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:1rem';
+  const secTitle='font-size:9px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.1em;font-weight:600;margin-bottom:.75rem;display:block';
+  const flbl='font-size:9px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;display:block';
+  const finp='font-family:var(--mono);font-size:12px;background:var(--surface2);border:1px solid var(--border2);border-radius:3px;padding:4px 7px;color:var(--text);width:100%;box-sizing:border-box';
+  const finpRo='font-family:var(--mono);font-size:12px;background:var(--surface2);border:1px solid var(--border2);border-radius:3px;padding:4px 7px;color:var(--text2);width:100%;box-sizing:border-box;cursor:default';
+  const liqDefault=bopFmtDate(G_LIQ||addHabiles(TODAY,1));
+  detEl.innerHTML=`<div style="padding:1rem 1.2rem;display:flex;flex-direction:column;gap:1rem;max-width:860px">
+    <div style="${card}">
+      <span style="${secTitle}">Precio y Tasa</span>
+      <div style="display:grid;grid-template-columns:130px 1fr 1fr 1fr;gap:.75rem;margin-bottom:.65rem;align-items:end">
+        <div><span style="${flbl}">Liquidación</span><input id="glo-d-liq" type="date" value="${liqDefault}" style="${finp}"></div>
+        <div><span style="${flbl}">Precio USD (% VN)</span><input id="glo-d-precio" type="number" step="0.01" placeholder="ej: 98.50" style="${finp}"></div>
+        <div><span style="${flbl}">TIR (%)</span><input id="glo-d-tir" type="number" step="0.001" placeholder="calculada" style="${finp}"></div>
+        <div><span style="${flbl}">TNA (%)</span><input id="glo-d-tna" type="number" step="0.001" placeholder="calculada" readonly style="${finpRo}"></div>
+      </div>
+      <button class="btn primary" style="width:100%;margin:0;justify-content:center;padding:5px 0" onclick="gloDCalc()">▶ Calcular</button>
+      <div id="glo-d-dur" style="font-size:10px;font-family:var(--mono);color:var(--text3);margin-top:.5rem;min-height:14px"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+      <div style="${card}">
+        <span style="${secTitle}">Datos del Bono</span>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem .75rem">
+          <div><span style="${flbl}">Ticker</span><span style="font-family:var(--mono);font-size:12px;color:var(--text)">${bond.ticker}</span></div>
+          <div><span style="${flbl}">Vencimiento</span><span style="font-family:var(--mono);font-size:12px;color:var(--text)">${bopFmtDateDisp(bond.vencimiento)}</span></div>
+          <div><span style="${flbl}">Fecha Emisión</span><span style="font-family:var(--mono);font-size:12px;color:var(--text)">${bopFmtDateDisp(bond.emision)}</span></div>
+          <div><span style="${flbl}">Inicio Pago Int.</span><span style="font-family:var(--mono);font-size:12px;color:var(--text)">${bond.inicioInteres?bopFmtDateDisp(bond.inicioInteres):'—'}</span></div>
+        </div>
+      </div>
+      <div style="${card}">
+        <span style="${secTitle}">Cupón e Intereses</span>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem .75rem">
+          <div><span style="${flbl}">Tipo Cupón</span><span style="font-family:var(--mono);font-size:12px;color:var(--text)">${bond.tipoCupon==='fijo'?'Tasa fija':'Step Up'}</span></div>
+          <div><span style="${flbl}">Tasa / Spread (%)</span><span style="font-family:var(--mono);font-size:12px;color:var(--text)">${bond.tipoCupon==='fijo'?bond.tasa.toFixed(4):'Step Up'}</span></div>
+          <div><span style="${flbl}">Periodicidad</span><span style="font-family:var(--mono);font-size:12px;color:var(--text)">${perMap[bond.periodicidad]||bond.periodicidad}</span></div>
+          <div><span style="${flbl}">Base de Días</span><span style="font-family:var(--mono);font-size:12px;color:var(--text)">${bond.convencion}</span></div>
+        </div>
+      </div>
+    </div>
+    <div style="${card}">
+      <span style="${secTitle}">Flujos de Caja</span>
+      <div id="glo-d-flows-info" style="font-size:10px;font-family:var(--mono);color:var(--text3);margin-bottom:.6rem">Ingresá un precio o TIR y presioná Calcular</div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;min-width:520px">
+          <thead><tr style="border-bottom:2px solid var(--border);background:var(--surface2)">
+            <th style="padding:5px 10px;text-align:left;font-size:9px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Fecha</th>
+            <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Días</th>
+            <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Cap.Vig.</th>
+            <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--accent2);text-transform:uppercase;letter-spacing:.06em">Interés</th>
+            <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--warn);text-transform:uppercase;letter-spacing:.06em">Amort.</th>
+            <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--accent);text-transform:uppercase;letter-spacing:.06em">Total</th>
+            <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">VP(TIR)</th>
+          </tr></thead>
+          <tbody id="glo-d-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>`;
+  gloDRenderFlows(null,null);
+  if(bond.lastLiq){document.getElementById('glo-d-liq').value=bond.lastLiq;}
+  if(bond.lastPrecio!=null){
+    document.getElementById('glo-d-precio').value=bond.lastPrecio.toFixed(4);
+    gloDCalc();
+  }
+}
+
+function gloDCalc(){
+  const bond=GLO_BONDS.find(b=>b.ticker===gloSelTicker);
+  if(!bond)return;
+  const liq=document.getElementById('glo-d-liq').value;
+  if(!liq)return;
+  const precioEl=document.getElementById('glo-d-precio');
+  const tirEl=document.getElementById('glo-d-tir');
+  const tnaEl=document.getElementById('glo-d-tna');
+  const durEl=document.getElementById('glo-d-dur');
+  const precioVal=parseFloat(precioEl.value);
+  const tirVal=parseFloat(tirEl.value);
+  var tir,precio;
+  if(!isNaN(precioVal)){
+    precio=precioVal;
+    tir=bopTIR(bond,liq,precio,gloCurrentFlows);
+    if(tir!=null)tirEl.value=tir.toFixed(4);
+  }else if(!isNaN(tirVal)){
+    tir=tirVal;
+    precio=bopPrecio(bond,liq,tir,gloCurrentFlows);
+    precioEl.value=precio.toFixed(4);
+  }else return;
+  if(tir!=null){
+    const tna=bopGetTNA(tir,bond.periodicidad);
+    tnaEl.value=tna.toFixed(4);
+    const dur=bopDuracion(bond,liq,tir,gloCurrentFlows);
+    durEl.textContent='MD '+dur.mod+' · Mac '+dur.mac;
+    gloDRenderFlows(liq,tir);
+    const liqD=parseDate(liq);
+    const accrued=bopAccrued(bond,liqD,gloCurrentFlows);
+    const infoEl=document.getElementById('glo-d-flows-info');
+    if(infoEl)infoEl.textContent='Precio: '+precio.toFixed(4)+' · Val. Técnico: '+(100+accrued).toFixed(4)+' · Paridad: '+(precio/(100+accrued)*100).toFixed(2)+' · Pagos pasados en gris';
+    bond.lastPrecio=precio;bond.lastLiq=liq;
+    gloSave();
+    gloRenderSummaryRows();
+  }
+}
+
+function gloDRenderFlows(liq,tirPct){
+  const tbody=document.getElementById('glo-d-tbody');
+  if(!tbody)return;
+  const flows=gloCurrentFlows;
+  if(!flows||!flows.length){tbody.innerHTML='';return;}
+  const liqD=liq?parseDate(liq):null;
+  const y=tirPct!=null?tirPct/100:null;
+  var totInt=0,totAmort=0,totFlujo=0,totPV=0;
+  tbody.innerHTML=flows.map(f=>{
+    const fd=parseDate(f.fecha);
+    const isPast=liqD&&fd<=liqD;
+    var pv=null;
+    if(!isPast&&y!=null&&liqD){const t=diasACT(liqD,fd)/365;pv=f.flujo/Math.pow(1+y,t);}
+    totInt+=f.cupon;totAmort+=f.amortAmt;totFlujo+=f.flujo;
+    if(pv!=null)totPV+=pv;
+    const op=isPast?'opacity:.3;':'';
+    return`<tr style="${op}border-bottom:1px solid var(--border)">
+      <td style="padding:4px 10px;white-space:nowrap;color:var(--text2)">${bopFmtDateDisp(f.fecha)}</td>
+      <td style="padding:4px 8px;text-align:right;color:var(--text3)">${f.dias}</td>
+      <td style="padding:4px 8px;text-align:right;color:var(--text3)">${f.saldoInicio.toFixed(2)}</td>
+      <td style="padding:4px 8px;text-align:right;color:var(--accent2)">${f.cupon.toFixed(4)}</td>
+      <td style="padding:4px 8px;text-align:right;color:${f.amortAmt>0?'var(--warn)':'var(--text3)'}">${f.amortAmt>0?f.amortAmt.toFixed(4):'—'}</td>
+      <td style="padding:4px 8px;text-align:right;color:var(--accent);font-weight:600">${f.flujo.toFixed(4)}</td>
+      <td style="padding:4px 8px;text-align:right;color:var(--text3)">${pv!=null?pv.toFixed(4):'—'}</td>
+    </tr>`;
+  }).join('');
+  tbody.innerHTML+=`<tr style="border-top:2px solid var(--border);background:var(--surface)">
+    <td colspan="3" style="padding:4px 10px;color:var(--text3);font-size:9px;font-weight:600;letter-spacing:.05em">SUMA VP (= paridad, en %VN original)</td>
+    <td style="padding:4px 8px;text-align:right;color:var(--accent2);font-weight:600">${totInt.toFixed(4)}</td>
+    <td style="padding:4px 8px;text-align:right;color:var(--warn);font-weight:600">${totAmort.toFixed(4)}</td>
+    <td style="padding:4px 8px;text-align:right;color:var(--accent);font-weight:600">${totFlujo.toFixed(4)}</td>
+    <td style="padding:4px 8px;text-align:right;color:var(--text3);font-weight:600">${y!=null&&liqD?totPV.toFixed(4):'—'}</td>
+  </tr>`;
+}
+
+function gloChartRender(){
+  const canvas=document.getElementById('glo-yield-chart');
+  if(!canvas)return;
+  const pts=[];
+  for(const b of GLO_BONDS){
+    if(b.lastPrecio==null||!b.lastLiq)continue;
+    const flows=bopGenFlows(b);
+    const tir=bopTIR(b,b.lastLiq,b.lastPrecio,flows);
+    if(tir==null)continue;
+    const dur=bopDuracion(b,b.lastLiq,tir,flows);
+    pts.push({x:+dur.mod,y:+tir,ticker:b.ticker});
+  }
+  if(gloYieldChart){gloYieldChart.destroy();gloYieldChart=null;}
+  if(!pts.length)return;
+  const n=pts.length;
+  const sx=pts.reduce((s,p)=>s+p.x,0),sy=pts.reduce((s,p)=>s+p.y,0);
+  const sxx=pts.reduce((s,p)=>s+p.x*p.x,0),sxy=pts.reduce((s,p)=>s+p.x*p.y,0);
+  const den=n*sxx-sx*sx;
+  var trendData=[];
+  if(den!==0){
+    const slope=(n*sxy-sx*sy)/den,intercept=(sy-slope*sx)/n;
+    const xMin=Math.min(...pts.map(p=>p.x)),xMax=Math.max(...pts.map(p=>p.x));
+    const pad=(xMax-xMin)*0.15||0.3;
+    for(var i=0;i<=60;i++){
+      const x=xMin-pad+(xMax-xMin+2*pad)*i/60;
+      trendData.push({x:+x.toFixed(3),y:+(intercept+slope*x).toFixed(3)});
+    }
+  }
+  if(window.ChartDataLabels)Chart.register(ChartDataLabels);
+  gloYieldChart=new Chart(canvas,{
+    type:'scatter',
+    data:{datasets:[
+      {
+        label:'Globales',data:pts,
+        pointBackgroundColor:'#a8d5a2',pointBorderColor:'#6eb868',
+        pointBorderWidth:1.5,pointRadius:6,pointHoverRadius:9,showLine:false,
+        datalabels:{
+          display:true,
+          formatter:function(_,ctx){return pts[ctx.dataIndex].ticker;},
+          color:'#8a9489',font:{size:10,family:'DM Mono, monospace'},
+          anchor:'end',align:'top',offset:4,clip:false,
+        },
+      },
+      {
+        label:'Tendencia',data:trendData,
+        borderColor:'rgba(168,213,162,0.45)',borderWidth:1.5,
+        pointRadius:0,showLine:true,fill:false,tension:0,
+        datalabels:{display:false},
+      },
+    ]},
+    options:{
+      responsive:true,maintainAspectRatio:false,layout:{padding:{top:22}},
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:function(ctx){
+          if(ctx.datasetIndex!==0)return null;
+          var p=pts[ctx.dataIndex];
+          return p.ticker+': TIR '+p.y.toFixed(2)+'% · MD '+p.x.toFixed(2);
+        }}},
+        datalabels:{},
+      },
+      scales:{
+        x:{type:'linear',
+          title:{display:true,text:'Modified Duration',color:'#4d554e',font:{size:10,family:'DM Mono, monospace'}},
+          ticks:{color:'#4d554e',font:{size:10,family:'DM Mono, monospace'},callback:function(v){return v.toFixed(2);}},
+          grid:{color:'#252825'},
+        },
+        y:{
+          title:{display:true,text:'TIR (%)',color:'#4d554e',font:{size:10,family:'DM Mono, monospace'}},
+          ticks:{color:'#4d554e',font:{size:10,family:'DM Mono, monospace'},callback:function(v){return v.toFixed(2)+'%';}},
+          grid:{color:'#252825'},
+        },
+      },
+    },
+  });
+}
+
+(function(){
+  var handle=document.getElementById('glo-chart-handle');
+  var area=document.getElementById('glo-chart-area');
+  if(!handle||!area)return;
+  var MIN_H=100,MAX_H=500,dragging=false,startY=0,startH=0;
+  handle.addEventListener('mousedown',function(e){
+    dragging=true;startY=e.clientY;startH=area.offsetHeight;
+    document.body.style.cursor='ns-resize';document.body.style.userSelect='none';
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove',function(e){
+    if(!dragging)return;
+    area.style.height=Math.min(500,Math.max(100,startH+(startY-e.clientY)))+'px';
+    if(gloYieldChart)gloYieldChart.resize();
+  });
+  document.addEventListener('mouseup',function(){
+    if(!dragging)return;
+    dragging=false;document.body.style.cursor='';document.body.style.userSelect='';
+    if(gloYieldChart)gloYieldChart.resize();
+  });
+}());
 </script>
 </body>
 </html>
