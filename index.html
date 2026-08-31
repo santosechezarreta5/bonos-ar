@@ -358,7 +358,6 @@ tbody tr.selected .c-ticker{color:var(--accent);}
   </div>
   <div style="flex:1"></div>
   <span id="usd-price-status" style="font-size:10px;color:var(--text3);font-family:var(--mono)">—</span>
-  <button class="btn" style="padding:2px 8px;font-size:10px" onclick="usdRefreshPrices()">↻ Actualizar</button>
 </div>
 
 <!-- USD BAR -->
@@ -440,7 +439,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
   </div>
   <div class="sbar-sep"></div>
   <div class="sbar-refresh">
-    <button class="btn primary" onclick="fetchAllPrices()">↻ Precios</button>
+    <button class="btn primary" onclick="fetchAllPrices();usdRefreshPrices()">↻ Precios</button>
     <span class="api-status" id="api-status">sin datos</span>
   </div>
 </div>
@@ -1669,7 +1668,48 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 <div id="page-usd-forwards"  style="display:none;height:calc(100vh - 200px);overflow:auto;"></div>
 <div id="page-usd-spreadleg" style="display:none;height:calc(100vh - 200px);overflow:auto;"></div>
 <div id="page-usd-bonares"   style="display:none;height:calc(100vh - 200px);overflow:auto;"></div>
-<div id="page-usd-globales"  style="display:none;height:calc(100vh - 200px);overflow:auto;"></div>
+<div id="page-usd-globales" style="display:none;height:calc(100vh - 200px);overflow:hidden;">
+  <div style="display:flex;flex-direction:column;height:100%">
+    <div style="display:flex;align-items:center;gap:8px;padding:0 1rem;height:40px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface)">
+      <span style="font-family:var(--serif);font-size:13px;font-weight:300;font-style:italic;color:var(--accent);flex-shrink:0">Globales</span>
+      <div style="flex:1"></div>
+      <button class="btn primary" style="margin:0;padding:2px 9px;font-size:10px;flex-shrink:0" onclick="bopModalCtx='glo';bopOpenModal(null)">+ Nuevo</button>
+    </div>
+    <div style="flex:1;display:flex;overflow:hidden;min-height:0">
+      <div id="glo-view-summary" style="flex:1;overflow:auto;min-width:0;transition:flex .15s">
+        <div id="glo-empty" style="display:flex;height:100%;align-items:center;justify-content:center;color:var(--text3);font-size:13px;">Agregá un bono con + Nuevo</div>
+        <table id="glo-summary-table" style="display:none;width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px;">
+          <thead>
+            <tr style="border-bottom:2px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:1">
+              <th style="padding:7px 14px;text-align:left;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">TICKER</th>
+              <th style="padding:7px 12px;text-align:right;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">PRECIO</th>
+              <th style="padding:7px 12px;text-align:right;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">VAR.</th>
+              <th style="padding:7px 12px;text-align:right;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">MD</th>
+              <th style="padding:7px 12px;text-align:right;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">VTO</th>
+              <th style="padding:7px 12px;text-align:right;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">PARIDAD</th>
+              <th style="padding:7px 12px;text-align:right;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">TIR</th>
+            </tr>
+          </thead>
+          <tbody id="glo-summary-tbody"></tbody>
+        </table>
+      </div>
+      <div id="glo-view-detail" style="display:none;flex-direction:column;width:62%;min-width:360px;border-left:1px solid var(--border);overflow:hidden">
+        <div style="display:flex;align-items:center;gap:8px;padding:0 .9rem;height:36px;border-bottom:1px solid var(--border);background:var(--surface2);flex-shrink:0">
+          <span id="glo-detail-name" style="font-family:var(--mono);font-size:12px;color:var(--accent);font-weight:600"></span>
+          <div style="flex:1"></div>
+          <button style="background:none;border:1px solid var(--border2);border-radius:3px;cursor:pointer;color:var(--text3);font-size:10px;font-family:var(--mono);padding:1px 7px" onclick="bopModalCtx='glo';bopOpenModal(gloSelTicker)">✎ Editar</button>
+          <button style="background:none;border:1px solid var(--border2);border-radius:3px;cursor:pointer;color:var(--text3);font-size:11px;font-family:var(--mono);padding:1px 7px;line-height:1.5" onclick="gloBack()" title="Cerrar">✕</button>
+        </div>
+        <div id="glo-detail-content" style="flex:1;overflow:auto;"></div>
+      </div>
+    </div>
+    <div class="chart-area" id="glo-chart-area" style="height:200px;">
+      <div class="chart-resize-handle" id="glo-chart-handle"></div>
+      <div class="chart-toolbar"><span class="chart-title">Curva TIR vs MD</span></div>
+      <div class="chart-wrap"><canvas id="glo-yield-chart"></canvas></div>
+    </div>
+  </div>
+</div>
 <div id="page-usd-bopreales" style="display:none;height:calc(100vh - 200px);overflow:hidden;">
   <div style="display:flex;flex-direction:column;height:100%">
     <!-- top bar -->
@@ -1708,6 +1748,14 @@ tbody tr.selected .c-ticker{color:var(--accent);}
         </div>
         <div id="bop-detail-content" style="flex:1;overflow:auto;"></div>
       </div>
+    </div>
+    <!-- bop yield curve -->
+    <div class="chart-area" id="bop-chart-area" style="height:200px;">
+      <div class="chart-resize-handle" id="bop-chart-handle"></div>
+      <div class="chart-toolbar">
+        <span class="chart-title">Curva TIR vs MD</span>
+      </div>
+      <div class="chart-wrap"><canvas id="bop-yield-chart"></canvas></div>
     </div>
   </div>
 </div>
@@ -1824,14 +1872,26 @@ tbody tr.selected .c-ticker{color:var(--accent);}
         </div>
       </div>
       <div id="bop-f-amort-div" style="background:var(--surface2);border-radius:4px;padding:.55rem .75rem;border:1px solid var(--border)">
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.55rem;margin-bottom:.4rem">
-          <div class="field"><label>Inicio pago amort.</label><input id="bop-f-amort-inicio" type="date" oninput="bopPreviewAmort()"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:.55rem;margin-bottom:.55rem;align-items:flex-end">
+          <div class="field"><label>Inicio pago amort.</label><input id="bop-f-amort-inicio" type="date"></div>
           <div class="field"><label>Periodicidad</label>
-            <select id="bop-f-amort-per" oninput="bopPreviewAmort()"><option value="mensual">Mensual</option><option value="trimestral">Trimestral</option><option value="semestral">Semestral</option><option value="anual">Anual</option></select>
+            <select id="bop-f-amort-per"><option value="mensual">Mensual</option><option value="trimestral">Trimestral</option><option value="semestral">Semestral</option><option value="anual">Anual</option></select>
           </div>
-          <div class="field"><label>Cantidad</label><input id="bop-f-amort-cant" type="number" min="1" max="200" placeholder="4" oninput="bopPreviewAmort()"></div>
+          <div class="field"><label>Cantidad</label><input id="bop-f-amort-cant" type="number" min="1" max="200" placeholder="4"></div>
+          <button class="btn" style="padding:3px 8px;font-size:11px;margin:0" onclick="bopGenAmortRows()" title="Generar cronograma lineal">↺ Generar</button>
         </div>
-        <div id="bop-amort-preview" style="font-size:10px;color:var(--accent2);font-family:var(--mono);min-height:14px"></div>
+        <table style="width:100%;border-collapse:collapse;font-size:11px;font-family:var(--mono);margin-bottom:.35rem">
+          <thead><tr style="border-bottom:1px solid var(--border2)">
+            <th style="padding:2px 6px;text-align:left;font-weight:400;color:var(--text3);font-size:10px">Fecha pago</th>
+            <th style="padding:2px 6px;text-align:right;font-weight:400;color:var(--text3);font-size:10px">% del VN</th>
+            <th style="width:20px"></th>
+          </tr></thead>
+          <tbody id="bop-amort-rows"></tbody>
+        </table>
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <button class="btn" style="padding:1px 6px;font-size:10px;margin:0" onclick="bopAddAmortRow()">+ Fila</button>
+          <span id="bop-amort-total" style="font-size:10px;font-family:var(--mono);color:var(--text3)">Total: 0%</span>
+        </div>
       </div>
     </div>
     <div style="display:flex;gap:.5rem;justify-content:flex-end;margin-top:.5rem;border-top:1px solid var(--border);padding-top:.75rem">
@@ -3289,6 +3349,7 @@ function switchUsdTab(tab){
     if(p) p.style.display=t===tab?'block':'none';
   });
   if(tab==='usd-bopreales') bopInit();
+  if(tab==='usd-globales') gloInit();
   if(tab==='usd-equiv') equivRender();
 }
 
@@ -7115,6 +7176,7 @@ function calDeleteEvento(){
   calRender();
 }
 
+EQUIV_LS_KEY='bonosAR_equiv_v1';
 switchTab('breakeven');
 authInit();
 equivInit();
@@ -9451,8 +9513,10 @@ document.addEventListener('keydown',e=>{
 const BOP_LS_KEY='bonosAR_bop_v1';
 let BOP_BONDS=[];
 let bopSelTicker=null;
+var bopModalCtx='bop'; // 'bop' | 'glo'
 let bopCurrentFlows=[];
 let bopStepRows=[];
+let bopAmortRows=[];
 let bopTipoCupon='fijo';
 let bopAmortiza=true;
 let bopEditingTicker=null;
@@ -9524,22 +9588,23 @@ function bopGetRate(bond,d1){
   return arr.length?arr[arr.length-1].tasa:0;
 }
 
+function bopAnchorDate(anchor,anchorDay,nthPeriod,periodMonths){
+  const m=anchor.getMonth()+nthPeriod*periodMonths;
+  const yr=anchor.getFullYear()+Math.floor(m/12);
+  const mo=((m%12)+12)%12;
+  const maxD=new Date(yr,mo+1,0).getDate();
+  return new Date(yr,mo,Math.min(anchorDay,maxD));
+}
+
 function bopGenFlows(bond){
   const emision=parseDate(bond.emision),venc=parseDate(bond.vencimiento);
   if(!emision||!venc||venc<=emision)return[];
   const vencKey=bopFmtDate(venc);
-  // amortization schedule keyed by YYYY-MM-DD
-  // helper: nth date from anchor preserving original day (EOM-safe)
-  function bopAnchorDate(anchor,anchorDay,nthPeriod,periodMonths){
-    const m=anchor.getMonth()+nthPeriod*periodMonths;
-    const yr=anchor.getFullYear()+Math.floor(m/12);
-    const mo=((m%12)+12)%12;
-    const maxD=new Date(yr,mo+1,0).getDate();
-    return new Date(yr,mo,Math.min(anchorDay,maxD));
-  }
   const PER_MO={mensual:1,trimestral:3,semestral:6,anual:12};
   const amortMap={};
-  if(bond.amortiza&&bond.amort&&bond.amort.cantidad>0){
+  if(bond.amortCustom&&bond.amortCustom.length){
+    for(const r of bond.amortCustom)if(r.fecha&&r.pct)amortMap[r.fecha]=(amortMap[r.fecha]||0)+r.pct;
+  }else if(bond.amortiza&&bond.amort&&bond.amort.cantidad>0){
     const aa=parseDate(bond.amort.inicio);
     const aDay=aa.getDate();
     const aMo=PER_MO[bond.amort.periodicidad]||6;
@@ -9590,33 +9655,27 @@ function bopPrecio(bond,liq,tirPct,flows){
   if(!flows)flows=bopGenFlows(bond);
   const liqD=parseDate(liq);
   const y=tirPct/100;
-  // PV en %VN original
-  const pvOrig=flows.reduce((pv,f)=>{
+  // PV en %VN original (= precio dirty)
+  return flows.reduce((pv,f)=>{
     const fd=parseDate(f.fecha);
     if(fd<=liqD)return pv;
     const t=diasACT(liqD,fd)/365;
     return pv+f.flujo/Math.pow(1+y,t);
   },0);
-  // Convertir a %VN residual (norma de mercado)
-  const out=bopGetOutstanding(flows,liqD);
-  return out>0?pvOrig*100/out:0;
 }
 
 function bopTIR(bond,liq,precio,flows){
-  // precio en %VN residual (norma de mercado)
+  // precio en %VN original (precio dirty = precio de mercado)
   if(!flows)flows=bopGenFlows(bond);
   const liqD=parseDate(liq);
   const ff=flows.filter(f=>parseDate(f.fecha)>liqD);
   if(!ff.length)return null;
-  // Convertir a %VN original para calibrar contra los flujos
-  const out=bopGetOutstanding(flows,liqD);
-  const precioOrig=precio*out/100;
   const ts=ff.map(f=>({t:diasACT(liqD,parseDate(f.fecha))/365,cf:f.flujo}));
   let y=0.06;
   for(let i=0;i<200;i++){
     let pv=0,dpv=0;
     for(const{t,cf}of ts){const df=Math.pow(1+y,t);pv+=cf/df;dpv-=cf*t/(df*(1+y));}
-    const err=pv-precioOrig;
+    const err=pv-precio;
     if(Math.abs(err)<0.00001)return y*100;
     if(Math.abs(dpv)<1e-10)break;
     y-=err/dpv;
@@ -9626,7 +9685,7 @@ function bopTIR(bond,liq,precio,flows){
   for(let i=0;i<80;i++){
     const mid=(lo+hi)/2;
     const pv=ts.reduce((s,{t,cf})=>s+cf/Math.pow(1+mid,t),0);
-    if(pv>precioOrig)lo=mid;else hi=mid;
+    if(pv>precio)lo=mid;else hi=mid;
     if(hi-lo<0.000001)return mid*100;
   }
   return null;
@@ -9666,11 +9725,11 @@ function bopAccrued(bond,liqD,flows){
 }
 
 // ── EQUIVALENCIAS ────────────────────────────────────────────────────────────
-const EQUIV_LS_KEY='bonosAR_equiv_v1';
-let EQUIV_DATA=[];
+var EQUIV_LS_KEY='bonosAR_equiv_v1';
+var EQUIV_DATA; // initialized by equivLoad() at startup before this line runs
 
 function equivLoad(){
-  try{const r=localStorage.getItem(EQUIV_LS_KEY);if(r)EQUIV_DATA=JSON.parse(r);}catch(e){EQUIV_DATA=[];}
+  try{const r=localStorage.getItem(EQUIV_LS_KEY);EQUIV_DATA=r?JSON.parse(r):[];}catch(e){EQUIV_DATA=[];}
 }
 function equivSave(){
   localStorage.setItem(EQUIV_LS_KEY,JSON.stringify(EQUIV_DATA));
@@ -9717,9 +9776,9 @@ function equivRender(){
 }
 
 // ── USD PRICE FETCH ──────────────────────────────────────────────────────────
-let usdCurrency='ARS';
-let usdRefreshTimer=null;
-const USD_PRICE_API='https://data912.com/live/arg_bonds';
+var usdCurrency='MEP';
+var usdRefreshTimer=null;
+var USD_PRICE_API='https://data912.com/live/arg_bonds';
 
 function usdSetCurrency(cur){
   usdCurrency=cur;
@@ -9736,9 +9795,9 @@ async function usdFetchPriceMap(){
   const res=await fetch(USD_PRICE_API,{cache:'no-store'});
   if(!res.ok)throw new Error('HTTP '+res.status);
   const data=await res.json();
-  const map={};
-  for(const item of data)if(item.symbol&&item.c!=null)map[item.symbol]=+item.c;
-  return map;
+  const map={},pctMap={};
+  for(const item of data)if(item.symbol&&item.c!=null){map[item.symbol]=+item.c;if(item.pct_change!=null)pctMap[item.symbol]=+item.pct_change;}
+  return{map,pctMap};
 }
 
 function usdNextHabil(){
@@ -9751,7 +9810,7 @@ async function usdRefreshPrices(){
   const statusEl=document.getElementById('usd-price-status');
   if(statusEl)statusEl.textContent='Actualizando...';
   try{
-    const map=await usdFetchPriceMap();
+    const{map,pctMap}=await usdFetchPriceMap();
     const mepRate=(map['AL30']&&map['AL30D'])?map['AL30']/map['AL30D']:null;
     const liq=usdNextHabil();
     let updated=0;
@@ -9760,22 +9819,42 @@ async function usdRefreshPrices(){
     for(const bond of BOP_BONDS){
       const row=EQUIV_DATA.find(e=>e.ticker===bond.ticker);
       if(!row)continue;
-      let usdPrecio=null;
+      let usdPrecio=null,sym=null;
       if(usdCurrency==='ARS'){
         const raw=map[row.ars];
-        if(raw!=null&&mepRate)usdPrecio=raw/mepRate;
+        if(raw!=null&&mepRate){usdPrecio=raw/mepRate;sym=row.ars;}
       }else if(usdCurrency==='MEP'){
         const raw=map[row.mep];
-        if(raw!=null)usdPrecio=raw;
+        if(raw!=null){usdPrecio=raw;sym=row.mep;}
       }else{
         const raw=map[row.cable];
-        if(raw!=null)usdPrecio=raw;
+        if(raw!=null){usdPrecio=raw;sym=row.cable;}
       }
-      if(usdPrecio!=null){bond.lastPrecio=+usdPrecio.toFixed(4);if(!bond.lastLiq)bond.lastLiq=liq;updated++;}
+      if(usdPrecio!=null){bond.lastPrecio=+usdPrecio.toFixed(4);bond.lastPctChange=sym&&pctMap[sym]!=null?pctMap[sym]:null;if(!bond.lastLiq)bond.lastLiq=liq;updated++;}
     }
 
     if(updated)bopSave();
     if(document.getElementById('page-usd-bopreales').style.display!=='none')bopRenderSummaryRows();
+
+    // update Globales bonds
+    let gloUpdated=0;
+    for(const bond of GLO_BONDS){
+      const row=EQUIV_DATA.find(e=>e.ticker===bond.ticker);
+      if(!row)continue;
+      let gloPrecio=null,gloSym=null;
+      if(usdCurrency==='ARS'){
+        const raw=map[row.ars];
+        if(raw!=null&&mepRate){gloPrecio=raw/mepRate;gloSym=row.ars;}
+      }else if(usdCurrency==='MEP'){
+        const raw=map[row.mep];
+        if(raw!=null){gloPrecio=raw;gloSym=row.mep;}
+      }else{
+        const raw=map[row.cable];
+        if(raw!=null){gloPrecio=raw;gloSym=row.cable;}
+      }
+      if(gloPrecio!=null){bond.lastPrecio=+gloPrecio.toFixed(4);bond.lastPctChange=gloSym&&pctMap[gloSym]!=null?pctMap[gloSym]:null;gloUpdated++;}
+    }
+    if(gloUpdated){gloSave();if(document.getElementById('page-usd-globales').style.display!=='none')gloRenderSummaryRows();}
 
     const now=new Date();
     const hhmm=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
@@ -9792,7 +9871,8 @@ function usdStartAutoRefresh(){
 
 function equivInit(){
   equivLoad();
-  usdSetCurrency('ARS');
+  equivRender();
+  usdSetCurrency('MEP');
   usdStartAutoRefresh();
 }
 
@@ -9814,19 +9894,23 @@ function bopRenderSummaryRows(){
   if(table)table.style.display='table';
   const tbody=document.getElementById('bop-summary-tbody');
   if(!tbody)return;
+  const bopSumLiq=bopFmtDate(G_LIQ||addHabiles(TODAY,1));
   tbody.innerHTML=BOP_BONDS.map(b=>{
     const flows=bopGenFlows(b);
     let precioStr='—',varStr='—',mdStr='—',parStr='—',tirStr='—';
-    if(b.lastPrecio!=null&&b.lastLiq){
-      const liqD=parseDate(b.lastLiq);
-      const tir=bopTIR(b,b.lastLiq,b.lastPrecio,flows);
+    if(b.lastPrecio!=null){
+      const liq=bopSumLiq;
+      const liqD=parseDate(liq);
+      const tir=bopTIR(b,liq,b.lastPrecio,flows);
       precioStr=b.lastPrecio.toFixed(2);
+      if(b.lastPctChange!=null){const chg=b.lastPctChange;varStr=`<span class="${chg>=0?'c-chg-pos':'c-chg-neg'}">${chg>=0?'+':''}${chg.toFixed(2)}%</span>`;}
       if(tir!=null){
         tirStr=tir.toFixed(2)+'%';
-        const dur=bopDuracion(b,b.lastLiq,tir,flows);
+        const dur=bopDuracion(b,liq,tir,flows);
         mdStr=dur.mod.toFixed(2);
         const accrued=bopAccrued(b,liqD,flows);
-        parStr=(b.lastPrecio/(100+accrued)*100).toFixed(2);
+        const outS=bopGetOutstanding(flows,liqD);
+        parStr=outS>0?(b.lastPrecio/(outS*(1+accrued/100))*100).toFixed(2):'—';
       }
     }
     const isSel=bopSelTicker===b.ticker;
@@ -9842,6 +9926,7 @@ function bopRenderSummaryRows(){
       <td style="padding:9px 12px;text-align:right;color:var(--accent2);font-weight:600;font-variant-numeric:tabular-nums">${tirStr}</td>
     </tr>`;
   }).join('');
+  bopChartRender();
 }
 
 function bopRenderSummary(){
@@ -9852,6 +9937,111 @@ function bopRenderSummary(){
   if(sumView){sumView.style.flex='1';sumView.style.minWidth='';}
   bopRenderSummaryRows();
 }
+
+// ── BOP YIELD CURVE ──────────────────────────────────────────────────────────
+var bopYieldChart=null;
+
+function bopChartRender(){
+  const canvas=document.getElementById('bop-yield-chart');
+  if(!canvas)return;
+  const bopChartLiq=bopFmtDate(G_LIQ||addHabiles(TODAY,1));
+  const pts=[];
+  for(const b of BOP_BONDS){
+    if(b.lastPrecio==null)continue;
+    const flows=bopGenFlows(b);
+    const tir=bopTIR(b,bopChartLiq,b.lastPrecio,flows);
+    if(tir==null)continue;
+    const dur=bopDuracion(b,bopChartLiq,tir,flows);
+    pts.push({x:+dur.mod,y:+tir,ticker:b.ticker});
+  }
+  if(bopYieldChart){bopYieldChart.destroy();bopYieldChart=null;}
+  if(!pts.length)return;
+  // linear trend
+  const n=pts.length;
+  const sx=pts.reduce((s,p)=>s+p.x,0),sy=pts.reduce((s,p)=>s+p.y,0);
+  const sxx=pts.reduce((s,p)=>s+p.x*p.x,0),sxy=pts.reduce((s,p)=>s+p.x*p.y,0);
+  const den=n*sxx-sx*sx;
+  var trendData=[];
+  if(den!==0){
+    const slope=(n*sxy-sx*sy)/den,intercept=(sy-slope*sx)/n;
+    const xMin=Math.min(...pts.map(p=>p.x)),xMax=Math.max(...pts.map(p=>p.x));
+    const pad=(xMax-xMin)*0.15||0.3;
+    for(var i=0;i<=60;i++){
+      const x=xMin-pad+(xMax-xMin+2*pad)*i/60;
+      trendData.push({x:+x.toFixed(3),y:+(intercept+slope*x).toFixed(3)});
+    }
+  }
+  if(window.ChartDataLabels)Chart.register(ChartDataLabels);
+  bopYieldChart=new Chart(canvas,{
+    type:'scatter',
+    data:{datasets:[
+      {
+        label:'Bopreales',data:pts,
+        pointBackgroundColor:'#7ab3d4',pointBorderColor:'#4a8db8',
+        pointBorderWidth:1.5,pointRadius:6,pointHoverRadius:9,showLine:false,
+        datalabels:{
+          display:true,
+          formatter:function(_,ctx){return pts[ctx.dataIndex].ticker;},
+          color:'#8a9489',font:{size:10,family:'DM Mono, monospace'},
+          anchor:'end',align:'top',offset:4,clip:false,
+        },
+      },
+      {
+        label:'Tendencia',data:trendData,
+        borderColor:'rgba(122,179,212,0.45)',borderWidth:1.5,
+        pointRadius:0,showLine:true,fill:false,tension:0,
+        datalabels:{display:false},
+      },
+    ]},
+    options:{
+      responsive:true,maintainAspectRatio:false,layout:{padding:{top:22}},
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:function(ctx){
+          if(ctx.datasetIndex!==0)return null;
+          var p=pts[ctx.dataIndex];
+          return p.ticker+': TIR '+p.y.toFixed(2)+'% · MD '+p.x.toFixed(2);
+        }}},
+        datalabels:{},
+      },
+      scales:{
+        x:{type:'linear',
+          title:{display:true,text:'Modified Duration',color:'#4d554e',font:{size:10,family:'DM Mono, monospace'}},
+          ticks:{color:'#4d554e',font:{size:10,family:'DM Mono, monospace'},callback:function(v){return v.toFixed(2);}},
+          grid:{color:'#252825'},
+        },
+        y:{
+          title:{display:true,text:'TIR (%)',color:'#4d554e',font:{size:10,family:'DM Mono, monospace'}},
+          ticks:{color:'#4d554e',font:{size:10,family:'DM Mono, monospace'},callback:function(v){return v.toFixed(2)+'%';}},
+          grid:{color:'#252825'},
+        },
+      },
+    },
+  });
+}
+
+(function(){
+  var handle=document.getElementById('bop-chart-handle');
+  var area=document.getElementById('bop-chart-area');
+  if(!handle||!area)return;
+  var MIN_H=100,MAX_H=500,dragging=false,startY=0,startH=0;
+  handle.addEventListener('mousedown',function(e){
+    dragging=true;startY=e.clientY;startH=area.offsetHeight;
+    document.body.style.cursor='ns-resize';document.body.style.userSelect='none';
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove',function(e){
+    if(!dragging)return;
+    var newH=Math.min(MAX_H,Math.max(MIN_H,startH+(startY-e.clientY)));
+    area.style.height=newH+'px';
+    if(bopYieldChart)bopYieldChart.resize();
+  });
+  document.addEventListener('mouseup',function(){
+    if(!dragging)return;
+    dragging=false;document.body.style.cursor='';document.body.style.userSelect='';
+    if(bopYieldChart)bopYieldChart.resize();
+  });
+}());
 
 function bopGetOutstanding(flows,liqD){
   let out=100;
@@ -9984,8 +10174,9 @@ function bopDCalc(){
     bopDRenderFlows(liq,tir);
     const liqD=parseDate(liq);
     const accrued=bopAccrued(bond,liqD,bopCurrentFlows);
-    const valorTec=(100+accrued).toFixed(4);
-    const par=(precio/(100+accrued)*100).toFixed(2);
+    const outD=bopGetOutstanding(bopCurrentFlows,liqD);
+    const valorTec=(outD*(1+accrued/100)).toFixed(4);
+    const par=outD>0?(precio/(outD*(1+accrued/100))*100).toFixed(2):'—';
     const infoEl=document.getElementById('bop-d-flows-info');
     if(infoEl)infoEl.textContent=`Precio: ${precio.toFixed(4)} · Val. Técnico: ${valorTec} · Paridad: ${par} · Pagos pasados en gris`;
     // persist for summary and refresh rows
@@ -10008,7 +10199,7 @@ function bopDRenderFlows(liq,tirPct){
     const isPast=liqD&&fd<=liqD;
     let pv=null;
     if(!isPast&&y!=null&&liqD){const t=diasACT(liqD,fd)/365;pv=f.flujo/Math.pow(1+y,t);}
-    totInt+=f.cupon;totAmort+=f.amortAmt;totFlujo+=f.flujo;
+    if(!isPast){totInt+=f.cupon;totAmort+=f.amortAmt;totFlujo+=f.flujo;}
     if(pv!=null)totPV+=pv;
     const op=isPast?'opacity:.3;':'';
     return`<tr style="${op}border-bottom:1px solid var(--border)">
@@ -10022,7 +10213,7 @@ function bopDRenderFlows(liq,tirPct){
     </tr>`;
   }).join('');
   tbody.innerHTML+=`<tr style="border-top:2px solid var(--border);background:var(--surface)">
-    <td colspan="3" style="padding:4px 10px;color:var(--text3);font-size:9px;font-weight:600;letter-spacing:.05em">SUMA VP (= paridad, en %VN original)</td>
+    <td colspan="3" style="padding:4px 10px;color:var(--text3);font-size:9px;font-weight:600;letter-spacing:.05em">FLUJOS FUTUROS (en %VN original)</td>
     <td style="padding:4px 8px;text-align:right;color:var(--accent2);font-weight:600">${totInt.toFixed(4)}</td>
     <td style="padding:4px 8px;text-align:right;color:var(--warn);font-weight:600">${totAmort.toFixed(4)}</td>
     <td style="padding:4px 8px;text-align:right;color:var(--accent);font-weight:600">${totFlujo.toFixed(4)}</td>
@@ -10059,6 +10250,20 @@ function bopOpenModal(ticker){
       document.getElementById('bop-f-amort-per').value='trimestral';
       document.getElementById('bop-f-amort-cant').value='';
     }
+    // load amort schedule: custom rows take precedence, else generate from linear params
+    if(bond.amortCustom&&bond.amortCustom.length){
+      bopAmortRows=bond.amortCustom.map(r=>({...r}));
+    }else if(bond.amortiza&&bond.amort&&bond.amort.cantidad>0&&bond.amort.inicio){
+      const PER_MO={mensual:1,trimestral:3,semestral:6,anual:12};
+      const aa=parseDate(bond.amort.inicio);
+      const aDay=aa.getDate();
+      const aMo=PER_MO[bond.amort.periodicidad]||6;
+      const N=bond.amort.cantidad,pct=+(100/N).toFixed(6);
+      bopAmortRows=[];
+      for(let i=0;i<N;i++){const d=bopAnchorDate(aa,aDay,i,aMo);bopAmortRows.push({fecha:bopFmtDate(d),pct});}
+    }else{
+      bopAmortRows=[];
+    }
   }else{
     tf.value='';tf.disabled=false;
     document.getElementById('bop-f-emision').value='';
@@ -10071,8 +10276,9 @@ function bopOpenModal(ticker){
     document.getElementById('bop-f-amort-inicio').value='';
     document.getElementById('bop-f-amort-per').value='trimestral';
     document.getElementById('bop-f-amort-cant').value='';
+    bopAmortRows=[];
   }
-  bopSyncTipoCupon();bopSyncAmort();bopRenderStepRows();bopPreviewAmort();
+  bopSyncTipoCupon();bopSyncAmort();bopRenderStepRows();bopRenderAmortRows();
   document.getElementById('bop-modal').style.display='flex';
 }
 function bopCloseModal(){document.getElementById('bop-modal').style.display='none';}
@@ -10102,17 +10308,42 @@ function bopRenderStepRows(){
     <td style="padding:2px 4px;text-align:center"><button onclick="bopRemoveStepRow(${i})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px">✕</button></td>
   </tr>`).join('');
 }
-function bopPreviewAmort(){
-  const el=document.getElementById('bop-amort-preview');
-  if(!el)return;
+function bopGenAmortRows(){
   const inicio=document.getElementById('bop-f-amort-inicio').value;
   const per=document.getElementById('bop-f-amort-per').value;
   const cant=parseInt(document.getElementById('bop-f-amort-cant').value)||0;
-  if(!inicio||!cant){el.textContent='';return;}
-  const pct=(100/cant).toFixed(4);
-  const perMap={mensual:'mes',trimestral:'trimestre',semestral:'semestre',anual:'año'};
-  el.textContent=`→ ${cant} cuota${cant>1?'s':''} de ${pct}% c/u · cada ${perMap[per]||per} · inicio ${bopFmtDateDisp(inicio)}`;
+  if(!inicio||!cant)return;
+  const PER_MO={mensual:1,trimestral:3,semestral:6,anual:12};
+  const mo=PER_MO[per]||6;
+  const pct=+(100/cant).toFixed(6);
+  const anchor=parseDate(inicio);
+  const anchorDay=anchor.getDate();
+  bopAmortRows=[];
+  for(let i=0;i<cant;i++){
+    const d=bopAnchorDate(anchor,anchorDay,i,mo);
+    bopAmortRows.push({fecha:bopFmtDate(d),pct});
+  }
+  bopRenderAmortRows();
 }
+function bopRenderAmortRows(){
+  const tbody=document.getElementById('bop-amort-rows');
+  if(!tbody)return;
+  tbody.innerHTML=bopAmortRows.map((r,i)=>`<tr>
+    <td style="padding:2px 4px"><input type="date" value="${r.fecha||''}" oninput="bopAmortRows[${i}].fecha=this.value" style="font-family:var(--mono);font-size:10px;background:var(--surface);border:1px solid var(--border2);border-radius:3px;padding:1px 4px;color:var(--text);width:100%"></td>
+    <td style="padding:2px 4px"><input type="number" step="0.0001" value="${r.pct!==undefined?r.pct:''}" oninput="bopAmortRows[${i}].pct=parseFloat(this.value)||0;bopUpdateAmortTotal()" style="font-family:var(--mono);font-size:10px;background:var(--surface);border:1px solid var(--border2);border-radius:3px;padding:1px 4px;color:var(--text);width:70px;text-align:right"></td>
+    <td style="padding:2px 4px;text-align:center"><button onclick="bopRemoveAmortRow(${i})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px">✕</button></td>
+  </tr>`).join('');
+  bopUpdateAmortTotal();
+}
+function bopUpdateAmortTotal(){
+  const el=document.getElementById('bop-amort-total');
+  if(!el)return;
+  const total=bopAmortRows.reduce((s,r)=>s+(r.pct||0),0);
+  el.textContent=`Total: ${total.toFixed(4)}%`;
+  el.style.color=Math.abs(total-100)<0.01?'var(--accent2)':'var(--danger)';
+}
+function bopAddAmortRow(){bopAmortRows.push({fecha:'',pct:0});bopRenderAmortRows();}
+function bopRemoveAmortRow(i){bopAmortRows.splice(i,1);bopRenderAmortRows();}
 function bopSaveModal(){
   const ticker=document.getElementById('bop-f-ticker').value.trim().toUpperCase();
   const emision=document.getElementById('bop-f-emision').value;
@@ -10132,28 +10363,365 @@ function bopSaveModal(){
       periodicidad:document.getElementById('bop-f-amort-per').value,
       cantidad:parseInt(document.getElementById('bop-f-amort-cant').value)||0,
     }:null,
+    amortCustom:bopAmortiza&&bopAmortRows.length?bopAmortRows.map(r=>({...r})):null,
   };
-  const idx=BOP_BONDS.findIndex(b=>b.ticker===ticker);
+  const BONDS=bopModalCtx==='glo'?GLO_BONDS:BOP_BONDS;
+  const idx=BONDS.findIndex(b=>b.ticker===ticker);
   if(idx>=0){
-    // preserve calculated values
-    if(BOP_BONDS[idx].lastPrecio!=null)bond.lastPrecio=BOP_BONDS[idx].lastPrecio;
-    if(BOP_BONDS[idx].lastLiq)bond.lastLiq=BOP_BONDS[idx].lastLiq;
-    BOP_BONDS[idx]=bond;
-  }else BOP_BONDS.push(bond);
-  bopSave();bopCloseModal();
-  bopSelTicker=ticker;
-  bopCurrentFlows=bopGenFlows(bond);
-  bopSelect(ticker);
+    const old=BONDS[idx];
+    const amortUnchanged=JSON.stringify(old.amort)===JSON.stringify(bond.amort)&&old.amortiza===bond.amortiza&&JSON.stringify(old.amortCustom)===JSON.stringify(bond.amortCustom);
+    if(amortUnchanged&&old.lastPrecio!=null)bond.lastPrecio=old.lastPrecio;
+    if(amortUnchanged&&old.lastLiq)bond.lastLiq=old.lastLiq;
+    BONDS[idx]=bond;
+  }else BONDS.push(bond);
+  bopCloseModal();
+  if(bopModalCtx==='glo'){
+    gloSave();gloSelTicker=ticker;gloCurrentFlows=bopGenFlows(bond);gloSelect(ticker);
+  }else{
+    bopSave();bopSelTicker=ticker;bopCurrentFlows=bopGenFlows(bond);bopSelect(ticker);
+  }
 }
 function bopDeleteBond(){
   if(!bopEditingTicker)return;
   if(!confirm(`¿Eliminar ${bopEditingTicker}?`))return;
-  BOP_BONDS=BOP_BONDS.filter(b=>b.ticker!==bopEditingTicker);
-  bopSave();bopCloseModal();
-  bopSelTicker=null;
-  bopRenderSummary();
+  if(bopModalCtx==='glo'){
+    GLO_BONDS=GLO_BONDS.filter(b=>b.ticker!==bopEditingTicker);
+    gloSave();bopCloseModal();gloSelTicker=null;gloRenderSummary();
+  }else{
+    BOP_BONDS=BOP_BONDS.filter(b=>b.ticker!==bopEditingTicker);
+    bopSave();bopCloseModal();bopSelTicker=null;bopRenderSummary();
+  }
   bopEditingTicker=null;
 }
+
+// ══════════════════════════════════════════════════════ GLOBALES ══════════════
+const GLO_LS_KEY='bonosAR_glo_v1';
+var GLO_BONDS=[];
+var gloSelTicker=null;
+var gloCurrentFlows=null;
+var gloYieldChart=null;
+
+function gloLoad(){try{const r=localStorage.getItem(GLO_LS_KEY);if(r)GLO_BONDS=JSON.parse(r);}catch(e){}}
+function gloSave(){try{localStorage.setItem(GLO_LS_KEY,JSON.stringify(GLO_BONDS));}catch(e){}}
+
+function gloInit(){gloLoad();gloRenderSummary();}
+
+function gloRenderSummaryRows(){
+  const empty=document.getElementById('glo-empty');
+  const table=document.getElementById('glo-summary-table');
+  if(!GLO_BONDS.length){
+    if(empty)empty.style.display='flex';
+    if(table)table.style.display='none';
+    return;
+  }
+  if(empty)empty.style.display='none';
+  if(table)table.style.display='table';
+  const tbody=document.getElementById('glo-summary-tbody');
+  if(!tbody)return;
+  const gloSumLiq=bopFmtDate(G_LIQ||addHabiles(TODAY,1));
+  tbody.innerHTML=GLO_BONDS.map(b=>{
+    const flows=bopGenFlows(b);
+    var precioStr='—',varStr='—',mdStr='—',parStr='—',tirStr='—';
+    if(b.lastPrecio!=null){
+      const liq=gloSumLiq;
+      const liqD=parseDate(liq);
+      const tir=bopTIR(b,liq,b.lastPrecio,flows);
+      precioStr=b.lastPrecio.toFixed(2);
+      if(b.lastPctChange!=null){const chg=b.lastPctChange;varStr=`<span class="${chg>=0?'c-chg-pos':'c-chg-neg'}">${chg>=0?'+':''}${chg.toFixed(2)}%</span>`;}
+      if(tir!=null){
+        tirStr=tir.toFixed(2)+'%';
+        const dur=bopDuracion(b,liq,tir,flows);
+        mdStr=dur.mod.toFixed(2);
+        const accrued=bopAccrued(b,liqD,flows);
+        const outS=bopGetOutstanding(flows,liqD);
+        parStr=outS>0?(b.lastPrecio/(outS*(1+accrued/100))*100).toFixed(2):'—';
+      }
+    }
+    const isSel=gloSelTicker===b.ticker;
+    const bg=isSel?'background:var(--accent-dim);':'';
+    const hov=isSel?'':`onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background=''"`;
+    return`<tr style="cursor:pointer;border-bottom:1px solid var(--border);${bg}" onclick="gloSelect('${b.ticker}')" ${hov}>
+      <td style="padding:9px 14px;color:var(--accent);font-weight:600">${b.ticker}</td>
+      <td style="padding:9px 12px;text-align:right;color:var(--text);font-variant-numeric:tabular-nums">${precioStr}</td>
+      <td style="padding:9px 12px;text-align:right;color:var(--text3)">${varStr}</td>
+      <td style="padding:9px 12px;text-align:right;color:var(--warn);font-variant-numeric:tabular-nums">${mdStr}</td>
+      <td style="padding:9px 12px;text-align:right;color:var(--text2)">${bopFmtDateDisp(b.vencimiento)}</td>
+      <td style="padding:9px 12px;text-align:right;color:var(--text);font-variant-numeric:tabular-nums">${parStr}</td>
+      <td style="padding:9px 12px;text-align:right;color:var(--accent2);font-weight:600;font-variant-numeric:tabular-nums">${tirStr}</td>
+    </tr>`;
+  }).join('');
+  gloChartRender();
+}
+
+function gloRenderSummary(){
+  gloSelTicker=null;
+  const detView=document.getElementById('glo-view-detail');
+  const sumView=document.getElementById('glo-view-summary');
+  if(detView)detView.style.display='none';
+  if(sumView){sumView.style.flex='1';sumView.style.minWidth='';}
+  gloRenderSummaryRows();
+}
+
+function gloBack(){gloRenderSummary();}
+
+function gloSelect(ticker){
+  const bond=GLO_BONDS.find(b=>b.ticker===ticker);
+  if(!bond)return;
+  gloSelTicker=ticker;
+  gloCurrentFlows=bopGenFlows(bond);
+  gloRenderSummaryRows();
+  const sumView=document.getElementById('glo-view-summary');
+  const detView=document.getElementById('glo-view-detail');
+  if(sumView){sumView.style.flex='0 0 38%';sumView.style.minWidth='200px';}
+  if(detView){detView.style.display='flex';}
+  const nameEl=document.getElementById('glo-detail-name');
+  if(nameEl)nameEl.textContent=bond.ticker;
+  gloShowDetail(bond);
+}
+
+function gloShowDetail(bond){
+  const flows=gloCurrentFlows;
+  const detEl=document.getElementById('glo-detail-content');
+  if(!detEl)return;
+  const perMap={mensual:'Mensual (1m)',trimestral:'Trimestral (3m)',semestral:'Semestral (6m)',anual:'Anual (12m)'};
+  const card='background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:1rem';
+  const secTitle='font-size:9px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.1em;font-weight:600;margin-bottom:.75rem;display:block';
+  const flbl='font-size:9px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;display:block';
+  const finp='font-family:var(--mono);font-size:12px;background:var(--surface2);border:1px solid var(--border2);border-radius:3px;padding:4px 7px;color:var(--text);width:100%;box-sizing:border-box';
+  const finpRo='font-family:var(--mono);font-size:12px;background:var(--surface2);border:1px solid var(--border2);border-radius:3px;padding:4px 7px;color:var(--text2);width:100%;box-sizing:border-box;cursor:default';
+  const liqDefault=bopFmtDate(G_LIQ||addHabiles(TODAY,1));
+  detEl.innerHTML=`<div style="padding:1rem 1.2rem;display:flex;flex-direction:column;gap:1rem;max-width:860px">
+    <div style="${card}">
+      <span style="${secTitle}">Precio y Tasa</span>
+      <div style="display:grid;grid-template-columns:130px 1fr 1fr 1fr;gap:.75rem;margin-bottom:.65rem;align-items:end">
+        <div><span style="${flbl}">Liquidación</span><input id="glo-d-liq" type="date" value="${liqDefault}" style="${finp}"></div>
+        <div><span style="${flbl}">Precio USD (% VN)</span><input id="glo-d-precio" type="number" step="0.01" placeholder="ej: 98.50" style="${finp}"></div>
+        <div><span style="${flbl}">TIR (%)</span><input id="glo-d-tir" type="number" step="0.001" placeholder="calculada" style="${finp}"></div>
+        <div><span style="${flbl}">TNA (%)</span><input id="glo-d-tna" type="number" step="0.001" placeholder="calculada" readonly style="${finpRo}"></div>
+      </div>
+      <button class="btn primary" style="width:100%;margin:0;justify-content:center;padding:5px 0" onclick="gloDCalc()">▶ Calcular</button>
+      <div id="glo-d-dur" style="font-size:10px;font-family:var(--mono);color:var(--text3);margin-top:.5rem;min-height:14px"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+      <div style="${card}">
+        <span style="${secTitle}">Datos del Bono</span>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem .75rem">
+          <div><span style="${flbl}">Ticker</span><span style="font-family:var(--mono);font-size:12px;color:var(--text)">${bond.ticker}</span></div>
+          <div><span style="${flbl}">Vencimiento</span><span style="font-family:var(--mono);font-size:12px;color:var(--text)">${bopFmtDateDisp(bond.vencimiento)}</span></div>
+          <div><span style="${flbl}">Fecha Emisión</span><span style="font-family:var(--mono);font-size:12px;color:var(--text)">${bopFmtDateDisp(bond.emision)}</span></div>
+          <div><span style="${flbl}">Inicio Pago Int.</span><span style="font-family:var(--mono);font-size:12px;color:var(--text)">${bond.inicioInteres?bopFmtDateDisp(bond.inicioInteres):'—'}</span></div>
+        </div>
+      </div>
+      <div style="${card}">
+        <span style="${secTitle}">Cupón e Intereses</span>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem .75rem">
+          <div><span style="${flbl}">Tipo Cupón</span><span style="font-family:var(--mono);font-size:12px;color:var(--text)">${bond.tipoCupon==='fijo'?'Tasa fija':'Step Up'}</span></div>
+          <div><span style="${flbl}">Tasa / Spread (%)</span><span style="font-family:var(--mono);font-size:12px;color:var(--text)">${bond.tipoCupon==='fijo'?bond.tasa.toFixed(4):'Step Up'}</span></div>
+          <div><span style="${flbl}">Periodicidad</span><span style="font-family:var(--mono);font-size:12px;color:var(--text)">${perMap[bond.periodicidad]||bond.periodicidad}</span></div>
+          <div><span style="${flbl}">Base de Días</span><span style="font-family:var(--mono);font-size:12px;color:var(--text)">${bond.convencion}</span></div>
+        </div>
+      </div>
+    </div>
+    <div style="${card}">
+      <span style="${secTitle}">Flujos de Caja</span>
+      <div id="glo-d-flows-info" style="font-size:10px;font-family:var(--mono);color:var(--text3);margin-bottom:.6rem">Ingresá un precio o TIR y presioná Calcular</div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;min-width:520px">
+          <thead><tr style="border-bottom:2px solid var(--border);background:var(--surface2)">
+            <th style="padding:5px 10px;text-align:left;font-size:9px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Fecha</th>
+            <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Días</th>
+            <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Cap.Vig.</th>
+            <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--accent2);text-transform:uppercase;letter-spacing:.06em">Interés</th>
+            <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--warn);text-transform:uppercase;letter-spacing:.06em">Amort.</th>
+            <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--accent);text-transform:uppercase;letter-spacing:.06em">Total</th>
+            <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">VP(TIR)</th>
+          </tr></thead>
+          <tbody id="glo-d-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>`;
+  gloDRenderFlows(null,null);
+  if(bond.lastPrecio!=null){
+    document.getElementById('glo-d-precio').value=bond.lastPrecio.toFixed(4);
+    gloDCalc();
+  }
+}
+
+function gloDCalc(){
+  const bond=GLO_BONDS.find(b=>b.ticker===gloSelTicker);
+  if(!bond)return;
+  const liq=document.getElementById('glo-d-liq').value;
+  if(!liq)return;
+  const precioEl=document.getElementById('glo-d-precio');
+  const tirEl=document.getElementById('glo-d-tir');
+  const tnaEl=document.getElementById('glo-d-tna');
+  const durEl=document.getElementById('glo-d-dur');
+  const precioVal=parseFloat(precioEl.value);
+  const tirVal=parseFloat(tirEl.value);
+  var tir,precio;
+  if(!isNaN(precioVal)){
+    precio=precioVal;
+    tir=bopTIR(bond,liq,precio,gloCurrentFlows);
+    if(tir!=null)tirEl.value=tir.toFixed(4);
+  }else if(!isNaN(tirVal)){
+    tir=tirVal;
+    precio=bopPrecio(bond,liq,tir,gloCurrentFlows);
+    precioEl.value=precio.toFixed(4);
+  }else return;
+  if(tir!=null){
+    const tna=bopGetTNA(tir,bond.periodicidad);
+    tnaEl.value=tna.toFixed(4);
+    const dur=bopDuracion(bond,liq,tir,gloCurrentFlows);
+    durEl.textContent='MD '+dur.mod+' · Mac '+dur.mac;
+    gloDRenderFlows(liq,tir);
+    const liqD=parseDate(liq);
+    const accrued=bopAccrued(bond,liqD,gloCurrentFlows);
+    const outG=bopGetOutstanding(gloCurrentFlows,liqD);
+    const valorTecG=(outG*(1+accrued/100)).toFixed(4);
+    const parG=outG>0?(precio/(outG*(1+accrued/100))*100).toFixed(2):'—';
+    const infoEl=document.getElementById('glo-d-flows-info');
+    if(infoEl)infoEl.textContent='Precio: '+precio.toFixed(4)+' · Val. Técnico: '+valorTecG+' · Paridad: '+parG+' · Pagos pasados en gris';
+    bond.lastPrecio=precio;bond.lastLiq=liq;
+    gloSave();
+    gloRenderSummaryRows();
+  }
+}
+
+function gloDRenderFlows(liq,tirPct){
+  const tbody=document.getElementById('glo-d-tbody');
+  if(!tbody)return;
+  const flows=gloCurrentFlows;
+  if(!flows||!flows.length){tbody.innerHTML='';return;}
+  const liqD=liq?parseDate(liq):null;
+  const y=tirPct!=null?tirPct/100:null;
+  var totInt=0,totAmort=0,totFlujo=0,totPV=0;
+  tbody.innerHTML=flows.map(f=>{
+    const fd=parseDate(f.fecha);
+    const isPast=liqD&&fd<=liqD;
+    var pv=null;
+    if(!isPast&&y!=null&&liqD){const t=diasACT(liqD,fd)/365;pv=f.flujo/Math.pow(1+y,t);}
+    if(!isPast){totInt+=f.cupon;totAmort+=f.amortAmt;totFlujo+=f.flujo;}
+    if(pv!=null)totPV+=pv;
+    const op=isPast?'opacity:.3;':'';
+    return`<tr style="${op}border-bottom:1px solid var(--border)">
+      <td style="padding:4px 10px;white-space:nowrap;color:var(--text2)">${bopFmtDateDisp(f.fecha)}</td>
+      <td style="padding:4px 8px;text-align:right;color:var(--text3)">${f.dias}</td>
+      <td style="padding:4px 8px;text-align:right;color:var(--text3)">${f.saldoInicio.toFixed(2)}</td>
+      <td style="padding:4px 8px;text-align:right;color:var(--accent2)">${f.cupon.toFixed(4)}</td>
+      <td style="padding:4px 8px;text-align:right;color:${f.amortAmt>0?'var(--warn)':'var(--text3)'}">${f.amortAmt>0?f.amortAmt.toFixed(4):'—'}</td>
+      <td style="padding:4px 8px;text-align:right;color:var(--accent);font-weight:600">${f.flujo.toFixed(4)}</td>
+      <td style="padding:4px 8px;text-align:right;color:var(--text3)">${pv!=null?pv.toFixed(4):'—'}</td>
+    </tr>`;
+  }).join('');
+  tbody.innerHTML+=`<tr style="border-top:2px solid var(--border);background:var(--surface)">
+    <td colspan="3" style="padding:4px 10px;color:var(--text3);font-size:9px;font-weight:600;letter-spacing:.05em">FLUJOS FUTUROS (en %VN original)</td>
+    <td style="padding:4px 8px;text-align:right;color:var(--accent2);font-weight:600">${totInt.toFixed(4)}</td>
+    <td style="padding:4px 8px;text-align:right;color:var(--warn);font-weight:600">${totAmort.toFixed(4)}</td>
+    <td style="padding:4px 8px;text-align:right;color:var(--accent);font-weight:600">${totFlujo.toFixed(4)}</td>
+    <td style="padding:4px 8px;text-align:right;color:var(--text3);font-weight:600">${y!=null&&liqD?totPV.toFixed(4):'—'}</td>
+  </tr>`;
+}
+
+function gloChartRender(){
+  const canvas=document.getElementById('glo-yield-chart');
+  if(!canvas)return;
+  const gloChartLiq=bopFmtDate(G_LIQ||addHabiles(TODAY,1));
+  const pts=[];
+  for(const b of GLO_BONDS){
+    if(b.lastPrecio==null)continue;
+    const flows=bopGenFlows(b);
+    const tir=bopTIR(b,gloChartLiq,b.lastPrecio,flows);
+    if(tir==null)continue;
+    const dur=bopDuracion(b,gloChartLiq,tir,flows);
+    pts.push({x:+dur.mod,y:+tir,ticker:b.ticker});
+  }
+  if(gloYieldChart){gloYieldChart.destroy();gloYieldChart=null;}
+  if(!pts.length)return;
+  const n=pts.length;
+  const sx=pts.reduce((s,p)=>s+p.x,0),sy=pts.reduce((s,p)=>s+p.y,0);
+  const sxx=pts.reduce((s,p)=>s+p.x*p.x,0),sxy=pts.reduce((s,p)=>s+p.x*p.y,0);
+  const den=n*sxx-sx*sx;
+  var trendData=[];
+  if(den!==0){
+    const slope=(n*sxy-sx*sy)/den,intercept=(sy-slope*sx)/n;
+    const xMin=Math.min(...pts.map(p=>p.x)),xMax=Math.max(...pts.map(p=>p.x));
+    const pad=(xMax-xMin)*0.15||0.3;
+    for(var i=0;i<=60;i++){
+      const x=xMin-pad+(xMax-xMin+2*pad)*i/60;
+      trendData.push({x:+x.toFixed(3),y:+(intercept+slope*x).toFixed(3)});
+    }
+  }
+  if(window.ChartDataLabels)Chart.register(ChartDataLabels);
+  gloYieldChart=new Chart(canvas,{
+    type:'scatter',
+    data:{datasets:[
+      {
+        label:'Globales',data:pts,
+        pointBackgroundColor:'#a8d5a2',pointBorderColor:'#6eb868',
+        pointBorderWidth:1.5,pointRadius:6,pointHoverRadius:9,showLine:false,
+        datalabels:{
+          display:true,
+          formatter:function(_,ctx){return pts[ctx.dataIndex].ticker;},
+          color:'#8a9489',font:{size:10,family:'DM Mono, monospace'},
+          anchor:'end',align:'top',offset:4,clip:false,
+        },
+      },
+      {
+        label:'Tendencia',data:trendData,
+        borderColor:'rgba(168,213,162,0.45)',borderWidth:1.5,
+        pointRadius:0,showLine:true,fill:false,tension:0,
+        datalabels:{display:false},
+      },
+    ]},
+    options:{
+      responsive:true,maintainAspectRatio:false,layout:{padding:{top:22}},
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:function(ctx){
+          if(ctx.datasetIndex!==0)return null;
+          var p=pts[ctx.dataIndex];
+          return p.ticker+': TIR '+p.y.toFixed(2)+'% · MD '+p.x.toFixed(2);
+        }}},
+        datalabels:{},
+      },
+      scales:{
+        x:{type:'linear',
+          title:{display:true,text:'Modified Duration',color:'#4d554e',font:{size:10,family:'DM Mono, monospace'}},
+          ticks:{color:'#4d554e',font:{size:10,family:'DM Mono, monospace'},callback:function(v){return v.toFixed(2);}},
+          grid:{color:'#252825'},
+        },
+        y:{
+          title:{display:true,text:'TIR (%)',color:'#4d554e',font:{size:10,family:'DM Mono, monospace'}},
+          ticks:{color:'#4d554e',font:{size:10,family:'DM Mono, monospace'},callback:function(v){return v.toFixed(2)+'%';}},
+          grid:{color:'#252825'},
+        },
+      },
+    },
+  });
+}
+
+(function(){
+  var handle=document.getElementById('glo-chart-handle');
+  var area=document.getElementById('glo-chart-area');
+  if(!handle||!area)return;
+  var MIN_H=100,MAX_H=500,dragging=false,startY=0,startH=0;
+  handle.addEventListener('mousedown',function(e){
+    dragging=true;startY=e.clientY;startH=area.offsetHeight;
+    document.body.style.cursor='ns-resize';document.body.style.userSelect='none';
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove',function(e){
+    if(!dragging)return;
+    area.style.height=Math.min(500,Math.max(100,startH+(startY-e.clientY)))+'px';
+    if(gloYieldChart)gloYieldChart.resize();
+  });
+  document.addEventListener('mouseup',function(){
+    if(!dragging)return;
+    dragging=false;document.body.style.cursor='';document.body.style.userSelect='';
+    if(gloYieldChart)gloYieldChart.resize();
+  });
+}());
 </script>
 </body>
 </html>
