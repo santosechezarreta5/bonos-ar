@@ -9769,7 +9769,7 @@ async function usdRefreshPrices(){
         const raw=map[row.cable];
         if(raw!=null)usdPrecio=raw;
       }
-      if(usdPrecio!=null){bond.lastPrecio=+usdPrecio.toFixed(4);bond.lastLiq=liq;updated++;}
+      if(usdPrecio!=null){bond.lastPrecio=+usdPrecio.toFixed(4);if(!bond.lastLiq)bond.lastLiq=liq;updated++;}
     }
 
     if(updated)bopSave();
