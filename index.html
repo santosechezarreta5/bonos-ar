@@ -9666,7 +9666,7 @@ function bopAccrued(bond,liqD,flows){
 }
 
 // ── EQUIVALENCIAS ────────────────────────────────────────────────────────────
-const EQUIV_LS_KEY='bonosAR_equiv_v1';
+var EQUIV_LS_KEY='bonosAR_equiv_v1';
 var EQUIV_DATA=[];
 
 function equivLoad(){
@@ -9717,9 +9717,9 @@ function equivRender(){
 }
 
 // ── USD PRICE FETCH ──────────────────────────────────────────────────────────
-let usdCurrency='ARS';
-let usdRefreshTimer=null;
-const USD_PRICE_API='https://data912.com/live/arg_bonds';
+var usdCurrency='ARS';
+var usdRefreshTimer=null;
+var USD_PRICE_API='https://data912.com/live/arg_bonds';
 
 function usdSetCurrency(cur){
   usdCurrency=cur;
