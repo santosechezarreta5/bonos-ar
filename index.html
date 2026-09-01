@@ -10015,6 +10015,7 @@ async function usdRefreshPrices(){
 }
 
 function usdStartAutoRefresh(){
+  usdRefreshPrices();
   if(usdRefreshTimer)clearInterval(usdRefreshTimer);
   usdRefreshTimer=setInterval(usdRefreshPrices,5*60*1000);
 }
@@ -10032,6 +10033,7 @@ function equivInit(){
 function bopInit(){
   bopLoad();
   bopRenderSummary();
+  usdStartAutoRefresh();
 }
 
 function bopRenderSummaryRows(){
@@ -10804,7 +10806,7 @@ var bonYieldChart=null;
 function bonLoad(){try{const r=localStorage.getItem(BON_LS_KEY);if(r)BON_BONDS=JSON.parse(r);}catch(e){}}
 function bonSave(){try{localStorage.setItem(BON_LS_KEY,JSON.stringify(BON_BONDS));}catch(e){}}
 
-function bonInit(){bonLoad();bonRenderSummary();}
+function bonInit(){bonLoad();bonRenderSummary();usdStartAutoRefresh();}
 
 function bonRenderSummaryRows(){
   const empty=document.getElementById('bon-empty');
@@ -11222,7 +11224,7 @@ var gloYieldChart=null;
 function gloLoad(){try{const r=localStorage.getItem(GLO_LS_KEY);if(r)GLO_BONDS=JSON.parse(r);}catch(e){}}
 function gloSave(){try{localStorage.setItem(GLO_LS_KEY,JSON.stringify(GLO_BONDS));}catch(e){}}
 
-function gloInit(){gloLoad();gloRenderSummary();}
+function gloInit(){gloLoad();gloRenderSummary();usdStartAutoRefresh();}
 
 function gloRenderSummaryRows(){
   const empty=document.getElementById('glo-empty');
