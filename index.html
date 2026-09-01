@@ -9741,7 +9741,7 @@ function bopGenFlows(bond){
   let curr=new Date(anchor);
   while(curr<=venc&&outstanding>0.0005){
     const key=bopFmtDate(curr);
-    const fechaStr=fechaOverMap[key]||(bopFmtDate(bopSiguienteHabil(curr)));
+    const fechaStr=fechaOverMap[key]||bopFmtDate(curr);
     const efectiva=fechaOverMap[key]?parseDate(fechaStr):curr;
     const yf=bopYearFrac(prevEfectiva,efectiva,bond.convencion);
     const rate=rateMap[key]!=null?rateMap[key]:bopGetRate(bond,prev);
@@ -10701,7 +10701,7 @@ function bopDSaveEdits(){
     const amortVal=aEl?parseFloat(aEl.value):f.amortAmt;
     if(!isNaN(rateVal))rateOverrides.push({fechaNominal:f.fechaNominal,rate:rateVal});
     if(!isNaN(amortVal))amortCustom.push({fecha:f.fechaNominal,pct:amortVal});
-    const nominalFecha=f.fechaNominal?bopFmtDate(bopSiguienteHabil(parseDate(f.fechaNominal))):null;
+    const nominalFecha=f.fechaNominal||null;
     if(fEl&&fEl.value&&fEl.value!==nominalFecha)fechaOverrides.push({fechaNominal:f.fechaNominal,fecha:fEl.value});
   });
   bond.rateOverrides=rateOverrides.length?rateOverrides:null;
@@ -11332,7 +11332,7 @@ function bonDSaveEdits(){
     const amortVal=aEl?parseFloat(aEl.value):f.amortAmt;
     if(!isNaN(rateVal))rateOverrides.push({fechaNominal:f.fechaNominal,rate:rateVal});
     if(!isNaN(amortVal))amortCustom.push({fecha:f.fechaNominal,pct:amortVal});
-    const nominalFecha=f.fechaNominal?bopFmtDate(bopSiguienteHabil(parseDate(f.fechaNominal))):null;
+    const nominalFecha=f.fechaNominal||null;
     if(fEl&&fEl.value&&fEl.value!==nominalFecha)fechaOverrides.push({fechaNominal:f.fechaNominal,fecha:fEl.value});
   });
   bond.rateOverrides=rateOverrides.length?rateOverrides:null;
@@ -11734,7 +11734,7 @@ function gloDSaveEdits(){
     const amortVal=aEl?parseFloat(aEl.value):f.amortAmt;
     if(!isNaN(rateVal))rateOverrides.push({fechaNominal:f.fechaNominal,rate:rateVal});
     if(!isNaN(amortVal))amortCustom.push({fecha:f.fechaNominal,pct:amortVal});
-    const nominalFecha=f.fechaNominal?bopFmtDate(bopSiguienteHabil(parseDate(f.fechaNominal))):null;
+    const nominalFecha=f.fechaNominal||null;
     if(fEl&&fEl.value&&fEl.value!==nominalFecha)fechaOverrides.push({fechaNominal:f.fechaNominal,fecha:fEl.value});
   });
   bond.rateOverrides=rateOverrides.length?rateOverrides:null;
