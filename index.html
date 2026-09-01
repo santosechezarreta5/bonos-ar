@@ -1673,7 +1673,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
       <div style="flex:1"></div>
       <span style="font-size:10px;font-family:var(--mono);color:var(--text3)">Global / Bonar · mismo vencimiento</span>
     </div>
-    <div style="flex:1;overflow:auto">
+    <div style="flex:1;overflow:auto;min-height:0">
       <table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px;">
         <thead>
           <tr style="border-bottom:2px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:1">
@@ -1685,6 +1685,11 @@ tbody tr.selected .c-ticker{color:var(--accent);}
         </thead>
         <tbody id="sleg-tbody"></tbody>
       </table>
+    </div>
+    <div class="chart-area" id="sleg-chart-area" style="height:200px;">
+      <div class="chart-resize-handle" id="sleg-chart-handle"></div>
+      <div class="chart-toolbar"><span class="chart-title">Spread vs Vencimiento</span></div>
+      <div class="chart-wrap"><canvas id="sleg-yield-chart"></canvas></div>
     </div>
   </div>
 </div>
@@ -10630,6 +10635,8 @@ function gloDeleteDirect(){
 }
 
 // ══════════════════════════════════════════════════════ SPREAD LEG. ══════════
+var slegChart=null;
+
 function spreadLegRender(){
   const tbody=document.getElementById('sleg-tbody');
   if(!tbody)return;
@@ -10667,7 +10674,105 @@ function spreadLegRender(){
     <td style="padding:9px 12px;text-align:right;font-variant-numeric:tabular-nums">${fmt(r.offer)}</td>
     <td style="padding:9px 12px;text-align:right;font-variant-numeric:tabular-nums;font-weight:600">${fmt(r.last)}</td>
   </tr>`).join('');
+  slegChartRender(rows);
 }
+
+function slegChartRender(rows){
+  const canvas=document.getElementById('sleg-yield-chart');
+  if(!canvas)return;
+  // use rows already computed; filter to those with a last value
+  const pts=(rows||[]).filter(r=>r.last!=null).map(r=>({
+    x:new Date(r.vcto).getFullYear(),
+    y:+r.last.toFixed(3),
+    label:r.label,
+  }));
+  if(slegChart){slegChart.destroy();slegChart=null;}
+  if(!pts.length)return;
+  // trend line
+  const n=pts.length;
+  const sx=pts.reduce((s,p)=>s+p.x,0),sy=pts.reduce((s,p)=>s+p.y,0);
+  const sxx=pts.reduce((s,p)=>s+p.x*p.x,0),sxy=pts.reduce((s,p)=>s+p.x*p.y,0);
+  const den=n*sxx-sx*sx;
+  var trendData=[];
+  if(den!==0){
+    const slope=(n*sxy-sx*sy)/den,intercept=(sy-slope*sx)/n;
+    const xMin=Math.min(...pts.map(p=>p.x)),xMax=Math.max(...pts.map(p=>p.x));
+    const pad=(xMax-xMin)*0.15||0.5;
+    for(var i=0;i<=60;i++){
+      const x=xMin-pad+(xMax-xMin+2*pad)*i/60;
+      trendData.push({x:+x.toFixed(2),y:+(intercept+slope*x).toFixed(3)});
+    }
+  }
+  if(window.ChartDataLabels)Chart.register(ChartDataLabels);
+  slegChart=new Chart(canvas,{
+    type:'scatter',
+    data:{datasets:[
+      {
+        label:'Spread Leg.',data:pts,
+        pointBackgroundColor:'#d5a2c4',pointBorderColor:'#b868a6',
+        pointBorderWidth:1.5,pointRadius:6,pointHoverRadius:9,showLine:false,
+        datalabels:{
+          display:true,
+          formatter:function(_,ctx){return pts[ctx.dataIndex].label;},
+          color:'#a08498',font:{size:10,family:'DM Mono, monospace'},
+          anchor:'end',align:'top',offset:4,clip:false,
+        },
+      },
+      {
+        label:'Tendencia',data:trendData,
+        borderColor:'rgba(213,162,196,0.45)',borderWidth:1.5,
+        pointRadius:0,showLine:true,fill:false,tension:0,
+        datalabels:{display:false},
+      },
+    ]},
+    options:{
+      responsive:true,maintainAspectRatio:false,layout:{padding:{top:22}},
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:function(ctx){
+          if(ctx.datasetIndex!==0)return null;
+          var p=pts[ctx.dataIndex];
+          return p.label+': '+p.y.toFixed(2)+'%';
+        }}},
+        datalabels:{},
+      },
+      scales:{
+        x:{type:'linear',
+          title:{display:true,text:'Vencimiento',color:'#4d554e',font:{size:10,family:'DM Mono, monospace'}},
+          ticks:{color:'#4d554e',font:{size:10,family:'DM Mono, monospace'},callback:function(v){return Math.round(v);}},
+          grid:{color:'#252825'},
+        },
+        y:{
+          title:{display:true,text:'Spread (%)',color:'#4d554e',font:{size:10,family:'DM Mono, monospace'}},
+          ticks:{color:'#4d554e',font:{size:10,family:'DM Mono, monospace'},callback:function(v){return v.toFixed(2)+'%';}},
+          grid:{color:'#252825'},
+        },
+      },
+    },
+  });
+}
+
+(function(){
+  var handle=document.getElementById('sleg-chart-handle');
+  var area=document.getElementById('sleg-chart-area');
+  if(!handle||!area)return;
+  var dragging=false,startY=0,startH=0;
+  handle.addEventListener('mousedown',function(e){
+    dragging=true;startY=e.clientY;startH=area.offsetHeight;
+    document.body.style.cursor='ns-resize';document.body.style.userSelect='none';
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove',function(e){
+    if(!dragging)return;
+    area.style.height=Math.min(500,Math.max(100,startH+(startY-e.clientY)))+'px';
+    if(slegChart)slegChart.resize();
+  });
+  document.addEventListener('mouseup',function(){
+    if(!dragging)return;
+    dragging=false;document.body.style.cursor='';document.body.style.userSelect='';
+    if(slegChart)slegChart.resize();
+  });
+}());
 
 // ══════════════════════════════════════════════════════ BONARES ══════════════
 const BON_LS_KEY='bonosAR_bon_v1';
