@@ -10248,6 +10248,7 @@ function usdFwdBuildTable(bonds,wrapId){
     const precio=usdFwdPxOverrides[b.ticker]??b.lastPrecio;
     return{bond:b,tir,dur,precio};
   }).filter(r=>r.tir!=null&&r.dur!=null&&r.dur>0);
+  rows.sort((a,b)=>a.dur-b.dur);
   if(!rows.length){wrap.innerHTML=`<div style="color:var(--text3);font-size:12px;padding:.5rem">Sin precios cargados. Actualizá precios primero (↻ en la barra).</div>`;return;}
   const allVals=[];
   for(let i=0;i<rows.length;i++)
