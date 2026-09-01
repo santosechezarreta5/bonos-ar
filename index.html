@@ -11064,13 +11064,13 @@ function slegChartRender(rows){
 
 // ══════════════════════════════════════════════════════ USD RESUMEN ══════════
 const USD_RES_LS='bonosAR_usd_res_v1';
-let usdResState={sumBonds:[],fwdRows:[],chartHidden:[],colWidths:{c1:165,c2:420}};
+let usdResState={sumBonds:[],fwdRows:[],chartBonds:[],colWidths:{c1:130,c2:420}};
 let usdResChart=null;
 let usdResDragging=null;
 let usdResModalSec='';
 
 function usdResLoad(){
-  try{const r=localStorage.getItem(USD_RES_LS);if(r){usdResState=Object.assign({sumBonds:[],fwdRows:[],chartHidden:[],colWidths:{c1:165,c2:420}},JSON.parse(r));if(!usdResState.colWidths)usdResState.colWidths={c1:165,c2:420};}}catch(e){}
+  try{const r=localStorage.getItem(USD_RES_LS);if(r){usdResState=Object.assign({sumBonds:[],fwdRows:[],chartBonds:[],colWidths:{c1:130,c2:420}},JSON.parse(r));if(!usdResState.colWidths)usdResState.colWidths={c1:130,c2:420};if(!usdResState.chartBonds)usdResState.chartBonds=[];}}catch(e){}
 }
 function usdResSave(){
   try{localStorage.setItem(USD_RES_LS,JSON.stringify(usdResState));}catch(e){}
@@ -11179,8 +11179,12 @@ function usdResumenRender(){
   <div style="${drag}" onmousedown="usdResDragStart(event,'c2')" onmouseover="this.style.background='var(--accent)'" onmouseout="this.style.background='var(--border2)'"></div>
   <!-- COL 3 chart -->
   <div style="flex:1;min-width:200px;display:flex;flex-direction:column;overflow:hidden">
-    <div style="padding:5px 10px;background:var(--surface2);border-bottom:1px solid var(--border2);flex-shrink:0">
+    <div style="padding:5px 10px;background:var(--surface2);border-bottom:1px solid var(--border2);flex-shrink:0;display:flex;align-items:center;gap:8px">
       <span style="${ttl}">Curva de rendimientos</span>
+      <button class="btn" style="padding:1px 6px;font-size:10px" onclick="usdResChartTogglePanel()">bonos ▾</button>
+    </div>
+    <div id="ures-chart-panel" style="display:none;padding:5px 10px;border-bottom:1px solid var(--border2);flex-shrink:0;overflow-x:auto">
+      <div id="ures-chart-chips" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center"></div>
     </div>
     <div style="flex:1;position:relative;min-height:0"><canvas id="ures-chart"></canvas></div>
   </div>
@@ -11284,6 +11288,7 @@ function usdResRefresh(){
   usdResSpreadRender();
   usdResFwdRender();
   usdResSumRender();
+  usdResChartRenderIndep();
 }
 
 function usdResSpreadRender(){
@@ -11375,7 +11380,6 @@ function usdResSumRender(){
   const liq=bopFmtDate(G_LIQ||addHabiles(TODAY,1));
   if(!usdResState.sumBonds.length){
     tbody.innerHTML=`<tr><td colspan="7" style="padding:2.5rem;text-align:center;color:var(--text3);font-size:12px">Usá + Agregar para añadir bonos</td></tr>`;
-    usdResChartRender([]);
     return;
   }
   const enriched=usdResState.sumBonds.map(ticker=>{
@@ -11399,7 +11403,6 @@ function usdResSumRender(){
     <td style="padding:8px 10px;text-align:right">${f2p(e.tna,'var(--accent2)')}</td>
     <td style="padding:8px 4px;text-align:center"><button style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;padding:0 3px;line-height:1" onclick="usdResSumRemove('${e.ticker}')">✕</button></td>
   </tr>`;}).join('');
-  usdResChartRender(enriched);
 }
 
 function usdResSumAdd(ticker){
@@ -11413,6 +11416,58 @@ function usdResSumRemove(ticker){
   usdResState.sumBonds=usdResState.sumBonds.filter(t=>t!==ticker);
   usdResSave();
   usdResSumRender();
+}
+
+function usdResChartTogglePanel(){
+  const panel=document.getElementById('ures-chart-panel');
+  if(!panel)return;
+  const open=panel.style.display==='none';
+  panel.style.display=open?'block':'none';
+  if(open)usdResChartRenderChips();
+}
+
+function usdResChartRenderChips(){
+  const chips=document.getElementById('ures-chart-chips');
+  if(!chips)return;
+  if(!BOP_BONDS.length)bopLoad();
+  if(!BON_BONDS.length)bonLoad();
+  if(!GLO_BONDS.length)gloLoad();
+  const active=new Set(usdResState.chartBonds);
+  const groups=[
+    {sec:'GLO',bonds:[...GLO_BONDS].sort((a,z)=>a.vencimiento>z.vencimiento?1:-1),col:'#6baed6'},
+    {sec:'BON',bonds:[...BON_BONDS].sort((a,z)=>a.vencimiento>z.vencimiento?1:-1),col:'#d4a843'},
+    {sec:'BOP',bonds:[...BOP_BONDS].sort((a,z)=>a.vencimiento>z.vencimiento?1:-1),col:'var(--accent2)'},
+  ];
+  chips.innerHTML=groups.filter(g=>g.bonds.length).map(g=>{
+    const btns=g.bonds.map(b=>{
+      const on=active.has(b.ticker);
+      return`<button onclick="usdResChartToggleBond('${b.ticker}')" style="font-family:var(--mono);font-size:9px;padding:2px 5px;border-radius:3px;cursor:pointer;border:1px solid ${on?g.col:'var(--border2)'};background:${on?g.col+'22':'var(--surface2)'};color:${on?g.col:'var(--text3)'};">${b.ticker}</button>`;
+    }).join('');
+    return`<span style="font-size:9px;color:var(--text3);font-family:var(--mono);white-space:nowrap">${g.sec}</span>${btns}<span style="display:inline-block;width:1px;background:var(--border2);height:14px;margin:0 6px;vertical-align:middle"></span>`;
+  }).join('');
+}
+
+function usdResChartToggleBond(ticker){
+  const idx=usdResState.chartBonds.indexOf(ticker);
+  if(idx>=0)usdResState.chartBonds.splice(idx,1);
+  else usdResState.chartBonds.push(ticker);
+  usdResSave();
+  usdResChartRenderChips();
+  usdResChartRenderIndep();
+}
+
+function usdResChartRenderIndep(){
+  const liq=bopFmtDate(G_LIQ||addHabiles(TODAY,1));
+  if(!BOP_BONDS.length)bopLoad();
+  if(!BON_BONDS.length)bonLoad();
+  if(!GLO_BONDS.length)gloLoad();
+  const enriched=usdResState.chartBonds.map(ticker=>{
+    const b=usdResGetBond(ticker);
+    if(!b)return null;
+    const r=usdResCalcRow(b,liq);
+    return{ticker,b,...r};
+  }).filter(e=>e&&e.md!=null&&e.tir!=null);
+  usdResChartRender(enriched);
 }
 
 function usdResChartRender(enriched){
