@@ -2246,7 +2246,7 @@ async function authAction(){
 // Keys que van a Supabase por usuario
 const SUPA_USER_KEYS=['bonosAR_fwd_v1','bonosAR_cp_v1','bonosAR_breakeven_v1','bonosAR_chart_sel_v1'];
 // Keys que van a Supabase compartidas
-const SUPA_SHARED_KEYS=['bonosAR_lecaps_v1','bonosAR_cer_bonds_v1','bonosAR_tamar_bonds_v1','bonosAR_dlk_bonds_v1','bonosAR_feriados_extra_v1','bonosAR_proyecciones_v1','bonosAR_calendario_v1'];
+const SUPA_SHARED_KEYS=['bonosAR_lecaps_v1','bonosAR_cer_bonds_v1','bonosAR_tamar_bonds_v1','bonosAR_dlk_bonds_v1','bonosAR_feriados_extra_v1','bonosAR_proyecciones_v1','bonosAR_calendario_v1','bonosAR_glo_v1','bonosAR_bon_v1','bonosAR_bop_v1','bonosAR_equiv_v1'];
 
 async function supaLoadUserData(){
   if(!SUPA_USER)return;
@@ -2271,6 +2271,11 @@ async function supaLoadSharedData(){
     tamarLoadBonds();
     dlkLoadBonds();
     projLoadLs();
+    // USD bonds
+    if(typeof bopLoad==='function') bopLoad();
+    if(typeof gloLoad==='function') gloLoad();
+    if(typeof bonLoad==='function') bonLoad();
+    if(typeof equivLoad==='function') equivLoad();
     // Auto-fetch prices for all bonds
     if(LECAPS.length) fetchPrices();
     if(CER_BONDS.length) cerFetchPrices();
@@ -2284,6 +2289,13 @@ async function supaLoadSharedData(){
     if(currentTab==='breakeven') beInit();
     if(currentTab==='forwards') fwdRecalc();
     if(currentTab==='calendario') calInit();
+    // Re-render current USD tab if visible
+    if(currentTab==='usd'){
+      if(currentUsdTab==='usd-bopreales'&&typeof bopRenderSummary==='function') bopRenderSummary();
+      if(currentUsdTab==='usd-globales'&&typeof gloRenderSummary==='function') gloRenderSummary();
+      if(currentUsdTab==='usd-bonares'&&typeof bonRenderSummary==='function') bonRenderSummary();
+      if(currentUsdTab==='usd-spreadleg'&&typeof spreadLegRender==='function') spreadLegRender();
+    }
   }catch(e){console.warn('supaLoadSharedData:',e);}
 }
 
@@ -2306,6 +2318,9 @@ async function supaSaveSharedKey(key){
     // No guardar precios en Supabase — son datos de mercado en tiempo real
     if(key==='bonosAR_lecaps_v1'||key==='bonosAR_cer_bonds_v1'||key==='bonosAR_tamar_bonds_v1'||key==='bonosAR_dlk_bonds_v1'){
       value=value.map(b=>({...b,precio:null,pct_change:null}));
+    }
+    if(key==='bonosAR_bop_v1'||key==='bonosAR_glo_v1'||key==='bonosAR_bon_v1'){
+      value=value.map(b=>({...b,lastPrecio:null,lastPctChange:null,lastBid:null,lastAsk:null,lastLiq:null}));
     }
     console.log(`[Supa] guardando ${key} → ${value.length ?? JSON.stringify(value).length} items`,value);
     const{error}=await supa.from('shared_data').upsert({key,value,updated_at:new Date().toISOString()},{onConflict:'key'});
