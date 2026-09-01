@@ -9728,6 +9728,10 @@ function bopGenFlows(bond){
   if(bond.rateOverrides&&bond.rateOverrides.length){
     for(const r of bond.rateOverrides)if(r.fechaNominal!=null)rateMap[r.fechaNominal]=r.rate;
   }
+  const fechaOverMap={};
+  if(bond.fechaOverrides&&bond.fechaOverrides.length){
+    for(const r of bond.fechaOverrides)if(r.fechaNominal!=null)fechaOverMap[r.fechaNominal]=r.fecha;
+  }
   const flows=[];
   const anchor=bond.inicioInteres?parseDate(bond.inicioInteres):bopAddPeriod(emision,bond.periodicidad);
   const anchorDay=anchor.getDate();
@@ -9736,7 +9740,7 @@ function bopGenFlows(bond){
   let curr=new Date(anchor);
   while(curr<=venc&&outstanding>0.0005){
     const key=bopFmtDate(curr);
-    const payDate=bopSiguienteHabil(curr);
+    const fechaStr=fechaOverMap[key]||(bopFmtDate(bopSiguienteHabil(curr)));
     const yf=bopYearFrac(prev,curr,bond.convencion);
     const rate=rateMap[key]!=null?rateMap[key]:bopGetRate(bond,prev);
     const cupon=rate/100*yf*outstanding;
@@ -9745,7 +9749,7 @@ function bopGenFlows(bond){
     amortPct=Math.min(amortPct,outstanding);
     const newSaldo=outstanding-amortPct;
     flows.push({
-      fecha:bopFmtDate(payDate),
+      fecha:fechaStr,
       fechaNominal:key,
       dias:diasACT(prev,curr),
       rate:+rate.toFixed(4),
@@ -10610,6 +10614,9 @@ function bopDRenderFlows(liq,tirPct){
     if(!isPast){totInt+=f.cupon;totAmort+=f.amortAmt;totFlujo+=f.flujo;}
     if(pv!=null)totPV+=pv;
     const op=isPast?'opacity:.3;':'';
+    const fechaTd=em&&!isPast
+      ?`<td style="padding:2px 4px;white-space:nowrap"><input id="bop-ff-fecha-${i}" type="date" value="${f.fecha}" style="${einp};width:100px;text-align:left"></td>`
+      :`<td style="padding:4px 10px;white-space:nowrap;color:var(--text2)">${bopFmtDateDisp(f.fecha)}</td>`;
     const rateTd=em&&!isPast
       ?`<td style="padding:2px 4px;text-align:right"><input id="bop-ff-rate-${i}" type="number" step="0.0001" value="${f.rate}" style="${einp}" oninput="bopDPreviewRow(${i})"></td>`
       :`<td style="padding:4px 8px;text-align:right;color:var(--text3)">${f.rate.toFixed(4)}</td>`;
@@ -10617,7 +10624,7 @@ function bopDRenderFlows(liq,tirPct){
       ?`<td style="padding:2px 4px;text-align:right"><input id="bop-ff-amort-${i}" type="number" step="0.0001" value="${f.amortAmt}" style="${einp}" oninput="bopDPreviewRow(${i})"></td>`
       :`<td style="padding:4px 8px;text-align:right;color:${f.amortAmt>0?'var(--warn)':'var(--text3)'}">${f.amortAmt>0?f.amortAmt.toFixed(4):'—'}</td>`;
     return`<tr id="bop-ff-row-${i}" style="${op}border-bottom:1px solid var(--border)">
-      <td style="padding:4px 10px;white-space:nowrap;color:var(--text2)">${bopFmtDateDisp(f.fecha)}</td>
+      ${fechaTd}
       <td style="padding:4px 8px;text-align:right;color:var(--text3)">${f.dias}</td>
       <td style="padding:4px 8px;text-align:right;color:var(--text3)">${f.saldoInicio.toFixed(2)}</td>
       ${rateTd}
@@ -10680,8 +10687,9 @@ function bopDSaveEdits(){
   const bond=BOP_BONDS.find(b=>b.ticker===bopSelTicker);
   if(!bond)return;
   const flows=bopCurrentFlows;if(!flows)return;
-  const rateOverrides=[],amortCustom=[];
+  const rateOverrides=[],amortCustom=[],fechaOverrides=[];
   flows.forEach((f,i)=>{
+    const fEl=document.getElementById(`bop-ff-fecha-${i}`);
     const rEl=document.getElementById(`bop-ff-rate-${i}`);
     const aEl=document.getElementById(`bop-ff-amort-${i}`);
     // past rows have no inputs — preserve their original values
@@ -10689,9 +10697,11 @@ function bopDSaveEdits(){
     const amortVal=aEl?parseFloat(aEl.value):f.amortAmt;
     if(!isNaN(rateVal))rateOverrides.push({fechaNominal:f.fechaNominal,rate:rateVal});
     if(!isNaN(amortVal))amortCustom.push({fecha:f.fechaNominal,pct:amortVal});
+    if(fEl&&fEl.value&&fEl.value!==f.fecha)fechaOverrides.push({fechaNominal:f.fechaNominal,fecha:fEl.value});
   });
   bond.rateOverrides=rateOverrides.length?rateOverrides:null;
   bond.amortCustom=amortCustom.length?amortCustom:null;
+  bond.fechaOverrides=fechaOverrides.length?fechaOverrides:null;
   bopCurrentFlows=bopGenFlows(bond);
   bopDetailEditMode=false;
   const btn=document.getElementById('bop-d-edit-btn');
@@ -10853,8 +10863,9 @@ function bopSaveModal(){
   const idx=BONDS.findIndex(b=>b.ticker===ticker);
   if(idx>=0){
     const old=BONDS[idx];
-    // rateOverrides come from FF edit mode, not the modal — always preserve them
+    // rateOverrides/fechaOverrides come from FF edit mode, not the modal — always preserve them
     bond.rateOverrides=old.rateOverrides||null;
+    bond.fechaOverrides=old.fechaOverrides||null;
     const amortUnchanged=JSON.stringify(old.amort)===JSON.stringify(bond.amort)&&old.amortiza===bond.amortiza&&JSON.stringify(old.amortCustom)===JSON.stringify(bond.amortCustom)&&JSON.stringify(old.rateOverrides)===JSON.stringify(bond.rateOverrides);
     if(amortUnchanged&&old.lastPrecio!=null)bond.lastPrecio=old.lastPrecio;
     if(amortUnchanged&&old.lastLiq)bond.lastLiq=old.lastLiq;
@@ -11235,6 +11246,9 @@ function bonDRenderFlows(liq,tirPct){
     if(!isPast){totInt+=f.cupon;totAmort+=f.amortAmt;totFlujo+=f.flujo;}
     if(pv!=null)totPV+=pv;
     const op=isPast?'opacity:.3;':'';
+    const fechaTd=em&&!isPast
+      ?`<td style="padding:2px 4px;white-space:nowrap"><input id="bon-ff-fecha-${i}" type="date" value="${f.fecha}" style="${einp};width:100px;text-align:left"></td>`
+      :`<td style="padding:4px 10px;white-space:nowrap;color:var(--text2)">${bopFmtDateDisp(f.fecha)}</td>`;
     const rateTd=em&&!isPast
       ?`<td style="padding:2px 4px;text-align:right"><input id="bon-ff-rate-${i}" type="number" step="0.0001" value="${f.rate}" style="${einp}" oninput="bonDPreviewRow(${i})"></td>`
       :`<td style="padding:4px 8px;text-align:right;color:var(--text3)">${f.rate.toFixed(4)}</td>`;
@@ -11242,7 +11256,7 @@ function bonDRenderFlows(liq,tirPct){
       ?`<td style="padding:2px 4px;text-align:right"><input id="bon-ff-amort-${i}" type="number" step="0.0001" value="${f.amortAmt}" style="${einp}" oninput="bonDPreviewRow(${i})"></td>`
       :`<td style="padding:4px 8px;text-align:right;color:${f.amortAmt>0?'var(--warn)':'var(--text3)'}">${f.amortAmt>0?f.amortAmt.toFixed(4):'—'}</td>`;
     return`<tr id="bon-ff-row-${i}" style="${op}border-bottom:1px solid var(--border)">
-      <td style="padding:4px 10px;white-space:nowrap;color:var(--text2)">${bopFmtDateDisp(f.fecha)}</td>
+      ${fechaTd}
       <td style="padding:4px 8px;text-align:right;color:var(--text3)">${f.dias}</td>
       <td style="padding:4px 8px;text-align:right;color:var(--text3)">${f.saldoInicio.toFixed(2)}</td>
       ${rateTd}
@@ -11304,17 +11318,20 @@ function bonDSaveEdits(){
   const bond=BON_BONDS.find(b=>b.ticker===bonSelTicker);
   if(!bond)return;
   const flows=bonCurrentFlows;if(!flows)return;
-  const rateOverrides=[],amortCustom=[];
+  const rateOverrides=[],amortCustom=[],fechaOverrides=[];
   flows.forEach((f,i)=>{
+    const fEl=document.getElementById(`bon-ff-fecha-${i}`);
     const rEl=document.getElementById(`bon-ff-rate-${i}`);
     const aEl=document.getElementById(`bon-ff-amort-${i}`);
     const rateVal=rEl?parseFloat(rEl.value):f.rate;
     const amortVal=aEl?parseFloat(aEl.value):f.amortAmt;
     if(!isNaN(rateVal))rateOverrides.push({fechaNominal:f.fechaNominal,rate:rateVal});
     if(!isNaN(amortVal))amortCustom.push({fecha:f.fechaNominal,pct:amortVal});
+    if(fEl&&fEl.value&&fEl.value!==f.fecha)fechaOverrides.push({fechaNominal:f.fechaNominal,fecha:fEl.value});
   });
   bond.rateOverrides=rateOverrides.length?rateOverrides:null;
   bond.amortCustom=amortCustom.length?amortCustom:null;
+  bond.fechaOverrides=fechaOverrides.length?fechaOverrides:null;
   bonCurrentFlows=bopGenFlows(bond);
   bonDetailEditMode=false;
   const btn=document.getElementById('bon-d-edit-btn');
@@ -11630,6 +11647,9 @@ function gloDRenderFlows(liq,tirPct){
     if(!isPast){totInt+=f.cupon;totAmort+=f.amortAmt;totFlujo+=f.flujo;}
     if(pv!=null)totPV+=pv;
     const op=isPast?'opacity:.3;':'';
+    const fechaTd=em&&!isPast
+      ?`<td style="padding:2px 4px;white-space:nowrap"><input id="glo-ff-fecha-${i}" type="date" value="${f.fecha}" style="${einp};width:100px;text-align:left"></td>`
+      :`<td style="padding:4px 10px;white-space:nowrap;color:var(--text2)">${bopFmtDateDisp(f.fecha)}</td>`;
     const rateTd=em&&!isPast
       ?`<td style="padding:2px 4px;text-align:right"><input id="glo-ff-rate-${i}" type="number" step="0.0001" value="${f.rate}" style="${einp}" oninput="gloDPreviewRow(${i})"></td>`
       :`<td style="padding:4px 8px;text-align:right;color:var(--text3)">${f.rate.toFixed(4)}</td>`;
@@ -11637,7 +11657,7 @@ function gloDRenderFlows(liq,tirPct){
       ?`<td style="padding:2px 4px;text-align:right"><input id="glo-ff-amort-${i}" type="number" step="0.0001" value="${f.amortAmt}" style="${einp}" oninput="gloDPreviewRow(${i})"></td>`
       :`<td style="padding:4px 8px;text-align:right;color:${f.amortAmt>0?'var(--warn)':'var(--text3)'}">${f.amortAmt>0?f.amortAmt.toFixed(4):'—'}</td>`;
     return`<tr id="glo-ff-row-${i}" style="${op}border-bottom:1px solid var(--border)">
-      <td style="padding:4px 10px;white-space:nowrap;color:var(--text2)">${bopFmtDateDisp(f.fecha)}</td>
+      ${fechaTd}
       <td style="padding:4px 8px;text-align:right;color:var(--text3)">${f.dias}</td>
       <td style="padding:4px 8px;text-align:right;color:var(--text3)">${f.saldoInicio.toFixed(2)}</td>
       ${rateTd}
@@ -11699,17 +11719,20 @@ function gloDSaveEdits(){
   const bond=GLO_BONDS.find(b=>b.ticker===gloSelTicker);
   if(!bond)return;
   const flows=gloCurrentFlows;if(!flows)return;
-  const rateOverrides=[],amortCustom=[];
+  const rateOverrides=[],amortCustom=[],fechaOverrides=[];
   flows.forEach((f,i)=>{
+    const fEl=document.getElementById(`glo-ff-fecha-${i}`);
     const rEl=document.getElementById(`glo-ff-rate-${i}`);
     const aEl=document.getElementById(`glo-ff-amort-${i}`);
     const rateVal=rEl?parseFloat(rEl.value):f.rate;
     const amortVal=aEl?parseFloat(aEl.value):f.amortAmt;
     if(!isNaN(rateVal))rateOverrides.push({fechaNominal:f.fechaNominal,rate:rateVal});
     if(!isNaN(amortVal))amortCustom.push({fecha:f.fechaNominal,pct:amortVal});
+    if(fEl&&fEl.value&&fEl.value!==f.fecha)fechaOverrides.push({fechaNominal:f.fechaNominal,fecha:fEl.value});
   });
   bond.rateOverrides=rateOverrides.length?rateOverrides:null;
   bond.amortCustom=amortCustom.length?amortCustom:null;
+  bond.fechaOverrides=fechaOverrides.length?fechaOverrides:null;
   gloCurrentFlows=bopGenFlows(bond);
   gloDetailEditMode=false;
   const btn=document.getElementById('glo-d-edit-btn');
