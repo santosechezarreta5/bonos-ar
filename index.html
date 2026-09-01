@@ -1665,7 +1665,40 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 
 <!-- USD PAGES -->
 <div id="page-usd-resumen"   style="display:none;height:calc(100vh - 200px);overflow:auto;"></div>
-<div id="page-usd-forwards"  style="display:none;height:calc(100vh - 200px);overflow:auto;"></div>
+<div id="page-usd-forwards" style="display:none;height:calc(100vh - 200px);overflow-y:auto;padding:1.5rem 2rem;">
+
+  <!-- CONTROLES -->
+  <div style="display:flex;align-items:center;gap:1.5rem;margin-bottom:1.25rem;flex-wrap:wrap;">
+    <button class="btn primary" style="padding:5px 12px;font-size:11px" onclick="usdFwdRecalc()">↻ Recalcular</button>
+  </div>
+
+  <!-- TABLA BON/BOP (arriba) -->
+  <div style="margin-bottom:2.5rem;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:.6rem;flex-wrap:wrap;">
+      <div style="font-family:var(--serif);font-size:18px;font-weight:300;font-style:italic;color:var(--accent)">Tasas Forward · Bopreales / Bonares</div>
+      <button class="btn" style="padding:3px 8px;font-size:10px" onclick="usdFwdToggleBopBonSelector()">+ / −</button>
+    </div>
+    <div id="usd-fwd-bopbon-selector" style="display:none;margin-bottom:.75rem;padding:.6rem .75rem;background:var(--surface);border:1px solid var(--border);border-radius:4px;">
+      <div style="font-size:10px;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em">Bonos incluidos</div>
+      <div id="usd-fwd-bopbon-chips" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+    </div>
+    <div style="overflow-x:auto;"><div id="usd-fwd-bopbon-wrap"></div></div>
+  </div>
+
+  <!-- TABLA GLO (abajo) -->
+  <div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:.6rem;flex-wrap:wrap;">
+      <div style="font-family:var(--serif);font-size:18px;font-weight:300;font-style:italic;color:var(--accent)">Tasas Forward · Globales</div>
+      <button class="btn" style="padding:3px 8px;font-size:10px" onclick="usdFwdToggleGloSelector()">+ / −</button>
+    </div>
+    <div id="usd-fwd-glo-selector" style="display:none;margin-bottom:.75rem;padding:.6rem .75rem;background:var(--surface);border:1px solid var(--border);border-radius:4px;">
+      <div style="font-size:10px;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em">Bonos incluidos</div>
+      <div id="usd-fwd-glo-chips" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+    </div>
+    <div style="overflow-x:auto;"><div id="usd-fwd-glo-wrap"></div></div>
+  </div>
+
+</div>
 <div id="page-usd-spreadleg" style="display:none;height:calc(100vh - 200px);overflow:hidden;">
   <div style="display:flex;flex-direction:column;height:100%">
     <div style="display:flex;align-items:center;gap:8px;padding:0 1rem;height:40px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface)">
@@ -2254,7 +2287,7 @@ async function authAction(){
 
 // ── SUPABASE DATA SYNC ────────────────────────────────────────────────────────
 // Keys que van a Supabase por usuario
-const SUPA_USER_KEYS=['bonosAR_fwd_v1','bonosAR_cp_v1','bonosAR_breakeven_v1','bonosAR_chart_sel_v1'];
+const SUPA_USER_KEYS=['bonosAR_fwd_v1','bonosAR_cp_v1','bonosAR_breakeven_v1','bonosAR_chart_sel_v1','bonosAR_usd_fwd_v1'];
 // Keys que van a Supabase compartidas
 const SUPA_SHARED_KEYS=['bonosAR_lecaps_v1','bonosAR_cer_bonds_v1','bonosAR_tamar_bonds_v1','bonosAR_dlk_bonds_v1','bonosAR_feriados_extra_v1','bonosAR_proyecciones_v1','bonosAR_calendario_v1','bonosAR_glo_v1','bonosAR_bon_v1','bonosAR_bop_v1','bonosAR_equiv_v1'];
 
@@ -3454,6 +3487,7 @@ function switchUsdTab(tab){
   if(tab==='usd-bopreales') bopInit();
   if(tab==='usd-globales') gloInit();
   if(tab==='usd-bonares') bonInit();
+  if(tab==='usd-forwards') usdFwdRecalc();
   if(tab==='usd-spreadleg') spreadLegRender();
   if(tab==='usd-equiv') equivRender();
 }
@@ -10033,6 +10067,158 @@ function equivInit(){
   usdStartAutoRefresh();
   bonLoad();
   gloLoad();
+}
+
+// ══════════════════════════════════════════════════ USD FORWARDS
+const USD_FWD_LS='bonosAR_usd_fwd_v1';
+let usdFwdBopBonExcluded=new Set();
+let usdFwdGloExcluded=new Set();
+let usdFwdPxOverrides={};
+
+function usdFwdLoad(){
+  try{
+    const r=localStorage.getItem(USD_FWD_LS);
+    if(r){const p=JSON.parse(r);
+      usdFwdBopBonExcluded=new Set(p.bbEx||[]);
+      usdFwdGloExcluded=new Set(p.gloEx||[]);
+    }
+  }catch(e){}
+}
+function usdFwdSave(){
+  try{localStorage.setItem(USD_FWD_LS,JSON.stringify({
+    bbEx:[...usdFwdBopBonExcluded],gloEx:[...usdFwdGloExcluded]
+  }));}catch(e){}
+}
+function usdFwdToggleBopBonSelector(){
+  const el=document.getElementById('usd-fwd-bopbon-selector');
+  if(el)el.style.display=el.style.display==='none'?'block':'none';
+}
+function usdFwdToggleGloSelector(){
+  const el=document.getElementById('usd-fwd-glo-selector');
+  if(el)el.style.display=el.style.display==='none'?'block':'none';
+}
+function usdFwdRenderChips(bonds,excluded,chipsId,onToggle){
+  const wrap=document.getElementById(chipsId);
+  if(!wrap)return;
+  wrap.innerHTML=bonds.map(b=>{
+    const exc=excluded.has(b.ticker);
+    return`<span onclick="${onToggle}('${b.ticker}')" style="cursor:pointer;display:inline-block;padding:2px 8px;margin:2px;border-radius:3px;font-size:10px;font-family:var(--mono);border:1px solid ${exc?'var(--border2)':'var(--accent)'};color:${exc?'var(--text3)':'var(--accent)'};background:${exc?'transparent':'rgba(100,160,255,.08)'}">${b.ticker}</span>`;
+  }).join('');
+}
+function usdFwdToggleBopBon(ticker){
+  if(usdFwdBopBonExcluded.has(ticker))usdFwdBopBonExcluded.delete(ticker);
+  else usdFwdBopBonExcluded.add(ticker);
+  usdFwdSave();
+  const all=[...BOP_BONDS,...BON_BONDS].filter(b=>b.vencimiento).sort((a,b)=>a.vencimiento.localeCompare(b.vencimiento));
+  usdFwdRenderChips(all,usdFwdBopBonExcluded,'usd-fwd-bopbon-chips','usdFwdToggleBopBon');
+  usdFwdBuildTable(all.filter(b=>!usdFwdBopBonExcluded.has(b.ticker)),'usd-fwd-bopbon-wrap');
+}
+function usdFwdToggleGlo(ticker){
+  if(usdFwdGloExcluded.has(ticker))usdFwdGloExcluded.delete(ticker);
+  else usdFwdGloExcluded.add(ticker);
+  usdFwdSave();
+  const all=GLO_BONDS.filter(b=>b.vencimiento).sort((a,b)=>a.vencimiento.localeCompare(b.vencimiento));
+  usdFwdRenderChips(all,usdFwdGloExcluded,'usd-fwd-glo-chips','usdFwdToggleGlo');
+  usdFwdBuildTable(all.filter(b=>!usdFwdGloExcluded.has(b.ticker)),'usd-fwd-glo-wrap');
+}
+function usdFwdGetYield(bond){
+  const liq=usdNextHabil();
+  const precio=usdFwdPxOverrides[bond.ticker]??bond.lastPrecio;
+  if(!precio)return null;
+  try{
+    const flows=bopGenFlows(bond);
+    return bopTIR(bond,liq,precio,flows);
+  }catch(e){return null;}
+}
+function usdFwdGetDuration(bond,tirPct){
+  const liq=usdNextHabil();
+  try{
+    const flows=bopGenFlows(bond);
+    return bopDuracion(bond,liq,tirPct,flows).mac;
+  }catch(e){return null;}
+}
+function usdFwdCellStyle(val,min,max,isDiag){
+  if(isDiag)return'background:var(--surface2);color:var(--accent);font-weight:600;';
+  if(val==null||isNaN(val))return'background:var(--bg);color:var(--text3);';
+  const t=max===min?0.5:(val-min)/(max-min);
+  const r=Math.round(180*(1-t)),g=Math.round(160*t);
+  return`background:rgba(${r},${g},0,0.45);color:var(--text);`;
+}
+function usdFwdEditPx(td,ticker){
+  const b=[...BOP_BONDS,...GLO_BONDS,...BON_BONDS].find(x=>x.ticker===ticker);
+  const current=(usdFwdPxOverrides[ticker]??b?.lastPrecio)||'';
+  td.innerHTML=`<input type="number" step="0.01" value="${current}"
+    style="width:80px;background:var(--surface2);color:var(--text);border:1px solid var(--accent);border-radius:3px;padding:2px 4px;font-family:var(--mono);font-size:11px;text-align:right"
+    onblur="usdFwdCommitPx(this,'${ticker}')"
+    onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape')usdFwdRecalc();"
+    onclick="event.stopPropagation()" autofocus>`;
+  td.querySelector('input').focus();td.querySelector('input').select();
+}
+function usdFwdCommitPx(input,ticker){
+  const val=parseFloat(input.value);
+  if(!isNaN(val)&&val>0)usdFwdPxOverrides[ticker]=val;
+  else delete usdFwdPxOverrides[ticker];
+  usdFwdRecalc();
+}
+function usdFwdBuildTable(bonds,wrapId){
+  const wrap=document.getElementById(wrapId);
+  if(!wrap)return;
+  if(!bonds.length){wrap.innerHTML=`<div style="color:var(--text3);font-size:12px;padding:.5rem">Sin bonos seleccionados.</div>`;return;}
+  const rows=bonds.map(b=>{
+    const tir=usdFwdGetYield(b);
+    const dur=tir!=null?usdFwdGetDuration(b,tir):null;
+    const precio=usdFwdPxOverrides[b.ticker]??b.lastPrecio;
+    return{bond:b,tir,dur,precio};
+  }).filter(r=>r.tir!=null&&r.dur!=null&&r.dur>0);
+  if(!rows.length){wrap.innerHTML=`<div style="color:var(--text3);font-size:12px;padding:.5rem">Sin precios cargados. Actualizá precios primero (↻ en la barra).</div>`;return;}
+  const allVals=[];
+  for(let i=0;i<rows.length;i++)
+    for(let j=i+1;j<rows.length;j++){
+      const fi=rows[i],fj=rows[j];
+      if(fi.tir!=null&&fj.tir!=null&&fj.dur!==fi.dur)
+        allVals.push((fj.tir*fj.dur-fi.tir*fi.dur)/(fj.dur-fi.dur));
+    }
+  const diagVals=rows.map(r=>r.tir).filter(v=>v!=null);
+  const allH=[...allVals,...diagVals];
+  const minV=allH.length?Math.min(...allH):0,maxV=allH.length?Math.max(...allH):0;
+  const th='padding:5px 8px;font-size:10px;color:var(--text3);font-weight:400;text-align:center;white-space:nowrap;border-bottom:1px solid var(--border2);';
+  const td='padding:5px 8px;font-family:var(--mono);font-size:11px;text-align:center;white-space:nowrap;border-bottom:1px solid var(--border);border-right:1px solid var(--border);';
+  let html=`<table style="border-collapse:collapse;font-size:11px;"><thead><tr>`;
+  html+=`<th style="${th}text-align:left">Bono</th><th style="${th}text-align:right">Px</th><th style="${th}text-align:right">Dur</th>`;
+  rows.forEach(r=>{html+=`<th style="${th}">${r.bond.ticker}</th>`;});
+  html+=`</tr></thead><tbody>`;
+  rows.forEach((ri,i)=>{
+    const tirLabel=ri.tir!=null?ri.tir.toFixed(2)+'%':'—';
+    const pxDisplay=ri.precio!=null?ri.precio.toFixed(2):'—';
+    const durDisplay=ri.dur!=null?ri.dur.toFixed(2):'—';
+    html+=`<tr>`;
+    html+=`<td style="${td}text-align:left;color:var(--accent);font-weight:500">${ri.bond.ticker}</td>`;
+    html+=`<td style="${td}text-align:right;color:var(--text2);cursor:pointer" title="Click para editar precio" onclick="usdFwdEditPx(this,'${ri.bond.ticker}')">${pxDisplay}</td>`;
+    html+=`<td style="${td}text-align:right;color:var(--text3)">${durDisplay}</td>`;
+    rows.forEach((rj,j)=>{
+      if(j<i){html+=`<td style="${td}background:var(--bg);"></td>`;}
+      else if(j===i){const st=usdFwdCellStyle(ri.tir,minV,maxV,true);html+=`<td style="${td}${st}">${tirLabel}</td>`;}
+      else{
+        if(ri.tir==null||rj.tir==null||ri.dur===rj.dur){html+=`<td style="${td}background:var(--bg);color:var(--text3)">—</td>`;}
+        else{const fwd=(rj.tir*rj.dur-ri.tir*ri.dur)/(rj.dur-ri.dur);const st=usdFwdCellStyle(fwd,minV,maxV,false);html+=`<td style="${td}${st}">${fwd.toFixed(2)}%</td>`;}
+      }
+    });
+    html+=`</tr>`;
+  });
+  html+=`</tbody></table>`;
+  wrap.innerHTML=html;
+}
+function usdFwdRecalc(){
+  usdFwdLoad();
+  if(!BOP_BONDS.length)bopLoad();
+  if(!BON_BONDS.length)bonLoad();
+  if(!GLO_BONDS.length)gloLoad();
+  const allBopBon=[...BOP_BONDS,...BON_BONDS].filter(b=>b.vencimiento).sort((a,b)=>a.vencimiento.localeCompare(b.vencimiento));
+  const allGlo=GLO_BONDS.filter(b=>b.vencimiento).sort((a,b)=>a.vencimiento.localeCompare(b.vencimiento));
+  usdFwdRenderChips(allBopBon,usdFwdBopBonExcluded,'usd-fwd-bopbon-chips','usdFwdToggleBopBon');
+  usdFwdRenderChips(allGlo,usdFwdGloExcluded,'usd-fwd-glo-chips','usdFwdToggleGlo');
+  usdFwdBuildTable(allBopBon.filter(b=>!usdFwdBopBonExcluded.has(b.ticker)),'usd-fwd-bopbon-wrap');
+  usdFwdBuildTable(allGlo.filter(b=>!usdFwdGloExcluded.has(b.ticker)),'usd-fwd-glo-wrap');
 }
 
 // ── UI ──────────────────────────────────────────────────────────────────────
