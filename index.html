@@ -9933,6 +9933,7 @@ function usdSetCurrency(cur){
       btn.style.borderColor=c===cur?'var(--accent-dim)':'';
     }
   });
+  usdRefreshPrices();
 }
 
 async function usdFetchPriceMap(){
@@ -10208,11 +10209,14 @@ function usdFwdBuildTable(bonds,wrapId){
   html+=`</tbody></table>`;
   wrap.innerHTML=html;
 }
-function usdFwdRecalc(){
+async function usdFwdRecalc(){
   usdFwdLoad();
   if(!BOP_BONDS.length)bopLoad();
   if(!BON_BONDS.length)bonLoad();
   if(!GLO_BONDS.length)gloLoad();
+  // Fetch prices if none loaded yet
+  const hasPrices=[...BOP_BONDS,...BON_BONDS,...GLO_BONDS].some(b=>b.lastPrecio!=null);
+  if(!hasPrices)await usdRefreshPrices();
   const allBopBon=[...BOP_BONDS,...BON_BONDS].filter(b=>b.vencimiento).sort((a,b)=>a.vencimiento.localeCompare(b.vencimiento));
   const allGlo=GLO_BONDS.filter(b=>b.vencimiento).sort((a,b)=>a.vencimiento.localeCompare(b.vencimiento));
   usdFwdRenderChips(allBopBon,usdFwdBopBonExcluded,'usd-fwd-bopbon-chips','usdFwdToggleBopBon');
