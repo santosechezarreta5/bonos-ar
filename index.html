@@ -1698,7 +1698,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
     <div style="display:flex;align-items:center;gap:8px;padding:0 1rem;height:40px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface)">
       <span style="font-family:var(--serif);font-size:13px;font-weight:300;font-style:italic;color:var(--accent);flex-shrink:0">Bonares</span>
       <div style="flex:1"></div>
-      <button class="btn primary" style="margin:0;padding:2px 9px;font-size:10px;flex-shrink:0" onclick="bopModalCtx='bon';bopOpenModal(null)">+ Nuevo</button>
+      <button class="btn primary usd-admin-btn" style="margin:0;padding:2px 9px;font-size:10px;flex-shrink:0" onclick="bopModalCtx='bon';bopOpenModal(null)">+ Nuevo</button>
     </div>
     <div style="flex:1;display:flex;overflow:hidden;min-height:0">
       <div id="bon-view-summary" style="flex:1;overflow:auto;min-width:0;transition:flex .15s">
@@ -1722,8 +1722,8 @@ tbody tr.selected .c-ticker{color:var(--accent);}
         <div style="display:flex;align-items:center;gap:8px;padding:0 .9rem;height:36px;border-bottom:1px solid var(--border);background:var(--surface2);flex-shrink:0">
           <span id="bon-detail-name" style="font-family:var(--mono);font-size:12px;color:var(--accent);font-weight:600"></span>
           <div style="flex:1"></div>
-          <button style="background:none;border:1px solid var(--border2);border-radius:3px;cursor:pointer;color:var(--text3);font-size:10px;font-family:var(--mono);padding:1px 7px" onclick="bopModalCtx='bon';bopOpenModal(bonSelTicker)">✎ Editar</button>
-          <button style="background:none;border:1px solid var(--danger,#e55);border-radius:3px;cursor:pointer;color:var(--danger,#e55);font-size:10px;font-family:var(--mono);padding:1px 7px" onclick="bonDeleteDirect()">🗑 Eliminar</button>
+          <button class="usd-admin-btn" style="background:none;border:1px solid var(--border2);border-radius:3px;cursor:pointer;color:var(--text3);font-size:10px;font-family:var(--mono);padding:1px 7px" onclick="bopModalCtx='bon';bopOpenModal(bonSelTicker)">✎ Editar</button>
+          <button class="usd-admin-btn" style="background:none;border:1px solid var(--danger,#e55);border-radius:3px;cursor:pointer;color:var(--danger,#e55);font-size:10px;font-family:var(--mono);padding:1px 7px" onclick="bonDeleteDirect()">🗑 Eliminar</button>
           <button style="background:none;border:1px solid var(--border2);border-radius:3px;cursor:pointer;color:var(--text3);font-size:11px;font-family:var(--mono);padding:1px 7px;line-height:1.5" onclick="bonBack()" title="Cerrar">✕</button>
         </div>
         <div id="bon-detail-content" style="flex:1;overflow:auto;"></div>
@@ -1741,7 +1741,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
     <div style="display:flex;align-items:center;gap:8px;padding:0 1rem;height:40px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface)">
       <span style="font-family:var(--serif);font-size:13px;font-weight:300;font-style:italic;color:var(--accent);flex-shrink:0">Globales</span>
       <div style="flex:1"></div>
-      <button class="btn primary" style="margin:0;padding:2px 9px;font-size:10px;flex-shrink:0" onclick="bopModalCtx='glo';bopOpenModal(null)">+ Nuevo</button>
+      <button class="btn primary usd-admin-btn" style="margin:0;padding:2px 9px;font-size:10px;flex-shrink:0" onclick="bopModalCtx='glo';bopOpenModal(null)">+ Nuevo</button>
     </div>
     <div style="flex:1;display:flex;overflow:hidden;min-height:0">
       <div id="glo-view-summary" style="flex:1;overflow:auto;min-width:0;transition:flex .15s">
@@ -1765,8 +1765,8 @@ tbody tr.selected .c-ticker{color:var(--accent);}
         <div style="display:flex;align-items:center;gap:8px;padding:0 .9rem;height:36px;border-bottom:1px solid var(--border);background:var(--surface2);flex-shrink:0">
           <span id="glo-detail-name" style="font-family:var(--mono);font-size:12px;color:var(--accent);font-weight:600"></span>
           <div style="flex:1"></div>
-          <button style="background:none;border:1px solid var(--border2);border-radius:3px;cursor:pointer;color:var(--text3);font-size:10px;font-family:var(--mono);padding:1px 7px" onclick="bopModalCtx='glo';bopOpenModal(gloSelTicker)">✎ Editar</button>
-          <button style="background:none;border:1px solid var(--danger,#e55);border-radius:3px;cursor:pointer;color:var(--danger,#e55);font-size:10px;font-family:var(--mono);padding:1px 7px" onclick="gloDeleteDirect()">🗑 Eliminar</button>
+          <button class="usd-admin-btn" style="background:none;border:1px solid var(--border2);border-radius:3px;cursor:pointer;color:var(--text3);font-size:10px;font-family:var(--mono);padding:1px 7px" onclick="bopModalCtx='glo';bopOpenModal(gloSelTicker)">✎ Editar</button>
+          <button class="usd-admin-btn" style="background:none;border:1px solid var(--danger,#e55);border-radius:3px;cursor:pointer;color:var(--danger,#e55);font-size:10px;font-family:var(--mono);padding:1px 7px" onclick="gloDeleteDirect()">🗑 Eliminar</button>
           <button style="background:none;border:1px solid var(--border2);border-radius:3px;cursor:pointer;color:var(--text3);font-size:11px;font-family:var(--mono);padding:1px 7px;line-height:1.5" onclick="gloBack()" title="Cerrar">✕</button>
         </div>
         <div id="glo-detail-content" style="flex:1;overflow:auto;"></div>
@@ -1785,7 +1785,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
     <div style="display:flex;align-items:center;gap:8px;padding:0 1rem;height:40px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface)">
       <span style="font-family:var(--serif);font-size:13px;font-weight:300;font-style:italic;color:var(--accent);flex-shrink:0">Bopreales</span>
       <div style="flex:1"></div>
-      <button class="btn primary" style="margin:0;padding:2px 9px;font-size:10px;flex-shrink:0" onclick="bopOpenModal(null)">+ Nuevo</button>
+      <button class="btn primary usd-admin-btn" style="margin:0;padding:2px 9px;font-size:10px;flex-shrink:0" onclick="bopOpenModal(null)">+ Nuevo</button>
     </div>
     <!-- split container: summary left + detail right -->
     <div style="flex:1;display:flex;overflow:hidden;min-height:0">
@@ -1812,8 +1812,8 @@ tbody tr.selected .c-ticker{color:var(--accent);}
         <div style="display:flex;align-items:center;gap:8px;padding:0 .9rem;height:36px;border-bottom:1px solid var(--border);background:var(--surface2);flex-shrink:0">
           <span id="bop-detail-name" style="font-family:var(--mono);font-size:12px;color:var(--accent);font-weight:600"></span>
           <div style="flex:1"></div>
-          <button style="background:none;border:1px solid var(--border2);border-radius:3px;cursor:pointer;color:var(--text3);font-size:10px;font-family:var(--mono);padding:1px 7px" onclick="bopOpenModal(bopSelTicker)">✎ Editar</button>
-          <button style="background:none;border:1px solid var(--danger,#e55);border-radius:3px;cursor:pointer;color:var(--danger,#e55);font-size:10px;font-family:var(--mono);padding:1px 7px" onclick="bopDeleteDirect()">🗑 Eliminar</button>
+          <button class="usd-admin-btn" style="background:none;border:1px solid var(--border2);border-radius:3px;cursor:pointer;color:var(--text3);font-size:10px;font-family:var(--mono);padding:1px 7px" onclick="bopOpenModal(bopSelTicker)">✎ Editar</button>
+          <button class="usd-admin-btn" style="background:none;border:1px solid var(--danger,#e55);border-radius:3px;cursor:pointer;color:var(--danger,#e55);font-size:10px;font-family:var(--mono);padding:1px 7px" onclick="bopDeleteDirect()">🗑 Eliminar</button>
           <button style="background:none;border:1px solid var(--border2);border-radius:3px;cursor:pointer;color:var(--text3);font-size:11px;font-family:var(--mono);padding:1px 7px;line-height:1.5" onclick="bopBack()" title="Cerrar">✕</button>
         </div>
         <div id="bop-detail-content" style="flex:1;overflow:auto;"></div>
@@ -1866,7 +1866,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
     <div style="display:flex;align-items:center;height:40px;padding:0 1rem;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface);gap:8px">
       <span style="font-family:var(--serif);font-size:13px;font-weight:300;font-style:italic;color:var(--accent)">Equivalencias de Tickers</span>
       <div style="flex:1"></div>
-      <button class="btn primary" style="padding:2px 9px;font-size:10px" onclick="equivAddRow()">+ Agregar</button>
+      <button class="btn primary usd-admin-btn" style="padding:2px 9px;font-size:10px" onclick="equivAddRow()">+ Agregar</button>
     </div>
     <div style="flex:1;overflow:auto;padding:1rem">
       <table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px">
@@ -2200,6 +2200,10 @@ function authUpdateAdminUI(){
   });
   // Ocultar botones de eliminar en tablas
   document.querySelectorAll('.rbtn.del').forEach(el=>{
+    el.style.display=admin?'':'none';
+  });
+  // Botones admin sección USD
+  document.querySelectorAll('.usd-admin-btn').forEach(el=>{
     el.style.display=admin?'':'none';
   });
 }
@@ -9862,7 +9866,7 @@ function equivRender(){
       +'<td style="padding:5px 12px"><input class="equiv-inp" id="eqa'+i+'" onchange="equivUpdate('+i+',\'ars\',this.value)"></td>'
       +'<td style="padding:5px 12px"><input class="equiv-inp" id="eqm'+i+'" onchange="equivUpdate('+i+',\'mep\',this.value)"></td>'
       +'<td style="padding:5px 12px"><input class="equiv-inp" id="eqc'+i+'" onchange="equivUpdate('+i+',\'cable\',this.value)"></td>'
-      +'<td style="padding:5px 8px;text-align:center"><button onclick="equivDeleteRow('+i+')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px">&#x2715;</button></td>'
+      +(isAdmin()?'<td style="padding:5px 8px;text-align:center"><button onclick="equivDeleteRow('+i+')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px">&#x2715;</button></td>':'<td></td>')
       +'</tr>';
   }
   tbody.innerHTML=html;
