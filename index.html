@@ -9675,7 +9675,7 @@ function bopYearFrac(d1,d2,conv){
   const act=diasACT(d1,d2);
   switch(conv){
     case'30/360':  return bopDays30360(d1,d2)/360;
-    case'180/360': return((d2.getFullYear()-d1.getFullYear())*12+(d2.getMonth()-d1.getMonth()))/12;
+    case'180/360': return act/360;
     case'ACT/360': return act/360;
     case'ACT/365': return act/365;
     case'ACT/ACT': return act/365.25;
