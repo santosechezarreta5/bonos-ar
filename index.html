@@ -1664,7 +1664,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 </div>
 
 <!-- USD PAGES -->
-<div id="page-usd-resumen"   style="display:none;height:calc(100vh - 200px);overflow:auto;"></div>
+<div id="page-usd-resumen"   style="display:none;height:calc(100vh - 200px);overflow:hidden;"></div>
 <div id="page-usd-forwards" style="display:none;height:calc(100vh - 200px);overflow-y:auto;padding:1.5rem 2rem;">
 
   <!-- CONTROLES -->
@@ -3454,6 +3454,7 @@ function switchUsdTab(tab){
     const p=document.getElementById('page-'+t);
     if(p) p.style.display=t===tab?'block':'none';
   });
+  if(tab==='usd-resumen') usdResumenRender();
   if(tab==='usd-bopreales') bopInit();
   if(tab==='usd-globales') gloInit();
   if(tab==='usd-bonares') bonInit();
@@ -10045,6 +10046,7 @@ async function usdRefreshPrices(){
     }
     if(bonUpdated){bonSave();if(document.getElementById('page-usd-bonares').style.display!=='none')bonRenderSummaryRows();}
     if(document.getElementById('page-usd-spreadleg').style.display!=='none')spreadLegRender();
+    if(document.getElementById('ures-sleg-tbody'))usdResRefresh();
 
     const now=new Date();
     const hhmm=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
@@ -11059,6 +11061,300 @@ function slegChartRender(rows){
     if(slegChart)slegChart.resize();
   });
 }());
+
+// ══════════════════════════════════════════════════════ USD RESUMEN ══════════
+const USD_RES_LS='bonosAR_usd_res_v1';
+let usdResState={sumBonds:[],fwdRows:[],chartHidden:[]};
+let usdResChart=null;
+
+function usdResLoad(){
+  try{const r=localStorage.getItem(USD_RES_LS);if(r)usdResState=Object.assign({sumBonds:[],fwdRows:[],chartHidden:[]},JSON.parse(r));}catch(e){}
+}
+function usdResSave(){
+  try{localStorage.setItem(USD_RES_LS,JSON.stringify(usdResState));}catch(e){}
+}
+
+function usdResGetBond(ticker){
+  return[...BOP_BONDS,...BON_BONDS,...GLO_BONDS].find(b=>b.ticker===ticker)||null;
+}
+
+function usdResCalcRow(b,liq){
+  const flows=bopGenFlows(b);
+  if(b.lastPrecio==null)return{tir:null,tna:null,md:null,par:null,flows};
+  const tir=bopTIR(b,liq,b.lastPrecio,flows);
+  if(tir==null)return{tir:null,tna:null,md:null,par:null,flows};
+  const dur=bopDuracion(b,liq,tir,flows);
+  const tna=bopGetTNA(tir,b.periodicidad);
+  const liqD=parseDate(liq);
+  const acc=bopAccrued(b,liqD,flows);
+  const out=bopGetOutstanding(flows,liqD);
+  const par=out>0?(b.lastPrecio/(out*(1+acc/100))*100):null;
+  return{tir,tna,md:dur.mod,par,flows};
+}
+
+function usdResumenRender(){
+  usdResLoad();
+  if(!BOP_BONDS.length)bopLoad();
+  if(!BON_BONDS.length)bonLoad();
+  if(!GLO_BONDS.length)gloLoad();
+  const pg=document.getElementById('page-usd-resumen');
+  if(!pg)return;
+  const thR='padding:6px 10px;text-align:right;font-size:9px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;background:var(--surface2);position:sticky;top:0;border-bottom:1px solid var(--border2)';
+  const thL=thR.replace('right','left');
+  const selSt='font-family:var(--mono);font-size:11px;background:var(--surface);border:1px solid var(--border2);border-radius:3px;padding:1px 5px;color:var(--text)';
+  pg.innerHTML=`<div style="display:flex;height:100%;overflow:hidden">
+  <!-- COL 1/8 -->
+  <div style="width:12.5%;min-width:145px;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden">
+    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;border-bottom:1px solid var(--border)">
+      <div style="padding:5px 10px;font-size:9px;font-weight:600;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;background:var(--surface2);border-bottom:1px solid var(--border2);flex-shrink:0">Spread Leg.</div>
+      <div style="overflow-y:auto;flex:1">
+        <table style="width:100%;border-collapse:collapse;font-size:11px;font-family:var(--mono)">
+          <thead><tr>
+            <th style="${thL}">Par</th>
+            <th style="${thR}">Last</th>
+          </tr></thead>
+          <tbody id="ures-sleg-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+      <div style="padding:5px 10px;display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border-bottom:1px solid var(--border2);flex-shrink:0">
+        <span style="font-size:9px;font-weight:600;color:var(--text3);letter-spacing:.08em;text-transform:uppercase">TF Fwds</span>
+        <button class="btn" style="padding:1px 6px;font-size:10px" onclick="usdResFwdAdd()">+ Fila</button>
+      </div>
+      <div style="overflow-y:auto;flex:1">
+        <table style="width:100%;border-collapse:collapse;font-size:11px;font-family:var(--mono)">
+          <thead><tr>
+            <th style="${thL}">B1</th>
+            <th style="${thL}">B2</th>
+            <th style="${thR}">TF</th>
+            <th style="width:20px;background:var(--surface2);position:sticky;top:0;border-bottom:1px solid var(--border2)"></th>
+          </tr></thead>
+          <tbody id="ures-fwd-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <!-- COL 3/8 -->
+  <div style="width:37.5%;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden">
+    <div style="padding:5px 10px;display:flex;align-items:center;gap:8px;background:var(--surface2);border-bottom:1px solid var(--border2);flex-shrink:0">
+      <span style="font-size:9px;font-weight:600;color:var(--text3);letter-spacing:.08em;text-transform:uppercase">Cartera</span>
+      <select id="ures-sum-add" style="${selSt}"><option value="">+ Agregar bono…</option></select>
+    </div>
+    <div style="overflow:auto;flex:1">
+      <table style="width:100%;border-collapse:collapse;font-size:11px;font-family:var(--mono)">
+        <thead id="ures-sum-thead"><tr>
+          <th style="${thL}">Ticker</th>
+          <th style="${thR}">VTO</th>
+          <th style="${thR}">Precio</th>
+          <th style="${thR}">MD</th>
+          <th style="${thR}">Paridad</th>
+          <th style="${thR}">TIR</th>
+          <th style="${thR}">TNA</th>
+          <th style="width:22px;background:var(--surface2);position:sticky;top:0;border-bottom:1px solid var(--border2)"></th>
+        </tr></thead>
+        <tbody id="ures-sum-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+  <!-- COL 4/8 chart -->
+  <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+    <div style="padding:5px 10px;font-size:9px;font-weight:600;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;background:var(--surface2);border-bottom:1px solid var(--border2);flex-shrink:0">Curva de rendimientos</div>
+    <div style="flex:1;position:relative;min-height:0"><canvas id="ures-chart"></canvas></div>
+  </div>
+</div>`;
+  document.getElementById('ures-sum-add').onchange=function(){if(this.value){usdResSumAdd(this.value);this.value='';}};
+  usdResPopulateSelect();
+  usdResRefresh();
+  usdStartAutoRefresh();
+}
+
+function usdResRefresh(){
+  usdResSpreadRender();
+  usdResFwdRender();
+  usdResSumRender();
+}
+
+function usdResPopulateSelect(){
+  const sel=document.getElementById('ures-sum-add');
+  if(!sel)return;
+  const already=new Set(usdResState.sumBonds);
+  const all=[
+    ...BOP_BONDS.map(b=>({ticker:b.ticker,sec:'BOP'})),
+    ...BON_BONDS.map(b=>({ticker:b.ticker,sec:'BON'})),
+    ...GLO_BONDS.map(b=>({ticker:b.ticker,sec:'GLO'})),
+  ].sort((a,z)=>a.ticker>z.ticker?1:-1);
+  sel.innerHTML='<option value="">+ Agregar bono…</option>'+all.filter(x=>!already.has(x.ticker)).map(x=>`<option value="${x.ticker}">[${x.sec}] ${x.ticker}</option>`).join('');
+}
+
+function usdResSpreadRender(){
+  const tbody=document.getElementById('ures-sleg-tbody');
+  if(!tbody)return;
+  if(!GLO_BONDS.length)gloLoad();
+  if(!BON_BONDS.length)bonLoad();
+  const rows=[];
+  for(const glo of GLO_BONDS){
+    const bon=BON_BONDS.find(b=>b.vencimiento===glo.vencimiento);
+    if(!bon)continue;
+    const last=glo.lastPrecio!=null&&bon.lastPrecio!=null?(glo.lastPrecio/bon.lastPrecio-1)*100:null;
+    rows.push({label:`${glo.ticker}/${bon.ticker}`,last,vcto:glo.vencimiento});
+  }
+  rows.sort((a,b)=>a.vcto>b.vcto?1:-1);
+  if(!rows.length){tbody.innerHTML=`<tr><td colspan="2" style="padding:1.5rem;text-align:center;color:var(--text3);font-size:10px">Sin pares GLO/BON</td></tr>`;return;}
+  const fmt=v=>{
+    if(v==null)return'<span style="color:var(--text3)">—</span>';
+    const col=v>=0?'var(--accent2)':'var(--danger,#e05)';
+    return`<span style="color:${col};font-variant-numeric:tabular-nums">${v>=0?'+':''}${v.toFixed(2)}%</span>`;
+  };
+  tbody.innerHTML=rows.map(r=>`<tr style="border-bottom:1px solid var(--border)">
+    <td style="padding:7px 10px;color:var(--text2)">${r.label}</td>
+    <td style="padding:7px 10px;text-align:right;font-weight:600">${fmt(r.last)}</td>
+  </tr>`).join('');
+}
+
+function usdResFwdRender(){
+  const tbody=document.getElementById('ures-fwd-tbody');
+  if(!tbody)return;
+  if(!BOP_BONDS.length)bopLoad();
+  if(!BON_BONDS.length)bonLoad();
+  if(!GLO_BONDS.length)gloLoad();
+  const liq=bopFmtDate(G_LIQ||addHabiles(TODAY,1));
+  const allTickers=[...new Set([...BOP_BONDS,...BON_BONDS,...GLO_BONDS].map(b=>b.ticker))].sort();
+  const mkOpts=(val)=>`<option value=""></option>`+allTickers.map(t=>`<option value="${t}"${t===val?' selected':''}>${t}</option>`).join('');
+  const selSt='font-family:var(--mono);font-size:10px;background:var(--surface);border:1px solid var(--border2);border-radius:2px;padding:1px 2px;color:var(--text);width:100%;box-sizing:border-box';
+  if(!usdResState.fwdRows.length){
+    tbody.innerHTML=`<tr><td colspan="4" style="padding:1.5rem;text-align:center;color:var(--text3);font-size:10px">Usá + Fila para agregar</td></tr>`;
+    return;
+  }
+  tbody.innerHTML=usdResState.fwdRows.map((row,i)=>{
+    let tfwd=null;
+    if(row.b1&&row.b2){
+      const b1=usdResGetBond(row.b1),b2=usdResGetBond(row.b2);
+      if(b1&&b2&&b1.lastPrecio!=null&&b2.lastPrecio!=null){
+        const r1=usdResCalcRow(b1,liq),r2=usdResCalcRow(b2,liq);
+        if(r1.tir!=null&&r2.tir!=null&&Math.abs(r2.md-r1.md)>0.001)
+          tfwd=(r2.tir*r2.md-r1.tir*r1.md)/(r2.md-r1.md);
+      }
+    }
+    const tfStr=tfwd!=null?tfwd.toFixed(2)+'%':'—';
+    const tfCol=tfwd!=null?'var(--accent2)':'var(--text3)';
+    return`<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:3px 4px"><select style="${selSt}" onchange="usdResFwdUpdate(${i},'b1',this.value)">${mkOpts(row.b1)}</select></td>
+      <td style="padding:3px 4px"><select style="${selSt}" onchange="usdResFwdUpdate(${i},'b2',this.value)">${mkOpts(row.b2)}</select></td>
+      <td style="padding:3px 8px;text-align:right;color:${tfCol};font-weight:600;white-space:nowrap">${tfStr}</td>
+      <td style="padding:3px 2px;text-align:center"><button style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;padding:0 3px;line-height:1" onclick="usdResFwdRemove(${i})">✕</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function usdResFwdAdd(){
+  usdResState.fwdRows.push({b1:'',b2:''});
+  usdResSave();
+  usdResFwdRender();
+}
+function usdResFwdRemove(i){
+  usdResState.fwdRows.splice(i,1);
+  usdResSave();
+  usdResFwdRender();
+}
+function usdResFwdUpdate(i,field,val){
+  if(!usdResState.fwdRows[i])return;
+  usdResState.fwdRows[i][field]=val;
+  usdResSave();
+  usdResFwdRender();
+}
+
+function usdResSumRender(){
+  const tbody=document.getElementById('ures-sum-tbody');
+  if(!tbody)return;
+  const liq=bopFmtDate(G_LIQ||addHabiles(TODAY,1));
+  if(!usdResState.sumBonds.length){
+    tbody.innerHTML=`<tr><td colspan="8" style="padding:2.5rem;text-align:center;color:var(--text3);font-size:12px">Usá el selector de arriba para agregar bonos</td></tr>`;
+    usdResChartRender([]);
+    return;
+  }
+  const enriched=usdResState.sumBonds.map(ticker=>{
+    const b=usdResGetBond(ticker);
+    if(!b)return null;
+    const r=usdResCalcRow(b,liq);
+    return{ticker,b,...r};
+  }).filter(Boolean);
+  enriched.sort((a,z)=>(a.b.vencimiento||'')>(z.b.vencimiento||'')?1:-1);
+  const f2=(v,col)=>v!=null?`<span style="color:${col};font-variant-numeric:tabular-nums">${v.toFixed(2)}</span>`:'<span style="color:var(--text3)">—</span>';
+  const f2p=(v,col)=>v!=null?`<span style="color:${col};font-variant-numeric:tabular-nums">${v.toFixed(2)}%</span>`:'<span style="color:var(--text3)">—</span>';
+  tbody.innerHTML=enriched.map(e=>`<tr style="border-bottom:1px solid var(--border)" onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background=''">
+    <td style="padding:8px 10px;color:var(--accent);font-weight:600">${e.ticker}</td>
+    <td style="padding:8px 10px;text-align:right;color:var(--text2);white-space:nowrap">${bopFmtDateDisp(e.b.vencimiento)}</td>
+    <td style="padding:8px 10px;text-align:right">${f2(e.b.lastPrecio,'var(--text)')}</td>
+    <td style="padding:8px 10px;text-align:right">${f2(e.md,'var(--warn)')}</td>
+    <td style="padding:8px 10px;text-align:right">${f2(e.par,'var(--text2)')}</td>
+    <td style="padding:8px 10px;text-align:right;font-weight:600">${f2p(e.tir,'var(--accent2)')}</td>
+    <td style="padding:8px 10px;text-align:right">${f2p(e.tna,'var(--accent2)')}</td>
+    <td style="padding:8px 4px;text-align:center"><button style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;padding:0 3px;line-height:1" onclick="usdResSumRemove('${e.ticker}')">✕</button></td>
+  </tr>`).join('');
+  usdResChartRender(enriched);
+}
+
+function usdResSumAdd(ticker){
+  if(!usdResState.sumBonds.includes(ticker)){
+    usdResState.sumBonds.push(ticker);
+    usdResSave();
+    usdResSumRender();
+    usdResPopulateSelect();
+  }
+}
+function usdResSumRemove(ticker){
+  usdResState.sumBonds=usdResState.sumBonds.filter(t=>t!==ticker);
+  usdResSave();
+  usdResSumRender();
+  usdResPopulateSelect();
+}
+
+function usdResChartRender(enriched){
+  const canvas=document.getElementById('ures-chart');
+  if(!canvas)return;
+  if(usdResChart){usdResChart.destroy();usdResChart=null;}
+  const pts=enriched.filter(e=>e.md!=null&&e.tir!=null);
+  if(!pts.length)return;
+  const n=pts.length;
+  const sx=pts.reduce((s,p)=>s+p.md,0),sy=pts.reduce((s,p)=>s+p.tir,0);
+  const sxx=pts.reduce((s,p)=>s+p.md*p.md,0),sxy=pts.reduce((s,p)=>s+p.md*p.tir,0);
+  const denom=n*sxx-sx*sx;
+  const slope=denom?((n*sxy-sx*sy)/denom):0;
+  const intercept=(sy-slope*sx)/n;
+  const mdMin=Math.min(...pts.map(p=>p.md)),mdMax=Math.max(...pts.map(p=>p.md));
+  const trend=[{x:+mdMin.toFixed(3),y:+(intercept+slope*mdMin).toFixed(4)},{x:+mdMax.toFixed(3),y:+(intercept+slope*mdMax).toFixed(4)}];
+  usdResChart=new Chart(canvas,{
+    type:'scatter',
+    data:{datasets:[
+      {label:'Bonos',data:pts.map(p=>({x:+p.md.toFixed(3),y:+p.tir.toFixed(4),ticker:p.ticker})),backgroundColor:'rgba(100,200,120,0.85)',pointRadius:5,pointHoverRadius:7},
+      {label:'Tendencia',type:'line',data:trend,borderColor:'rgba(100,200,120,0.3)',borderWidth:1,borderDash:[5,4],pointRadius:0,fill:false},
+    ]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>{const d=ctx.raw;return`${d.ticker||''} · TIR ${d.y!=null?d.y.toFixed(2)+'%':'—'} · MD ${d.x!=null?d.x.toFixed(2):'—'}`;}}}
+      },
+      scales:{
+        x:{title:{display:true,text:'Duración Mod.',color:'#4d554e',font:{size:10,family:'DM Mono, monospace'}},ticks:{color:'#4d554e',font:{size:10,family:'DM Mono, monospace'}},grid:{color:'#252825'}},
+        y:{title:{display:true,text:'TIR (%)',color:'#4d554e',font:{size:10,family:'DM Mono, monospace'}},ticks:{color:'#4d554e',font:{size:10,family:'DM Mono, monospace'},callback:v=>v.toFixed(2)+'%'},grid:{color:'#252825'}},
+      },
+    },
+    plugins:[{id:'ticker-labels',afterDatasetsDraw(chart){
+      const ctx=chart.ctx,ds=chart.data.datasets[0];
+      if(!ds||!ds.data)return;
+      ctx.save();ctx.font='bold 10px DM Mono, monospace';ctx.fillStyle='rgba(200,230,200,0.9)';ctx.textAlign='left';ctx.textBaseline='bottom';
+      ds.data.forEach((pt,i)=>{
+        const meta=chart.getDatasetMeta(0);
+        if(!meta.data[i])return;
+        const{x,y}=meta.data[i].getProps(['x','y'],true);
+        ctx.fillText(pt.ticker||'',x+5,y-3);
+      });
+      ctx.restore();
+    }}],
+  });
+}
 
 // ══════════════════════════════════════════════════════ BONARES ══════════════
 const BON_LS_KEY='bonosAR_bon_v1';
