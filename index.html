@@ -9879,8 +9879,8 @@ async function usdFetchPriceMap(){
   for(const item of data)if(item.symbol&&item.c!=null){
     map[item.symbol]=+item.c;
     if(item.pct_change!=null)pctMap[item.symbol]=+item.pct_change;
-    const bid=item.b!=null?item.b:item.bid;
-    const ask=item.a!=null?item.a:item.ask;
+    const bid=item.px_bid;
+    const ask=item.px_ask;
     if(bid!=null)bidMap[item.symbol]=+bid;
     if(ask!=null)askMap[item.symbol]=+ask;
   }
