@@ -1737,17 +1737,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
       <div id="bon-view-summary" style="flex:1;overflow:auto;min-width:0;transition:flex .15s">
         <div id="bon-empty" style="display:flex;height:100%;align-items:center;justify-content:center;color:var(--text3);font-size:13px;">Agregá un bono con + Nuevo</div>
         <table id="bon-summary-table" style="display:none;width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px;">
-          <thead>
-            <tr style="border-bottom:2px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:1">
-              <th style="padding:7px 14px;text-align:left;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">TICKER</th>
-              <th style="padding:7px 12px;text-align:right;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">PRECIO</th>
-              <th style="padding:7px 12px;text-align:right;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">VAR.</th>
-              <th style="padding:7px 12px;text-align:right;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">MD</th>
-              <th style="padding:7px 12px;text-align:right;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">VTO</th>
-              <th style="padding:7px 12px;text-align:right;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">PARIDAD</th>
-              <th style="padding:7px 12px;text-align:right;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">TIR</th>
-            </tr>
-          </thead>
+          <thead id="bon-thead"></thead>
           <tbody id="bon-summary-tbody"></tbody>
         </table>
       </div>
@@ -1780,17 +1770,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
       <div id="glo-view-summary" style="flex:1;overflow:auto;min-width:0;transition:flex .15s">
         <div id="glo-empty" style="display:flex;height:100%;align-items:center;justify-content:center;color:var(--text3);font-size:13px;">Agregá un bono con + Nuevo</div>
         <table id="glo-summary-table" style="display:none;width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px;">
-          <thead>
-            <tr style="border-bottom:2px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:1">
-              <th style="padding:7px 14px;text-align:left;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">TICKER</th>
-              <th style="padding:7px 12px;text-align:right;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">PRECIO</th>
-              <th style="padding:7px 12px;text-align:right;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">VAR.</th>
-              <th style="padding:7px 12px;text-align:right;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">MD</th>
-              <th style="padding:7px 12px;text-align:right;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">VTO</th>
-              <th style="padding:7px 12px;text-align:right;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">PARIDAD</th>
-              <th style="padding:7px 12px;text-align:right;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">TIR</th>
-            </tr>
-          </thead>
+          <thead id="glo-thead"></thead>
           <tbody id="glo-summary-tbody"></tbody>
         </table>
       </div>
@@ -1826,17 +1806,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
       <div id="bop-view-summary" style="flex:1;overflow:auto;min-width:0;transition:flex .15s">
         <div id="bop-empty" style="display:flex;height:100%;align-items:center;justify-content:center;color:var(--text3);font-size:13px;">Agregá un bono con + Nuevo</div>
         <table id="bop-summary-table" style="display:none;width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px;">
-          <thead>
-            <tr style="border-bottom:2px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:1">
-              <th style="padding:7px 14px;text-align:left;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">TICKER</th>
-              <th style="padding:7px 12px;text-align:right;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">PRECIO</th>
-              <th style="padding:7px 12px;text-align:right;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">VAR.</th>
-              <th style="padding:7px 12px;text-align:right;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">MD</th>
-              <th style="padding:7px 12px;text-align:right;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">VTO</th>
-              <th style="padding:7px 12px;text-align:right;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">PARIDAD</th>
-              <th style="padding:7px 12px;text-align:right;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">TIR</th>
-            </tr>
-          </thead>
+          <thead id="bop-thead"></thead>
           <tbody id="bop-summary-tbody"></tbody>
         </table>
       </div>
@@ -10092,6 +10062,86 @@ function equivInit(){
   gloLoad();
 }
 
+// ══════════════════════════════════════════════════ USD SUMMARY TABLE SORT
+const USD_SUM_COLS=[
+  {key:'ticker',     label:'TICKER',  align:'left'},
+  {key:'precio',     label:'PRECIO',  align:'right'},
+  {key:'var',        label:'VAR.',    align:'right'},
+  {key:'md',         label:'MD',      align:'right'},
+  {key:'vencimiento',label:'VTO',     align:'right'},
+  {key:'paridad',    label:'PARIDAD', align:'right'},
+  {key:'tir',        label:'TIR',     align:'right'},
+];
+function usdSumTheadHtml(pfx,sortCol,sortAsc){
+  const trSt='border-bottom:2px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:1';
+  let h=`<tr style="${trSt}">`;
+  for(const c of USD_SUM_COLS){
+    const active=sortCol===c.key;
+    const ind=active?(sortAsc?' ▲':' ▼'):'';
+    const pad=c.align==='left'?'padding:7px 14px':'padding:7px 12px';
+    const col=active?'var(--accent)':'var(--text3)';
+    h+=`<th style="${pad};text-align:${c.align};font-weight:500;color:${col};font-size:10px;letter-spacing:.07em;cursor:pointer;user-select:none;white-space:nowrap" onclick="${pfx}SortBy('${c.key}')">${c.label}${ind}</th>`;
+  }
+  return h+'</tr>';
+}
+function usdSumEnrich(bonds,liq){
+  return bonds.map(b=>{
+    const flows=bopGenFlows(b);
+    let tir=null,md=null,par=null;
+    if(b.lastPrecio!=null){
+      tir=bopTIR(b,liq,b.lastPrecio,flows);
+      if(tir!=null){
+        md=bopDuracion(b,liq,tir,flows).mod;
+        const liqD=parseDate(liq);
+        const accrued=bopAccrued(b,liqD,flows);
+        const outS=bopGetOutstanding(flows,liqD);
+        par=outS>0?(b.lastPrecio/(outS*(1+accrued/100))*100):null;
+      }
+    }
+    return{b,flows,tir,md,par};
+  });
+}
+function usdSumSort(enriched,col,asc){
+  return enriched.slice().sort((a,z)=>{
+    let va,vz;
+    switch(col){
+      case'ticker':      va=a.b.ticker;              vz=z.b.ticker;              break;
+      case'precio':      va=a.b.lastPrecio??-Infinity;vz=z.b.lastPrecio??-Infinity;break;
+      case'var':         va=a.b.lastPctChange??-Infinity;vz=z.b.lastPctChange??-Infinity;break;
+      case'md':          va=a.md??-Infinity;          vz=z.md??-Infinity;         break;
+      case'vencimiento': va=a.b.vencimiento??'';      vz=z.b.vencimiento??'';    break;
+      case'paridad':     va=a.par??-Infinity;         vz=z.par??-Infinity;        break;
+      case'tir':         va=a.tir??-Infinity;         vz=z.tir??-Infinity;        break;
+      default:           va='';vz='';
+    }
+    if(va<vz)return asc?-1:1;
+    if(va>vz)return asc?1:-1;
+    return 0;
+  });
+}
+function usdSumRowHtml(e,isSel,onClickFn){
+  const b=e.b;
+  let precioStr='—',varStr='—',mdStr='—',parStr='—',tirStr='—';
+  if(b.lastPrecio!=null){
+    precioStr=b.lastPrecio.toFixed(2);
+    if(b.lastPctChange!=null){const chg=b.lastPctChange;varStr=`<span class="${chg>=0?'c-chg-pos':'c-chg-neg'}">${chg>=0?'+':''}${chg.toFixed(2)}%</span>`;}
+    if(e.tir!=null){tirStr=e.tir.toFixed(2)+'%';}
+    if(e.md!=null){mdStr=e.md.toFixed(2);}
+    if(e.par!=null){parStr=e.par.toFixed(2);}
+  }
+  const bg=isSel?'background:var(--accent-dim);':'';
+  const hov=isSel?'':`onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background=''"`;
+  return`<tr style="cursor:pointer;border-bottom:1px solid var(--border);${bg}" onclick="${onClickFn}('${b.ticker}')" ${hov}>
+    <td style="padding:9px 14px;color:var(--accent);font-weight:600">${b.ticker}</td>
+    <td style="padding:9px 12px;text-align:right;color:var(--text);font-variant-numeric:tabular-nums">${precioStr}</td>
+    <td style="padding:9px 12px;text-align:right;color:var(--text3)">${varStr}</td>
+    <td style="padding:9px 12px;text-align:right;color:var(--warn);font-variant-numeric:tabular-nums">${mdStr}</td>
+    <td style="padding:9px 12px;text-align:right;color:var(--text2)">${bopFmtDateDisp(b.vencimiento)}</td>
+    <td style="padding:9px 12px;text-align:right;color:var(--text);font-variant-numeric:tabular-nums">${parStr}</td>
+    <td style="padding:9px 12px;text-align:right;color:var(--accent2);font-weight:600;font-variant-numeric:tabular-nums">${tirStr}</td>
+  </tr>`;
+}
+
 // ══════════════════════════════════════════════════ USD FORWARDS
 const USD_FWD_LS='bonosAR_usd_fwd_v1';
 let usdFwdBopBonExcluded=new Set();
@@ -10254,6 +10304,9 @@ function bopInit(){
   usdStartAutoRefresh();
 }
 
+let bopSortCol='vencimiento',bopSortAsc=true;
+function bopSortBy(col){if(bopSortCol===col)bopSortAsc=!bopSortAsc;else{bopSortCol=col;bopSortAsc=col!=='ticker';}bopRenderSummaryRows();}
+
 function bopRenderSummaryRows(){
   const empty=document.getElementById('bop-empty');
   const table=document.getElementById('bop-summary-table');
@@ -10264,40 +10317,13 @@ function bopRenderSummaryRows(){
   }
   if(empty)empty.style.display='none';
   if(table)table.style.display='table';
+  const thead=document.getElementById('bop-thead');
   const tbody=document.getElementById('bop-summary-tbody');
   if(!tbody)return;
-  const bopSumLiq=bopFmtDate(G_LIQ||addHabiles(TODAY,1));
-  tbody.innerHTML=BOP_BONDS.map(b=>{
-    const flows=bopGenFlows(b);
-    let precioStr='—',varStr='—',mdStr='—',parStr='—',tirStr='—';
-    if(b.lastPrecio!=null){
-      const liq=bopSumLiq;
-      const liqD=parseDate(liq);
-      const tir=bopTIR(b,liq,b.lastPrecio,flows);
-      precioStr=b.lastPrecio.toFixed(2);
-      if(b.lastPctChange!=null){const chg=b.lastPctChange;varStr=`<span class="${chg>=0?'c-chg-pos':'c-chg-neg'}">${chg>=0?'+':''}${chg.toFixed(2)}%</span>`;}
-      if(tir!=null){
-        tirStr=tir.toFixed(2)+'%';
-        const dur=bopDuracion(b,liq,tir,flows);
-        mdStr=dur.mod.toFixed(2);
-        const accrued=bopAccrued(b,liqD,flows);
-        const outS=bopGetOutstanding(flows,liqD);
-        parStr=outS>0?(b.lastPrecio/(outS*(1+accrued/100))*100).toFixed(2):'—';
-      }
-    }
-    const isSel=bopSelTicker===b.ticker;
-    const bg=isSel?'background:var(--accent-dim);':'';
-    const hov=isSel?'':`onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background=''"`;
-    return`<tr style="cursor:pointer;border-bottom:1px solid var(--border);${bg}" onclick="bopSelect('${b.ticker}')" ${hov}>
-      <td style="padding:9px 14px;color:var(--accent);font-weight:600">${b.ticker}</td>
-      <td style="padding:9px 12px;text-align:right;color:var(--text);font-variant-numeric:tabular-nums">${precioStr}</td>
-      <td style="padding:9px 12px;text-align:right;color:var(--text3)">${varStr}</td>
-      <td style="padding:9px 12px;text-align:right;color:var(--warn);font-variant-numeric:tabular-nums">${mdStr}</td>
-      <td style="padding:9px 12px;text-align:right;color:var(--text2)">${bopFmtDateDisp(b.vencimiento)}</td>
-      <td style="padding:9px 12px;text-align:right;color:var(--text);font-variant-numeric:tabular-nums">${parStr}</td>
-      <td style="padding:9px 12px;text-align:right;color:var(--accent2);font-weight:600;font-variant-numeric:tabular-nums">${tirStr}</td>
-    </tr>`;
-  }).join('');
+  const liq=bopFmtDate(G_LIQ||addHabiles(TODAY,1));
+  if(thead)thead.innerHTML=usdSumTheadHtml('bop',bopSortCol,bopSortAsc);
+  const enriched=usdSumSort(usdSumEnrich(BOP_BONDS,liq),bopSortCol,bopSortAsc);
+  tbody.innerHTML=enriched.map(e=>usdSumRowHtml(e,bopSelTicker===e.b.ticker,'bopSelect')).join('');
   bopChartRender();
 }
 
@@ -11026,6 +11052,9 @@ function bonSave(){try{localStorage.setItem(BON_LS_KEY,JSON.stringify(BON_BONDS)
 
 function bonInit(){bonLoad();bonRenderSummary();usdStartAutoRefresh();}
 
+let bonSortCol='vencimiento',bonSortAsc=true;
+function bonSortBy(col){if(bonSortCol===col)bonSortAsc=!bonSortAsc;else{bonSortCol=col;bonSortAsc=col!=='ticker';}bonRenderSummaryRows();}
+
 function bonRenderSummaryRows(){
   const empty=document.getElementById('bon-empty');
   const table=document.getElementById('bon-summary-table');
@@ -11036,40 +11065,13 @@ function bonRenderSummaryRows(){
   }
   if(empty)empty.style.display='none';
   if(table)table.style.display='table';
+  const thead=document.getElementById('bon-thead');
   const tbody=document.getElementById('bon-summary-tbody');
   if(!tbody)return;
-  const bonSumLiq=bopFmtDate(G_LIQ||addHabiles(TODAY,1));
-  tbody.innerHTML=BON_BONDS.map(b=>{
-    const flows=bopGenFlows(b);
-    var precioStr='—',varStr='—',mdStr='—',parStr='—',tirStr='—';
-    if(b.lastPrecio!=null){
-      const liq=bonSumLiq;
-      const liqD=parseDate(liq);
-      const tir=bopTIR(b,liq,b.lastPrecio,flows);
-      precioStr=b.lastPrecio.toFixed(2);
-      if(b.lastPctChange!=null){const chg=b.lastPctChange;varStr=`<span class="${chg>=0?'c-chg-pos':'c-chg-neg'}">${chg>=0?'+':''}${chg.toFixed(2)}%</span>`;}
-      if(tir!=null){
-        tirStr=tir.toFixed(2)+'%';
-        const dur=bopDuracion(b,liq,tir,flows);
-        mdStr=dur.mod.toFixed(2);
-        const accrued=bopAccrued(b,liqD,flows);
-        const outS=bopGetOutstanding(flows,liqD);
-        parStr=outS>0?(b.lastPrecio/(outS*(1+accrued/100))*100).toFixed(2):'—';
-      }
-    }
-    const isSel=bonSelTicker===b.ticker;
-    const bg=isSel?'background:var(--accent-dim);':'';
-    const hov=isSel?'':`onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background=''"`;
-    return`<tr style="cursor:pointer;border-bottom:1px solid var(--border);${bg}" onclick="bonSelect('${b.ticker}')" ${hov}>
-      <td style="padding:9px 14px;color:var(--accent);font-weight:600">${b.ticker}</td>
-      <td style="padding:9px 12px;text-align:right;color:var(--text);font-variant-numeric:tabular-nums">${precioStr}</td>
-      <td style="padding:9px 12px;text-align:right;color:var(--text3)">${varStr}</td>
-      <td style="padding:9px 12px;text-align:right;color:var(--warn);font-variant-numeric:tabular-nums">${mdStr}</td>
-      <td style="padding:9px 12px;text-align:right;color:var(--text2)">${bopFmtDateDisp(b.vencimiento)}</td>
-      <td style="padding:9px 12px;text-align:right;color:var(--text);font-variant-numeric:tabular-nums">${parStr}</td>
-      <td style="padding:9px 12px;text-align:right;color:var(--accent2);font-weight:600;font-variant-numeric:tabular-nums">${tirStr}</td>
-    </tr>`;
-  }).join('');
+  const liq=bopFmtDate(G_LIQ||addHabiles(TODAY,1));
+  if(thead)thead.innerHTML=usdSumTheadHtml('bon',bonSortCol,bonSortAsc);
+  const enriched=usdSumSort(usdSumEnrich(BON_BONDS,liq),bonSortCol,bonSortAsc);
+  tbody.innerHTML=enriched.map(e=>usdSumRowHtml(e,bonSelTicker===e.b.ticker,'bonSelect')).join('');
   bonChartRender();
 }
 
@@ -11444,6 +11446,9 @@ function gloSave(){try{localStorage.setItem(GLO_LS_KEY,JSON.stringify(GLO_BONDS)
 
 function gloInit(){gloLoad();gloRenderSummary();usdStartAutoRefresh();}
 
+let gloSortCol='vencimiento',gloSortAsc=true;
+function gloSortBy(col){if(gloSortCol===col)gloSortAsc=!gloSortAsc;else{gloSortCol=col;gloSortAsc=col!=='ticker';}gloRenderSummaryRows();}
+
 function gloRenderSummaryRows(){
   const empty=document.getElementById('glo-empty');
   const table=document.getElementById('glo-summary-table');
@@ -11454,40 +11459,13 @@ function gloRenderSummaryRows(){
   }
   if(empty)empty.style.display='none';
   if(table)table.style.display='table';
+  const thead=document.getElementById('glo-thead');
   const tbody=document.getElementById('glo-summary-tbody');
   if(!tbody)return;
-  const gloSumLiq=bopFmtDate(G_LIQ||addHabiles(TODAY,1));
-  tbody.innerHTML=GLO_BONDS.map(b=>{
-    const flows=bopGenFlows(b);
-    var precioStr='—',varStr='—',mdStr='—',parStr='—',tirStr='—';
-    if(b.lastPrecio!=null){
-      const liq=gloSumLiq;
-      const liqD=parseDate(liq);
-      const tir=bopTIR(b,liq,b.lastPrecio,flows);
-      precioStr=b.lastPrecio.toFixed(2);
-      if(b.lastPctChange!=null){const chg=b.lastPctChange;varStr=`<span class="${chg>=0?'c-chg-pos':'c-chg-neg'}">${chg>=0?'+':''}${chg.toFixed(2)}%</span>`;}
-      if(tir!=null){
-        tirStr=tir.toFixed(2)+'%';
-        const dur=bopDuracion(b,liq,tir,flows);
-        mdStr=dur.mod.toFixed(2);
-        const accrued=bopAccrued(b,liqD,flows);
-        const outS=bopGetOutstanding(flows,liqD);
-        parStr=outS>0?(b.lastPrecio/(outS*(1+accrued/100))*100).toFixed(2):'—';
-      }
-    }
-    const isSel=gloSelTicker===b.ticker;
-    const bg=isSel?'background:var(--accent-dim);':'';
-    const hov=isSel?'':`onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background=''"`;
-    return`<tr style="cursor:pointer;border-bottom:1px solid var(--border);${bg}" onclick="gloSelect('${b.ticker}')" ${hov}>
-      <td style="padding:9px 14px;color:var(--accent);font-weight:600">${b.ticker}</td>
-      <td style="padding:9px 12px;text-align:right;color:var(--text);font-variant-numeric:tabular-nums">${precioStr}</td>
-      <td style="padding:9px 12px;text-align:right;color:var(--text3)">${varStr}</td>
-      <td style="padding:9px 12px;text-align:right;color:var(--warn);font-variant-numeric:tabular-nums">${mdStr}</td>
-      <td style="padding:9px 12px;text-align:right;color:var(--text2)">${bopFmtDateDisp(b.vencimiento)}</td>
-      <td style="padding:9px 12px;text-align:right;color:var(--text);font-variant-numeric:tabular-nums">${parStr}</td>
-      <td style="padding:9px 12px;text-align:right;color:var(--accent2);font-weight:600;font-variant-numeric:tabular-nums">${tirStr}</td>
-    </tr>`;
-  }).join('');
+  const liq=bopFmtDate(G_LIQ||addHabiles(TODAY,1));
+  if(thead)thead.innerHTML=usdSumTheadHtml('glo',gloSortCol,gloSortAsc);
+  const enriched=usdSumSort(usdSumEnrich(GLO_BONDS,liq),gloSortCol,gloSortAsc);
+  tbody.innerHTML=enriched.map(e=>usdSumRowHtml(e,gloSelTicker===e.b.ticker,'gloSelect')).join('');
   gloChartRender();
 }
 
