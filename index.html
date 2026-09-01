@@ -9741,7 +9741,8 @@ function bopGenFlows(bond){
   while(curr<=venc&&outstanding>0.0005){
     const key=bopFmtDate(curr);
     const fechaStr=fechaOverMap[key]||(bopFmtDate(bopSiguienteHabil(curr)));
-    const yf=bopYearFrac(prev,curr,bond.convencion);
+    const efectiva=fechaOverMap[key]?parseDate(fechaStr):curr;
+    const yf=bopYearFrac(prev,efectiva,bond.convencion);
     const rate=rateMap[key]!=null?rateMap[key]:bopGetRate(bond,prev);
     const cupon=rate/100*yf*outstanding;
     let amortPct=amortMap[key]||0;
@@ -9751,7 +9752,7 @@ function bopGenFlows(bond){
     flows.push({
       fecha:fechaStr,
       fechaNominal:key,
-      dias:diasACT(prev,curr),
+      dias:diasACT(prev,efectiva),
       rate:+rate.toFixed(4),
       cupon:+cupon.toFixed(6),
       amortPct:+amortPct.toFixed(4),
