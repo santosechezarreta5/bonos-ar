@@ -11079,6 +11079,14 @@ function usdResSave(){
 function usdResGetBond(ticker){
   return[...BOP_BONDS,...BON_BONDS,...GLO_BONDS].find(b=>b.ticker===ticker)||null;
 }
+function usdResGetSec(ticker){
+  if(GLO_BONDS.find(b=>b.ticker===ticker))return'GLO';
+  if(BON_BONDS.find(b=>b.ticker===ticker))return'BON';
+  if(BOP_BONDS.find(b=>b.ticker===ticker))return'BOP';
+  return'';
+}
+// GLO=azul acero, BON=ámbar, BOP=verde accent
+const USD_SEC_COLOR={GLO:'#6baed6',BON:'#d4a843',BOP:'var(--accent2)'};
 
 function usdResCalcRow(b,liq){
   const flows=bopGenFlows(b);
@@ -11114,7 +11122,8 @@ function usdResumenRender(){
         <span style="${ttl}">Spread Leg.</span>
       </div>
       <div style="overflow-y:auto;flex:1">
-        <table style="width:100%;border-collapse:collapse;font-size:10px;font-family:var(--mono)">
+        <table style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:10px;font-family:var(--mono)">
+          <colgroup><col style="width:58%"><col style="width:42%"></colgroup>
           <thead><tr><th style="${thL}">Par</th><th style="${thR}">Last</th></tr></thead>
           <tbody id="ures-sleg-tbody"></tbody>
         </table>
@@ -11126,7 +11135,8 @@ function usdResumenRender(){
         <button class="btn" style="padding:1px 6px;font-size:10px" onclick="usdResFwdAdd()">+ Fila</button>
       </div>
       <div style="overflow-y:auto;flex:1">
-        <table style="width:100%;border-collapse:collapse;font-size:10px;font-family:var(--mono)">
+        <table style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:10px;font-family:var(--mono)">
+          <colgroup><col style="width:40%"><col style="width:40%"><col style="width:14%"><col style="width:18px"></colgroup>
           <thead><tr>
             <th style="${thL}">B1</th><th style="${thL}">B2</th>
             <th style="${thR}">TF</th>
@@ -11141,9 +11151,14 @@ function usdResumenRender(){
   <div style="${drag}" onmousedown="usdResDragStart(event,'c1')" onmouseover="this.style.background='var(--accent)'" onmouseout="this.style.background='var(--border2)'"></div>
   <!-- COL 2 -->
   <div id="ures-c2" style="width:${w2}px;min-width:200px;flex-shrink:0;display:flex;flex-direction:column;overflow:hidden">
-    <div style="padding:5px 10px;display:flex;align-items:center;gap:10px;background:var(--surface2);border-bottom:1px solid var(--border2);flex-shrink:0">
+    <div style="padding:5px 10px;display:flex;align-items:center;gap:10px;background:var(--surface2);border-bottom:1px solid var(--border2);flex-shrink:0;flex-wrap:wrap">
       <span style="${ttl}">Cartera</span>
       <button class="btn" style="padding:2px 8px;font-size:10px" onclick="usdResModalOpen()">+ Agregar</button>
+      <span style="margin-left:auto;display:flex;gap:8px;align-items:center;font-size:9px;font-family:var(--mono)">
+        <span style="color:#6baed6">■ GLO</span>
+        <span style="color:#d4a843">■ BON</span>
+        <span style="color:var(--accent2)">■ BOP</span>
+      </span>
     </div>
     <div style="overflow:auto;flex:1">
       <table style="width:100%;border-collapse:collapse;font-size:11px;font-family:var(--mono)">
@@ -11291,8 +11306,8 @@ function usdResSpreadRender(){
     return`<span style="color:${col};font-variant-numeric:tabular-nums">${v>=0?'+':''}${v.toFixed(2)}%</span>`;
   };
   tbody.innerHTML=rows.map(r=>`<tr style="border-bottom:1px solid var(--border)">
-    <td style="padding:5px 6px;color:var(--text2)">${r.label}</td>
-    <td style="padding:5px 6px;text-align:right;font-weight:600">${fmt(r.last)}</td>
+    <td style="padding:4px 5px;color:var(--text2);width:58%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.label}</td>
+    <td style="padding:4px 5px;text-align:right;font-weight:600;white-space:nowrap;width:42%">${fmt(r.last)}</td>
   </tr>`).join('');
 }
 
@@ -11372,15 +11387,18 @@ function usdResSumRender(){
   enriched.sort((a,z)=>(a.b.vencimiento||'')>(z.b.vencimiento||'')?1:-1);
   const f2=(v,col)=>v!=null?`<span style="color:${col};font-variant-numeric:tabular-nums">${v.toFixed(2)}</span>`:'<span style="color:var(--text3)">—</span>';
   const f2p=(v,col)=>v!=null?`<span style="color:${col};font-variant-numeric:tabular-nums">${v.toFixed(2)}%</span>`:'<span style="color:var(--text3)">—</span>';
-  tbody.innerHTML=enriched.map(e=>`<tr style="border-bottom:1px solid var(--border)" onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background=''">
-    <td style="padding:8px 10px;color:var(--accent);font-weight:600">${e.ticker}</td>
+  tbody.innerHTML=enriched.map(e=>{
+    const sec=usdResGetSec(e.ticker);
+    const tc=USD_SEC_COLOR[sec]||'var(--accent)';
+    return`<tr style="border-bottom:1px solid var(--border);border-left:3px solid ${tc}" onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background=''">
+    <td style="padding:8px 8px;color:${tc};font-weight:600">${e.ticker}</td>
     <td style="padding:8px 10px;text-align:right;color:var(--text2);white-space:nowrap">${bopFmtDateDisp(e.b.vencimiento)}</td>
     <td style="padding:8px 10px;text-align:right">${f2(e.b.lastPrecio,'var(--text)')}</td>
     <td style="padding:8px 10px;text-align:right">${f2(e.md,'var(--warn)')}</td>
     <td style="padding:8px 10px;text-align:right;font-weight:600">${f2p(e.tir,'var(--accent2)')}</td>
     <td style="padding:8px 10px;text-align:right">${f2p(e.tna,'var(--accent2)')}</td>
     <td style="padding:8px 4px;text-align:center"><button style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;padding:0 3px;line-height:1" onclick="usdResSumRemove('${e.ticker}')">✕</button></td>
-  </tr>`).join('');
+  </tr>`;}).join('');
   usdResChartRender(enriched);
 }
 
