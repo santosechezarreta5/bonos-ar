@@ -1666,7 +1666,28 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 <!-- USD PAGES -->
 <div id="page-usd-resumen"   style="display:none;height:calc(100vh - 200px);overflow:auto;"></div>
 <div id="page-usd-forwards"  style="display:none;height:calc(100vh - 200px);overflow:auto;"></div>
-<div id="page-usd-spreadleg" style="display:none;height:calc(100vh - 200px);overflow:auto;"></div>
+<div id="page-usd-spreadleg" style="display:none;height:calc(100vh - 200px);overflow:hidden;">
+  <div style="display:flex;flex-direction:column;height:100%">
+    <div style="display:flex;align-items:center;gap:8px;padding:0 1rem;height:40px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface)">
+      <span style="font-family:var(--serif);font-size:13px;font-weight:300;font-style:italic;color:var(--accent);flex-shrink:0">Spread Legislación</span>
+      <div style="flex:1"></div>
+      <span style="font-size:10px;font-family:var(--mono);color:var(--text3)">Global / Bonar · mismo vencimiento</span>
+    </div>
+    <div style="flex:1;overflow:auto">
+      <table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px;">
+        <thead>
+          <tr style="border-bottom:2px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:1">
+            <th style="padding:9px 14px;text-align:left;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">SPREAD</th>
+            <th style="padding:9px 12px;text-align:right;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">BID</th>
+            <th style="padding:9px 12px;text-align:right;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">OFFER</th>
+            <th style="padding:9px 12px;text-align:right;font-weight:500;color:var(--text3);font-size:10px;letter-spacing:.07em">LAST</th>
+          </tr>
+        </thead>
+        <tbody id="sleg-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
 <div id="page-usd-bonares" style="display:none;height:calc(100vh - 200px);overflow:hidden;">
   <div style="display:flex;flex-direction:column;height:100%">
     <div style="display:flex;align-items:center;gap:8px;padding:0 1rem;height:40px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface)">
@@ -3403,6 +3424,7 @@ function switchUsdTab(tab){
   if(tab==='usd-bopreales') bopInit();
   if(tab==='usd-globales') gloInit();
   if(tab==='usd-bonares') bonInit();
+  if(tab==='usd-spreadleg') spreadLegRender();
   if(tab==='usd-equiv') equivRender();
 }
 
@@ -9853,9 +9875,16 @@ async function usdFetchPriceMap(){
   const res=await fetch(USD_PRICE_API,{cache:'no-store'});
   if(!res.ok)throw new Error('HTTP '+res.status);
   const data=await res.json();
-  const map={},pctMap={};
-  for(const item of data)if(item.symbol&&item.c!=null){map[item.symbol]=+item.c;if(item.pct_change!=null)pctMap[item.symbol]=+item.pct_change;}
-  return{map,pctMap};
+  const map={},pctMap={},bidMap={},askMap={};
+  for(const item of data)if(item.symbol&&item.c!=null){
+    map[item.symbol]=+item.c;
+    if(item.pct_change!=null)pctMap[item.symbol]=+item.pct_change;
+    const bid=item.b!=null?item.b:item.bid;
+    const ask=item.a!=null?item.a:item.ask;
+    if(bid!=null)bidMap[item.symbol]=+bid;
+    if(ask!=null)askMap[item.symbol]=+ask;
+  }
+  return{map,pctMap,bidMap,askMap};
 }
 
 function usdNextHabil(){
@@ -9868,7 +9897,7 @@ async function usdRefreshPrices(){
   const statusEl=document.getElementById('usd-price-status');
   if(statusEl)statusEl.textContent='Actualizando...';
   try{
-    const{map,pctMap}=await usdFetchPriceMap();
+    const{map,pctMap,bidMap,askMap}=await usdFetchPriceMap();
     const mepRate=(map['AL30']&&map['AL30D'])?map['AL30']/map['AL30D']:null;
     const liq=usdNextHabil();
     let updated=0;
@@ -9910,7 +9939,16 @@ async function usdRefreshPrices(){
         const raw=map[row.cable];
         if(raw!=null){gloPrecio=raw;gloSym=row.cable;}
       }
-      if(gloPrecio!=null){bond.lastPrecio=+gloPrecio.toFixed(4);bond.lastPctChange=gloSym&&pctMap[gloSym]!=null?pctMap[gloSym]:null;gloUpdated++;}
+      if(gloPrecio!=null){
+        bond.lastPrecio=+gloPrecio.toFixed(4);
+        bond.lastPctChange=gloSym&&pctMap[gloSym]!=null?pctMap[gloSym]:null;
+        if(gloSym){
+          const rb=bidMap[gloSym],ra=askMap[gloSym];
+          bond.lastBid=rb!=null?(usdCurrency==='ARS'?rb/mepRate:+rb):null;
+          bond.lastAsk=ra!=null?(usdCurrency==='ARS'?ra/mepRate:+ra):null;
+        }
+        gloUpdated++;
+      }
     }
     if(gloUpdated){gloSave();if(document.getElementById('page-usd-globales').style.display!=='none')gloRenderSummaryRows();}
 
@@ -9930,9 +9968,19 @@ async function usdRefreshPrices(){
         const raw=map[row.cable];
         if(raw!=null){bonPrecio=raw;bonSym=row.cable;}
       }
-      if(bonPrecio!=null){bond.lastPrecio=+bonPrecio.toFixed(4);bond.lastPctChange=bonSym&&pctMap[bonSym]!=null?pctMap[bonSym]:null;bonUpdated++;}
+      if(bonPrecio!=null){
+        bond.lastPrecio=+bonPrecio.toFixed(4);
+        bond.lastPctChange=bonSym&&pctMap[bonSym]!=null?pctMap[bonSym]:null;
+        if(bonSym){
+          const rb=bidMap[bonSym],ra=askMap[bonSym];
+          bond.lastBid=rb!=null?(usdCurrency==='ARS'?rb/mepRate:+rb):null;
+          bond.lastAsk=ra!=null?(usdCurrency==='ARS'?ra/mepRate:+ra):null;
+        }
+        bonUpdated++;
+      }
     }
     if(bonUpdated){bonSave();if(document.getElementById('page-usd-bonares').style.display!=='none')bonRenderSummaryRows();}
+    if(document.getElementById('page-usd-spreadleg').style.display!=='none')spreadLegRender();
 
     const now=new Date();
     const hhmm=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
@@ -10579,6 +10627,46 @@ function gloDeleteDirect(){
   if(!confirm(`¿Eliminar ${gloSelTicker}?`))return;
   GLO_BONDS=GLO_BONDS.filter(b=>b.ticker!==gloSelTicker);
   gloSave();gloSelTicker=null;gloRenderSummary();
+}
+
+// ══════════════════════════════════════════════════════ SPREAD LEG. ══════════
+function spreadLegRender(){
+  const tbody=document.getElementById('sleg-tbody');
+  if(!tbody)return;
+  if(!GLO_BONDS.length)gloLoad();
+  if(!BON_BONDS.length)bonLoad();
+  const rows=[];
+  for(const glo of GLO_BONDS){
+    const bon=BON_BONDS.find(b=>b.vencimiento===glo.vencimiento);
+    if(!bon)continue;
+    // LAST: last_glo / last_bon - 1
+    const last=glo.lastPrecio!=null&&bon.lastPrecio!=null
+      ?(glo.lastPrecio/bon.lastPrecio-1)*100:null;
+    // BID (venta del spread): bid_glo / ask_bon - 1
+    const bid=glo.lastBid!=null&&bon.lastAsk!=null
+      ?(glo.lastBid/bon.lastAsk-1)*100:null;
+    // OFFER (compra del spread): ask_glo / bid_bon - 1
+    const offer=glo.lastAsk!=null&&bon.lastBid!=null
+      ?(glo.lastAsk/bon.lastBid-1)*100:null;
+    rows.push({label:`${glo.ticker} / ${bon.ticker}`,bid,offer,last,vcto:glo.vencimiento});
+  }
+  if(!rows.length){
+    tbody.innerHTML=`<tr><td colspan="4" style="padding:2rem;text-align:center;color:var(--text3);font-size:12px;font-family:var(--mono)">Sin pares — agregá bonos con mismo vencimiento en Globales y Bonares</td></tr>`;
+    return;
+  }
+  // sort by vencimiento ascending
+  rows.sort((a,b)=>a.vcto>b.vcto?1:-1);
+  const fmt=v=>{
+    if(v==null)return'<span style="color:var(--text3)">—</span>';
+    const col=v>=0?'var(--accent2)':'var(--danger)';
+    return`<span style="color:${col}">${v>=0?'+':''}${v.toFixed(2)}%</span>`;
+  };
+  tbody.innerHTML=rows.map(r=>`<tr style="border-bottom:1px solid var(--border)">
+    <td style="padding:9px 14px;color:var(--text);font-weight:600;font-variant-numeric:tabular-nums">${r.label}</td>
+    <td style="padding:9px 12px;text-align:right;font-variant-numeric:tabular-nums">${fmt(r.bid)}</td>
+    <td style="padding:9px 12px;text-align:right;font-variant-numeric:tabular-nums">${fmt(r.offer)}</td>
+    <td style="padding:9px 12px;text-align:right;font-variant-numeric:tabular-nums;font-weight:600">${fmt(r.last)}</td>
+  </tr>`).join('');
 }
 
 // ══════════════════════════════════════════════════════ BONARES ══════════════
