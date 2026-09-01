@@ -10078,6 +10078,7 @@ const USD_SUM_COLS=[
   {key:'vencimiento',label:'VTO',     align:'right'},
   {key:'paridad',    label:'PARIDAD', align:'right'},
   {key:'tir',        label:'TIR',     align:'right'},
+  {key:'tna',        label:'TNA',     align:'right'},
 ];
 function usdSumTheadHtml(pfx,sortCol,sortAsc){
   const trSt='border-bottom:2px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:1';
@@ -10094,18 +10095,19 @@ function usdSumTheadHtml(pfx,sortCol,sortAsc){
 function usdSumEnrich(bonds,liq){
   return bonds.map(b=>{
     const flows=bopGenFlows(b);
-    let tir=null,md=null,par=null;
+    let tir=null,md=null,par=null,tna=null;
     if(b.lastPrecio!=null){
       tir=bopTIR(b,liq,b.lastPrecio,flows);
       if(tir!=null){
         md=bopDuracion(b,liq,tir,flows).mod;
+        tna=bopGetTNA(tir,b.periodicidad);
         const liqD=parseDate(liq);
         const accrued=bopAccrued(b,liqD,flows);
         const outS=bopGetOutstanding(flows,liqD);
         par=outS>0?(b.lastPrecio/(outS*(1+accrued/100))*100):null;
       }
     }
-    return{b,flows,tir,md,par};
+    return{b,flows,tir,md,par,tna};
   });
 }
 function usdSumSort(enriched,col,asc){
@@ -10119,6 +10121,7 @@ function usdSumSort(enriched,col,asc){
       case'vencimiento': va=a.b.vencimiento??'';      vz=z.b.vencimiento??'';    break;
       case'paridad':     va=a.par??-Infinity;         vz=z.par??-Infinity;        break;
       case'tir':         va=a.tir??-Infinity;         vz=z.tir??-Infinity;        break;
+      case'tna':         va=a.tna??-Infinity;         vz=z.tna??-Infinity;        break;
       default:           va='';vz='';
     }
     if(va<vz)return asc?-1:1;
@@ -10128,11 +10131,12 @@ function usdSumSort(enriched,col,asc){
 }
 function usdSumRowHtml(e,isSel,onClickFn){
   const b=e.b;
-  let precioStr='—',varStr='—',mdStr='—',parStr='—',tirStr='—';
+  let precioStr='—',varStr='—',mdStr='—',parStr='—',tirStr='—',tnaStr='—';
   if(b.lastPrecio!=null){
     precioStr=b.lastPrecio.toFixed(2);
     if(b.lastPctChange!=null){const chg=b.lastPctChange;varStr=`<span class="${chg>=0?'c-chg-pos':'c-chg-neg'}">${chg>=0?'+':''}${chg.toFixed(2)}%</span>`;}
     if(e.tir!=null){tirStr=e.tir.toFixed(2)+'%';}
+    if(e.tna!=null){tnaStr=e.tna.toFixed(2)+'%';}
     if(e.md!=null){mdStr=e.md.toFixed(2);}
     if(e.par!=null){parStr=e.par.toFixed(2);}
   }
@@ -10146,6 +10150,7 @@ function usdSumRowHtml(e,isSel,onClickFn){
     <td style="padding:9px 12px;text-align:right;color:var(--text2)">${bopFmtDateDisp(b.vencimiento)}</td>
     <td style="padding:9px 12px;text-align:right;color:var(--text);font-variant-numeric:tabular-nums">${parStr}</td>
     <td style="padding:9px 12px;text-align:right;color:var(--accent2);font-weight:600;font-variant-numeric:tabular-nums">${tirStr}</td>
+    <td style="padding:9px 12px;text-align:right;color:var(--accent2);font-variant-numeric:tabular-nums">${tnaStr}</td>
   </tr>`;
 }
 
@@ -10540,7 +10545,7 @@ function bopShowDetail(bond){
             <th style="padding:5px 10px;text-align:left;font-size:9px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Fecha</th>
             <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Días</th>
             <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Cap.Vig.</th>
-            <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">TNA</th>
+            <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Tasa %</th>
             <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--accent2);text-transform:uppercase;letter-spacing:.06em">Interés</th>
             <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--warn);text-transform:uppercase;letter-spacing:.06em">Amort.</th>
             <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--accent);text-transform:uppercase;letter-spacing:.06em">Total</th>
@@ -11175,7 +11180,7 @@ function bonShowDetail(bond){
             <th style="padding:5px 10px;text-align:left;font-size:9px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Fecha</th>
             <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Días</th>
             <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Cap.Vig.</th>
-            <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">TNA</th>
+            <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Tasa %</th>
             <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--accent2);text-transform:uppercase;letter-spacing:.06em">Interés</th>
             <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--warn);text-transform:uppercase;letter-spacing:.06em">Amort.</th>
             <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--accent);text-transform:uppercase;letter-spacing:.06em">Total</th>
@@ -11577,7 +11582,7 @@ function gloShowDetail(bond){
             <th style="padding:5px 10px;text-align:left;font-size:9px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Fecha</th>
             <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Días</th>
             <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Cap.Vig.</th>
-            <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">TNA</th>
+            <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.06em">Tasa %</th>
             <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--accent2);text-transform:uppercase;letter-spacing:.06em">Interés</th>
             <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--warn);text-transform:uppercase;letter-spacing:.06em">Amort.</th>
             <th style="padding:5px 8px;text-align:right;font-size:9px;font-weight:500;color:var(--accent);text-transform:uppercase;letter-spacing:.06em">Total</th>
