@@ -9734,7 +9734,8 @@ function bopGenFlows(bond){
   }
   const flows=[];
   const anchor=bond.inicioInteres?parseDate(bond.inicioInteres):bopAddPeriod(emision,bond.periodicidad);
-  const anchorDay=anchor.getDate();
+  // Use emission day (e.g. 31) as anchor, not the clipped first-coupon day (e.g. 30 in April)
+  const anchorDay=bond.inicioInteres?anchor.getDate():emision.getDate();
   const periodMo=PER_MO[bond.periodicidad]||6;
   let prev=emision,prevEfectiva=emision,step=0,outstanding=100;
   let curr=new Date(anchor);
