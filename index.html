@@ -10700,7 +10700,8 @@ function bopDSaveEdits(){
     const amortVal=aEl?parseFloat(aEl.value):f.amortAmt;
     if(!isNaN(rateVal))rateOverrides.push({fechaNominal:f.fechaNominal,rate:rateVal});
     if(!isNaN(amortVal))amortCustom.push({fecha:f.fechaNominal,pct:amortVal});
-    if(fEl&&fEl.value&&fEl.value!==f.fecha)fechaOverrides.push({fechaNominal:f.fechaNominal,fecha:fEl.value});
+    const nominalFecha=f.fechaNominal?bopFmtDate(bopSiguienteHabil(parseDate(f.fechaNominal))):null;
+    if(fEl&&fEl.value&&fEl.value!==nominalFecha)fechaOverrides.push({fechaNominal:f.fechaNominal,fecha:fEl.value});
   });
   bond.rateOverrides=rateOverrides.length?rateOverrides:null;
   bond.amortCustom=amortCustom.length?amortCustom:null;
@@ -11330,7 +11331,8 @@ function bonDSaveEdits(){
     const amortVal=aEl?parseFloat(aEl.value):f.amortAmt;
     if(!isNaN(rateVal))rateOverrides.push({fechaNominal:f.fechaNominal,rate:rateVal});
     if(!isNaN(amortVal))amortCustom.push({fecha:f.fechaNominal,pct:amortVal});
-    if(fEl&&fEl.value&&fEl.value!==f.fecha)fechaOverrides.push({fechaNominal:f.fechaNominal,fecha:fEl.value});
+    const nominalFecha=f.fechaNominal?bopFmtDate(bopSiguienteHabil(parseDate(f.fechaNominal))):null;
+    if(fEl&&fEl.value&&fEl.value!==nominalFecha)fechaOverrides.push({fechaNominal:f.fechaNominal,fecha:fEl.value});
   });
   bond.rateOverrides=rateOverrides.length?rateOverrides:null;
   bond.amortCustom=amortCustom.length?amortCustom:null;
@@ -11731,7 +11733,8 @@ function gloDSaveEdits(){
     const amortVal=aEl?parseFloat(aEl.value):f.amortAmt;
     if(!isNaN(rateVal))rateOverrides.push({fechaNominal:f.fechaNominal,rate:rateVal});
     if(!isNaN(amortVal))amortCustom.push({fecha:f.fechaNominal,pct:amortVal});
-    if(fEl&&fEl.value&&fEl.value!==f.fecha)fechaOverrides.push({fechaNominal:f.fechaNominal,fecha:fEl.value});
+    const nominalFecha=f.fechaNominal?bopFmtDate(bopSiguienteHabil(parseDate(f.fechaNominal))):null;
+    if(fEl&&fEl.value&&fEl.value!==nominalFecha)fechaOverrides.push({fechaNominal:f.fechaNominal,fecha:fEl.value});
   });
   bond.rateOverrides=rateOverrides.length?rateOverrides:null;
   bond.amortCustom=amortCustom.length?amortCustom:null;
