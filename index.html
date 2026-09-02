@@ -10369,19 +10369,20 @@ function bopChartRender(){
   }
   if(bopYieldChart){bopYieldChart.destroy();bopYieldChart=null;}
   if(!pts.length)return;
-  // linear trend
+  // logarithmic regression: y = a + b*ln(x)
   const n=pts.length;
-  const sx=pts.reduce((s,p)=>s+p.x,0),sy=pts.reduce((s,p)=>s+p.y,0);
-  const sxx=pts.reduce((s,p)=>s+p.x*p.x,0),sxy=pts.reduce((s,p)=>s+p.x*p.y,0);
-  const den=n*sxx-sx*sx;
+  const lx=pts.map(p=>Math.log(Math.max(p.x,0.01)));
+  const sy=pts.reduce((s,p)=>s+p.y,0);
+  const slx=lx.reduce((s,v)=>s+v,0),slx2=lx.reduce((s,v)=>s+v*v,0);
+  const slxy=lx.reduce((s,v,i)=>s+v*pts[i].y,0);
+  const den=n*slx2-slx*slx;
   var trendData=[];
   if(den!==0){
-    const slope=(n*sxy-sx*sy)/den,intercept=(sy-slope*sx)/n;
-    const xMin=Math.min(...pts.map(p=>p.x)),xMax=Math.max(...pts.map(p=>p.x));
-    const pad=(xMax-xMin)*0.15||0.3;
-    for(var i=0;i<=60;i++){
-      const x=xMin-pad+(xMax-xMin+2*pad)*i/60;
-      trendData.push({x:+x.toFixed(3),y:+(intercept+slope*x).toFixed(3)});
+    const b=(n*slxy-slx*sy)/den,a=(sy-b*slx)/n;
+    const xMin=Math.max(Math.min(...pts.map(p=>p.x)),0.01),xMax=Math.max(...pts.map(p=>p.x));
+    for(var i=0;i<=120;i++){
+      const x=xMin+(xMax-xMin)*i/120;
+      trendData.push({x:+x.toFixed(3),y:+(a+b*Math.log(Math.max(x,0.01))).toFixed(3)});
     }
   }
   if(window.ChartDataLabels)Chart.register(ChartDataLabels);
@@ -11125,7 +11126,7 @@ function usdResumenRender(){
       </div>
       <div style="overflow-x:hidden;overflow-y:auto;flex:1">
         <table style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:9px;font-family:var(--mono)">
-          <colgroup><col style="width:58%"><col style="width:42%"></colgroup>
+          <colgroup><col><col style="width:44px"></colgroup>
           <tbody id="ures-sleg-tbody"></tbody>
         </table>
       </div>
@@ -11302,7 +11303,7 @@ function usdResSpreadRender(){
     return`<span style="color:${col};font-variant-numeric:tabular-nums">${v>=0?'+':''}${v.toFixed(2)}%</span>`;
   };
   tbody.innerHTML=rows.map(r=>`<tr style="border-bottom:1px solid var(--border)">
-    <td style="padding:2px 3px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:0">${r.label}</td>
+    <td style="padding:2px 3px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.label}</td>
     <td style="padding:2px 3px;text-align:right;font-weight:600;white-space:nowrap">${fmt(r.last)}</td>
   </tr>`).join('');
 }
@@ -11924,18 +11925,20 @@ function bonChartRender(){
   }
   if(bonYieldChart){bonYieldChart.destroy();bonYieldChart=null;}
   if(!pts.length)return;
+  // logarithmic regression: y = a + b*ln(x)
   const n=pts.length;
-  const sx=pts.reduce((s,p)=>s+p.x,0),sy=pts.reduce((s,p)=>s+p.y,0);
-  const sxx=pts.reduce((s,p)=>s+p.x*p.x,0),sxy=pts.reduce((s,p)=>s+p.x*p.y,0);
-  const den=n*sxx-sx*sx;
+  const lx=pts.map(p=>Math.log(Math.max(p.x,0.01)));
+  const sy=pts.reduce((s,p)=>s+p.y,0);
+  const slx=lx.reduce((s,v)=>s+v,0),slx2=lx.reduce((s,v)=>s+v*v,0);
+  const slxy=lx.reduce((s,v,i)=>s+v*pts[i].y,0);
+  const den=n*slx2-slx*slx;
   var trendData=[];
   if(den!==0){
-    const slope=(n*sxy-sx*sy)/den,intercept=(sy-slope*sx)/n;
-    const xMin=Math.min(...pts.map(p=>p.x)),xMax=Math.max(...pts.map(p=>p.x));
-    const pad=(xMax-xMin)*0.15||0.3;
-    for(var i=0;i<=60;i++){
-      const x=xMin-pad+(xMax-xMin+2*pad)*i/60;
-      trendData.push({x:+x.toFixed(3),y:+(intercept+slope*x).toFixed(3)});
+    const b=(n*slxy-slx*sy)/den,a=(sy-b*slx)/n;
+    const xMin=Math.max(Math.min(...pts.map(p=>p.x)),0.01),xMax=Math.max(...pts.map(p=>p.x));
+    for(var i=0;i<=120;i++){
+      const x=xMin+(xMax-xMin)*i/120;
+      trendData.push({x:+x.toFixed(3),y:+(a+b*Math.log(Math.max(x,0.01))).toFixed(3)});
     }
   }
   if(window.ChartDataLabels)Chart.register(ChartDataLabels);
@@ -12319,18 +12322,20 @@ function gloChartRender(){
   }
   if(gloYieldChart){gloYieldChart.destroy();gloYieldChart=null;}
   if(!pts.length)return;
+  // logarithmic regression: y = a + b*ln(x)
   const n=pts.length;
-  const sx=pts.reduce((s,p)=>s+p.x,0),sy=pts.reduce((s,p)=>s+p.y,0);
-  const sxx=pts.reduce((s,p)=>s+p.x*p.x,0),sxy=pts.reduce((s,p)=>s+p.x*p.y,0);
-  const den=n*sxx-sx*sx;
+  const lx=pts.map(p=>Math.log(Math.max(p.x,0.01)));
+  const sy=pts.reduce((s,p)=>s+p.y,0);
+  const slx=lx.reduce((s,v)=>s+v,0),slx2=lx.reduce((s,v)=>s+v*v,0);
+  const slxy=lx.reduce((s,v,i)=>s+v*pts[i].y,0);
+  const den=n*slx2-slx*slx;
   var trendData=[];
   if(den!==0){
-    const slope=(n*sxy-sx*sy)/den,intercept=(sy-slope*sx)/n;
-    const xMin=Math.min(...pts.map(p=>p.x)),xMax=Math.max(...pts.map(p=>p.x));
-    const pad=(xMax-xMin)*0.15||0.3;
-    for(var i=0;i<=60;i++){
-      const x=xMin-pad+(xMax-xMin+2*pad)*i/60;
-      trendData.push({x:+x.toFixed(3),y:+(intercept+slope*x).toFixed(3)});
+    const b=(n*slxy-slx*sy)/den,a=(sy-b*slx)/n;
+    const xMin=Math.max(Math.min(...pts.map(p=>p.x)),0.01),xMax=Math.max(...pts.map(p=>p.x));
+    for(var i=0;i<=120;i++){
+      const x=xMin+(xMax-xMin)*i/120;
+      trendData.push({x:+x.toFixed(3),y:+(a+b*Math.log(Math.max(x,0.01))).toFixed(3)});
     }
   }
   if(window.ChartDataLabels)Chart.register(ChartDataLabels);
