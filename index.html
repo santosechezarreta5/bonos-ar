@@ -9982,7 +9982,7 @@ async function usdRefreshPrices(){
         const raw=map[row.cable];
         if(raw!=null){usdPrecio=raw;sym=row.cable;}
       }
-      if(usdPrecio!=null){bond.lastPrecio=+usdPrecio.toFixed(4);bond.lastPctChange=sym&&pctMap[sym]!=null?pctMap[sym]:null;if(!bond.lastLiq)bond.lastLiq=liq;updated++;}
+      if(usdPrecio!=null){bond.lastPrecio=+usdPrecio.toFixed(4);bond.lastPrecioDisplay=usdCurrency==='ARS'?+(map[row.ars]).toFixed(2):+usdPrecio.toFixed(2);bond.lastPctChange=sym&&pctMap[sym]!=null?pctMap[sym]:null;if(!bond.lastLiq)bond.lastLiq=liq;updated++;}
     }
 
     if(updated)bopSave();
@@ -10006,6 +10006,7 @@ async function usdRefreshPrices(){
       }
       if(gloPrecio!=null){
         bond.lastPrecio=+gloPrecio.toFixed(4);
+        bond.lastPrecioDisplay=usdCurrency==='ARS'?+(map[row.ars]).toFixed(2):+gloPrecio.toFixed(2);
         bond.lastPctChange=gloSym&&pctMap[gloSym]!=null?pctMap[gloSym]:null;
         if(gloSym){
           const rb=bidMap[gloSym],ra=askMap[gloSym];
@@ -10035,6 +10036,7 @@ async function usdRefreshPrices(){
       }
       if(bonPrecio!=null){
         bond.lastPrecio=+bonPrecio.toFixed(4);
+        bond.lastPrecioDisplay=usdCurrency==='ARS'?+(map[row.ars]).toFixed(2):+bonPrecio.toFixed(2);
         bond.lastPctChange=bonSym&&pctMap[bonSym]!=null?pctMap[bonSym]:null;
         if(bonSym){
           const rb=bidMap[bonSym],ra=askMap[bonSym];
@@ -10135,7 +10137,8 @@ function usdSumRowHtml(e,isSel,onClickFn){
   const b=e.b;
   let precioStr='—',varStr='—',mdStr='—',parStr='—',tirStr='—',tnaStr='—';
   if(b.lastPrecio!=null){
-    precioStr=b.lastPrecio.toFixed(2);
+    const dispPrecio=b.lastPrecioDisplay??b.lastPrecio;
+    precioStr=dispPrecio>=1000?Math.round(dispPrecio).toLocaleString('es-AR'):dispPrecio.toFixed(2);
     if(b.lastPctChange!=null){const chg=b.lastPctChange;varStr=`<span class="${chg>=0?'c-chg-pos':'c-chg-neg'}">${chg>=0?'+':''}${chg.toFixed(2)}%</span>`;}
     if(e.tir!=null){tirStr=e.tir.toFixed(2)+'%';}
     if(e.tna!=null){tnaStr=e.tna.toFixed(2)+'%';}
@@ -11416,7 +11419,7 @@ function usdResSumRender(){
     return`<tr style="border-bottom:1px solid var(--border);border-left:3px solid ${tc}" onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background=''">
     <td style="padding:8px 8px;color:${tc};font-weight:600">${e.ticker}</td>
     <td style="padding:8px 10px;text-align:right;color:var(--text2);white-space:nowrap">${bopFmtDateDisp(e.b.vencimiento)}</td>
-    <td style="padding:8px 10px;text-align:right">${f2(e.b.lastPrecio,'var(--text)')}</td>
+    <td style="padding:8px 10px;text-align:right">${(()=>{const p=e.b.lastPrecioDisplay??e.b.lastPrecio;return p!=null?`<span style="color:var(--text);font-variant-numeric:tabular-nums">${p>=1000?Math.round(p).toLocaleString('es-AR'):p.toFixed(2)}</span>`:'<span style="color:var(--text3)">—</span>';})()}</td>
     <td style="padding:8px 10px;text-align:right">${f2(e.md,'var(--warn)')}</td>
     <td style="padding:8px 10px;text-align:right;font-weight:600">${f2p(e.tir,'var(--accent2)')}</td>
     <td style="padding:8px 10px;text-align:right">${f2p(e.tna,'var(--accent2)')}</td>
