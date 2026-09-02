@@ -337,6 +337,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
   <button class="nav-tab" id="nav-sintetico" onclick="switchTab('sintetico')">Sintético ARS</button>
   <button class="nav-tab" id="nav-calendario" onclick="switchTab('calendario')">Calendario</button>
   <button class="nav-tab" id="nav-proyecciones" onclick="switchTab('proyecciones')">Proyecciones</button>
+  <button class="nav-tab" id="nav-curvas-ars" onclick="switchTab('curvas-ars')">Curvas</button>
   <button class="nav-tab" id="nav-feriados" onclick="switchTab('feriados')" style="margin-left:auto">Feriados</button>
 </nav>
 <nav class="nav" id="nav-usd" style="display:none">
@@ -347,6 +348,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
   <button class="nav-tab"        id="nav-usd-globales"    onclick="switchUsdTab('usd-globales')">Globales</button>
   <button class="nav-tab"        id="nav-usd-bopreales"   onclick="switchUsdTab('usd-bopreales')">Bopreales</button>
   <button class="nav-tab"        id="nav-usd-equiv"       onclick="switchUsdTab('usd-equiv')">Equivalencias</button>
+  <button class="nav-tab"        id="nav-usd-curvas"      onclick="switchUsdTab('usd-curvas')">Curvas</button>
 </nav>
 <!-- USD sub-bar: currency selector + price status -->
 <div id="usd-subbar" style="display:none;align-items:center;height:36px;padding:0 1rem;gap:10px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0">
@@ -1663,6 +1665,9 @@ tbody tr.selected .c-ticker{color:var(--accent);}
   </div>
 </div>
 
+<!-- ARS CURVAS PAGE -->
+<div id="page-curvas-ars" style="display:none;height:calc(100vh - 64px);flex-direction:column;overflow:hidden;"></div>
+
 <!-- USD PAGES -->
 <div id="page-usd-resumen"   style="display:none;height:calc(100vh - 200px);overflow:hidden;"></div>
 <div id="page-usd-forwards" style="display:none;height:calc(100vh - 200px);overflow-y:auto;padding:1.5rem 2rem;">
@@ -2140,6 +2145,8 @@ tbody tr.selected .c-ticker{color:var(--accent);}
     </div>
   </div>
 </div>
+
+<div id="page-usd-curvas" style="display:none;height:calc(100vh - 200px);overflow:hidden;flex-direction:column;"></div>
 
 <div style="height:30px;"></div>
 <div class="status-bar">
@@ -2764,6 +2771,7 @@ async function fetchPrices(){
     statusEl.textContent=msg;
     statusEl.className=notFound.length?'api-status err':'api-status ok';
     beRefreshIfVisible();
+    curvasSnapshotToday();
   }catch(e){
     statusEl.textContent='error de conexión';
     statusEl.className='api-status err';
@@ -3421,12 +3429,12 @@ function renderChart(){
 let currentTab='lecap';
 let currentSection='pesos';
 let currentUsdTab='usd-resumen';
-const USD_TABS=['usd-resumen','usd-forwards','usd-spreadleg','usd-bonares','usd-globales','usd-bopreales','usd-equiv'];
+const USD_TABS=['usd-resumen','usd-forwards','usd-spreadleg','usd-bonares','usd-globales','usd-bopreales','usd-equiv','usd-curvas'];
 
 function hideAllPages(){
   const ids=['lecap-workspace','chart-area','page-cer','page-feriados',
     'page-proyecciones','page-breakeven','page-tamar','page-forwards',
-    'page-dlk','page-sintetico','page-calendario'];
+    'page-dlk','page-sintetico','page-calendario','page-curvas-ars'];
   ids.forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
   USD_TABS.forEach(t=>{const p=document.getElementById('page-'+t);if(p)p.style.display='none';});
 }
@@ -3461,6 +3469,7 @@ function switchUsdTab(tab){
   if(tab==='usd-forwards') usdFwdRecalc();
   if(tab==='usd-spreadleg') spreadLegRender();
   if(tab==='usd-equiv') equivRender();
+  if(tab==='usd-curvas'){document.getElementById('page-usd-curvas').style.display='flex';curvasUsdInit();}
 }
 
 function switchTab(tab){
@@ -3524,6 +3533,9 @@ function switchTab(tab){
   } else if(tab==='calendario'){
     document.getElementById('page-calendario').style.display='block';
     calInit();
+  } else if(tab==='curvas-ars'){
+    document.getElementById('page-curvas-ars').style.display='flex';
+    curvasArsInit();
   }
 }
 
@@ -10058,6 +10070,7 @@ async function usdRefreshPrices(){
     const now=new Date();
     const hhmm=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
     if(statusEl)statusEl.textContent=`${hhmm} · ${updated} bonos · MEP ${mepRate?mepRate.toFixed(0):'—'}`;
+    curvasSnapshotToday();
   }catch(e){
     if(statusEl)statusEl.textContent='Error: '+e.message;
   }
@@ -12447,6 +12460,382 @@ function gloChartRender(){
     if(gloYieldChart)gloYieldChart.resize();
   });
 }());
+
+// ══════════════════════════════════════════════════════════════ CURVAS
+const CURVAS_SNAP_LS='bonosAR_curvas_snap_date_v1';
+let curvasArsChart=null;
+let curvasUsdChart=null;
+let curvasArsSector='TF';
+let curvasUsdSector='ALL';
+
+// ── Snapshot diario → Supabase ─────────────────────────────────────────────
+async function curvasSnapshotToday(){
+  const today=TODAY instanceof Date?TODAY.toISOString().split('T')[0]:String(TODAY);
+  if(localStorage.getItem(CURVAS_SNAP_LS)===today) return;
+  const liq=G_LIQ||addHabiles(TODAY,1);
+  const rows=[];
+
+  // USD: BOP/BON/GLO — reutiliza usdResCalcRow que ya calcula TIR+MD
+  function addUsd(bonds,sector){
+    bonds.forEach(b=>{
+      if(b.lastPrecio==null)return;
+      try{
+        const r=usdResCalcRow(b,liq);
+        if(r.tir==null||isNaN(r.tir)||r.md==null)return;
+        rows.push({snapshot_date:today,ticker:b.ticker,sector,price:+b.lastPrecio.toFixed(4),tir:+r.tir.toFixed(6),md:+r.md.toFixed(4),dias:null});
+      }catch(e){}
+    });
+  }
+  if(BOP_BONDS&&BOP_BONDS.length) addUsd(BOP_BONDS,'BOP');
+  if(BON_BONDS&&BON_BONDS.length) addUsd(BON_BONDS,'BON');
+  if(GLO_BONDS&&GLO_BONDS.length) addUsd(GLO_BONDS,'GLO');
+
+  // ARS TF (LECAPS) — usa enrich() que ya computa tna/tir/dias
+  if(LECAPS&&LECAPS.length){
+    LECAPS.forEach(b=>{
+      if(b.precio==null)return;
+      try{
+        const e=enrich(b);
+        if(!e||isNaN(e.tna)||!e.dias)return;
+        rows.push({snapshot_date:today,ticker:b.ticker,sector:'TF',price:+b.precio.toFixed(4),tir:+e.tna.toFixed(6),md:null,dias:e.dias});
+      }catch(ex){}
+    });
+  }
+
+  // ARS CER
+  if(CER_BONDS&&CER_BONDS.length){
+    CER_BONDS.forEach(b=>{
+      if(b.precio==null)return;
+      try{
+        const e=cerEnrich(b);
+        if(!e||isNaN(e.tir)||!e.dias)return;
+        rows.push({snapshot_date:today,ticker:b.ticker,sector:'CER',price:+b.precio.toFixed(4),tir:+e.tir.toFixed(6),md:null,dias:e.dias});
+      }catch(ex){}
+    });
+  }
+
+  // ARS TAMAR
+  if(typeof TAMAR_BONDS!=='undefined'&&TAMAR_BONDS&&TAMAR_BONDS.length){
+    TAMAR_BONDS.forEach(b=>{
+      if(b.precio==null)return;
+      try{
+        const e=tamarEnrich(b);
+        if(!e||isNaN(e.tna)||!e.dias)return;
+        rows.push({snapshot_date:today,ticker:b.ticker,sector:'TAMAR',price:+b.precio.toFixed(4),tir:+e.tna.toFixed(6),md:null,dias:e.dias});
+      }catch(ex){}
+    });
+  }
+
+  // ARS DLK
+  if(typeof DLK_BONDS!=='undefined'&&DLK_BONDS&&DLK_BONDS.length){
+    DLK_BONDS.forEach(b=>{
+      if(b.precio==null)return;
+      try{
+        const e=dlkEnrich(b);
+        if(!e||e.tna==null||!e.dias)return;
+        rows.push({snapshot_date:today,ticker:b.ticker,sector:'DLK',price:+b.precio.toFixed(4),tir:+e.tna.toFixed(6),md:null,dias:e.dias});
+      }catch(ex){}
+    });
+  }
+
+  if(!rows.length)return;
+  try{
+    const{error}=await supa.from('bond_price_snapshots').upsert(rows,{onConflict:'snapshot_date,ticker'});
+    if(!error)localStorage.setItem(CURVAS_SNAP_LS,today);
+  }catch(e){}
+}
+
+// ── Fetch snapshot desde Supabase ─────────────────────────────────────────
+async function curvasFetchSnapshot(dateStr,sector){
+  const todayStr=TODAY instanceof Date?TODAY.toISOString().split('T')[0]:String(TODAY);
+  // Si es hoy → construir desde memoria (sin ir a Supabase)
+  if(dateStr===todayStr){
+    return curvasSnapshotFromMemory(sector);
+  }
+  try{
+    let q=supa.from('bond_price_snapshots').select('ticker,tir,md,dias,sector').eq('snapshot_date',dateStr);
+    if(sector&&sector!=='ALL') q=q.eq('sector',sector);
+    const{data,error}=await q;
+    if(error||!data)return[];
+    return data;
+  }catch(e){return[];}
+}
+
+function curvasSnapshotFromMemory(sector){
+  const liq=G_LIQ||addHabiles(TODAY,1);
+  const rows=[];
+  function addUsd(bonds,sec){
+    if(sector&&sector!=='ALL'&&sector!==sec)return;
+    bonds.forEach(b=>{
+      if(b.lastPrecio==null)return;
+      try{const r=usdResCalcRow(b,liq);if(r.tir==null||isNaN(r.tir))return;rows.push({ticker:b.ticker,tir:r.tir,md:r.md,dias:null,sector:sec});}catch(e){}
+    });
+  }
+  if(BOP_BONDS&&BOP_BONDS.length) addUsd(BOP_BONDS,'BOP');
+  if(BON_BONDS&&BON_BONDS.length) addUsd(BON_BONDS,'BON');
+  if(GLO_BONDS&&GLO_BONDS.length) addUsd(GLO_BONDS,'GLO');
+  if((!sector||sector==='TF'||sector==='ALL')&&LECAPS&&LECAPS.length){
+    LECAPS.forEach(b=>{if(b.precio==null)return;try{const e=enrich(b);if(!e||isNaN(e.tna))return;rows.push({ticker:b.ticker,tir:e.tna,md:null,dias:e.dias,sector:'TF'});}catch(ex){}});
+  }
+  if((!sector||sector==='CER'||sector==='ALL')&&CER_BONDS&&CER_BONDS.length){
+    CER_BONDS.forEach(b=>{if(b.precio==null)return;try{const e=cerEnrich(b);if(!e||isNaN(e.tir))return;rows.push({ticker:b.ticker,tir:e.tir,md:null,dias:e.dias,sector:'CER'});}catch(ex){}});
+  }
+  if((!sector||sector==='TAMAR'||sector==='ALL')&&typeof TAMAR_BONDS!=='undefined'&&TAMAR_BONDS&&TAMAR_BONDS.length){
+    TAMAR_BONDS.forEach(b=>{if(b.precio==null)return;try{const e=tamarEnrich(b);if(!e||isNaN(e.tna)||!e.dias)return;rows.push({ticker:b.ticker,tir:e.tna,md:null,dias:e.dias,sector:'TAMAR'});}catch(ex){}});
+  }
+  if((!sector||sector==='DLK'||sector==='ALL')&&typeof DLK_BONDS!=='undefined'&&DLK_BONDS&&DLK_BONDS.length){
+    DLK_BONDS.forEach(b=>{if(b.precio==null)return;try{const e=dlkEnrich(b);if(!e||e.tna==null)return;rows.push({ticker:b.ticker,tir:e.tna,md:null,dias:e.dias,sector:'DLK'});}catch(ex){}});
+  }
+  return rows;
+}
+
+// ── Regresión logarítmica (reutilizada) ───────────────────────────────────
+function curvasLogReg(pts){
+  const n=pts.length;if(n<2)return null;
+  const lx=pts.map(p=>Math.log(Math.max(p.x,0.01)));
+  const sy=pts.reduce((s,p)=>s+p.y,0);
+  const slx=lx.reduce((s,v)=>s+v,0),slx2=lx.reduce((s,v)=>s+v*v,0);
+  const slxy=lx.reduce((s,v,i)=>s+v*pts[i].y,0);
+  const den=n*slx2-slx*slx;if(!den)return null;
+  const b=(n*slxy-slx*sy)/den,a=(sy-b*slx)/n;
+  return{a,b};
+}
+
+function curvasTrendPts(reg,pts,npts=100){
+  if(!reg||!pts.length)return[];
+  const xs=pts.map(p=>p.x);
+  const xMin=Math.max(Math.min(...xs),0.01),xMax=Math.max(...xs);
+  if(xMin>=xMax)return[];
+  const out=[];
+  for(let i=0;i<=npts;i++){
+    const x=xMin+(xMax-xMin)*i/npts;
+    out.push({x:+x.toFixed(3),y:+(reg.a+reg.b*Math.log(Math.max(x,0.01))).toFixed(4)});
+  }
+  return out;
+}
+
+// ── Helpers UI ────────────────────────────────────────────────────────────
+function curvasFmtDate(d){return d?d.split('-').reverse().join('/'):''}
+function curvasTodayStr(){return TODAY instanceof Date?TODAY.toISOString().split('T')[0]:String(TODAY);}
+function curvasDateMinus7(d){const dt=new Date(d+'T00:00:00');dt.setDate(dt.getDate()-7);return dt.toISOString().split('T')[0];}
+
+// ══════════════════════════════════════════════════════════════ CURVAS ARS
+function curvasArsInit(){
+  const pg=document.getElementById('page-curvas-ars');
+  if(!pg)return;
+  if(pg.innerHTML.trim()){
+    return;
+  }
+  const today=curvasTodayStr();
+  const d1=curvasDateMinus7(today);
+  const d2=today;
+  const chipSt=(sec,active)=>`style="font-family:var(--mono);font-size:10px;padding:3px 10px;border-radius:3px;cursor:pointer;border:1px solid ${active?'var(--accent)':'var(--border2)'};background:${active?'var(--accent-dim)':'var(--surface2)'};color:${active?'var(--accent)':'var(--text3)'};" onclick="curvasArsSetSector('${sec}')" id="curvas-ars-chip-${sec}"`;
+  const sectors=['TF','CER','TAMAR','DLK'];
+  const chips=sectors.map(s=>`<button ${chipSt(s,s===curvasArsSector)}>${s}</button>`).join('');
+  pg.innerHTML=`
+  <div style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;background:var(--surface)">
+    <span style="font-family:var(--serif);font-size:15px;font-weight:300;font-style:italic;color:var(--accent)">Curvas · Pesos</span>
+    <div style="display:flex;gap:4px;">${chips}</div>
+    <div style="display:flex;align-items:center;gap:6px;margin-left:8px">
+      <span style="font-size:10px;color:var(--text3);font-family:var(--mono)">F1</span>
+      <input type="date" id="curvas-ars-d1" value="${d1}" style="font-family:var(--mono);font-size:11px;background:var(--surface);border:1px solid var(--border2);border-radius:3px;padding:2px 5px;color:var(--text)">
+      <span style="font-size:10px;color:var(--text3);font-family:var(--mono)">F2</span>
+      <input type="date" id="curvas-ars-d2" value="${d2}" style="font-family:var(--mono);font-size:11px;background:var(--surface);border:1px solid var(--border2);border-radius:3px;padding:2px 5px;color:var(--text)">
+      <button class="btn primary" style="padding:3px 10px;font-size:10px" onclick="curvasArsRender()">Ver</button>
+    </div>
+    <div id="curvas-ars-msg" style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-left:auto"></div>
+  </div>
+  <div style="flex:1;min-height:0;position:relative;padding:8px">
+    <canvas id="curvas-ars-chart"></canvas>
+  </div>`;
+  curvasArsRender();
+}
+
+function curvasArsSetSector(sec){
+  curvasArsSector=sec;
+  ['TF','CER','TAMAR','DLK'].forEach(s=>{
+    const el=document.getElementById('curvas-ars-chip-'+s);
+    if(!el)return;
+    const active=s===sec;
+    el.style.border=`1px solid ${active?'var(--accent)':'var(--border2)'}`;
+    el.style.background=active?'var(--accent-dim)':'var(--surface2)';
+    el.style.color=active?'var(--accent)':'var(--text3)';
+  });
+  curvasArsRender();
+}
+
+async function curvasArsRender(){
+  const msg=document.getElementById('curvas-ars-msg');
+  const canvas=document.getElementById('curvas-ars-chart');
+  if(!canvas)return;
+  const d1El=document.getElementById('curvas-ars-d1');
+  const d2El=document.getElementById('curvas-ars-d2');
+  if(!d1El||!d2El)return;
+  const d1=d1El.value,d2=d2El.value;
+  if(msg)msg.textContent='Cargando...';
+
+  const [snap1,snap2]=await Promise.all([
+    curvasFetchSnapshot(d1,curvasArsSector),
+    curvasFetchSnapshot(d2,curvasArsSector),
+  ]);
+
+  const toArsPoints=rows=>rows
+    .filter(r=>r.sector===curvasArsSector&&r.dias>0&&r.tir!=null&&!isNaN(r.tir))
+    .map(r=>({x:r.dias,y:r.tir,ticker:r.ticker}))
+    .sort((a,b)=>a.x-b.x);
+
+  const pts1=toArsPoints(snap1);
+  const pts2=toArsPoints(snap2);
+
+  if(!pts1.length&&!pts2.length){
+    if(msg)msg.textContent='Sin datos para esas fechas';
+    if(curvasArsChart){curvasArsChart.destroy();curvasArsChart=null;}
+    return;
+  }
+  if(msg)msg.textContent=`${curvasFmtDate(d1)}: ${pts1.length} bonos · ${curvasFmtDate(d2)}: ${pts2.length} bonos`;
+
+  const SEC_COLORS={TF:'#fbbf24',CER:'#4ade80',TAMAR:'#38bdf8',DLK:'#a855f7'};
+  const col=SEC_COLORS[curvasArsSector]||'#a8d5a2';
+  const col2=col+'88';
+
+  const datasets=[];
+  // Fecha 1: scatter + trend (colores tenues)
+  if(pts1.length){
+    const tickers1=pts1.map(p=>p.ticker);
+    datasets.push({label:curvasFmtDate(d1),data:pts1.map(p=>({x:p.x,y:p.y})),pointBackgroundColor:col2,pointBorderColor:col2,pointRadius:4,showLine:false,datalabels:{display:true,formatter:(_,ctx)=>tickers1[ctx.dataIndex]||'',color:col2,font:{size:8,family:'DM Mono, monospace'},anchor:'end',align:'top',offset:2}});
+    const reg1=curvasLogReg(pts1);
+    if(reg1){const td=curvasTrendPts(reg1,pts1);datasets.push({label:'_trend1',data:td,type:'line',borderColor:col2,borderWidth:1.5,borderDash:[4,3],pointRadius:0,fill:false,datalabels:{display:false}});}
+  }
+  // Fecha 2: scatter + trend (color sólido)
+  if(pts2.length){
+    const tickers2=pts2.map(p=>p.ticker);
+    datasets.push({label:curvasFmtDate(d2),data:pts2.map(p=>({x:p.x,y:p.y})),pointBackgroundColor:col,pointBorderColor:col,pointRadius:5,showLine:false,datalabels:{display:true,formatter:(_,ctx)=>tickers2[ctx.dataIndex]||'',color:col,font:{size:9,family:'DM Mono, monospace',weight:'bold'},anchor:'end',align:'top',offset:3}});
+    const reg2=curvasLogReg(pts2);
+    if(reg2){const td=curvasTrendPts(reg2,pts2);datasets.push({label:'_trend2',data:td,type:'line',borderColor:col,borderWidth:2,pointRadius:0,fill:false,datalabels:{display:false}});}
+  }
+
+  if(curvasArsChart){curvasArsChart.destroy();curvasArsChart=null;}
+  if(window.ChartDataLabels)Chart.register(ChartDataLabels);
+  const yLabel={TF:'TNA (%)',CER:'TIR real (%)',TAMAR:'TNA (%)',DLK:'TNA (%)'}[curvasArsSector]||'Tasa (%)';
+  const textColor=getComputedStyle(document.body).getPropertyValue('--text').trim()||'#e0e0e0';
+  const gridColor=getComputedStyle(document.body).getPropertyValue('--border').trim()||'#2a302a';
+  curvasArsChart=new Chart(canvas,{type:'scatter',data:{datasets},options:{responsive:true,maintainAspectRatio:false,animation:{duration:300},plugins:{legend:{display:true,labels:{color:textColor,font:{size:10},filter:i=>!i.text.startsWith('_'),boxWidth:12,padding:12}},datalabels:{display:false},tooltip:{filter:i=>!i.dataset.label.startsWith('_'),callbacks:{label:i=>`${i.dataset.label} — ${i.parsed.x}d, ${i.parsed.y.toFixed(2)}%`}}},scales:{x:{type:'linear',title:{display:true,text:'Días al vencimiento',color:textColor,font:{size:10}},grid:{color:gridColor},ticks:{color:textColor,font:{size:10}}},y:{title:{display:true,text:yLabel,color:textColor,font:{size:10}},grid:{color:gridColor},ticks:{color:textColor,font:{size:10},callback:v=>v.toFixed(1)+'%'}}}}});
+}
+
+// ══════════════════════════════════════════════════════════════ CURVAS USD
+function curvasUsdInit(){
+  const pg=document.getElementById('page-usd-curvas');
+  if(!pg)return;
+  if(pg.innerHTML.trim()) return;
+  const today=curvasTodayStr();
+  const d1=curvasDateMinus7(today);
+  const d2=today;
+  const secOpts=[
+    {v:'ALL',l:'Todos'},
+    {v:'GLO',l:'Globales'},
+    {v:'BON',l:'Bonares'},
+    {v:'BOP',l:'Bopreales'},
+  ];
+  const chipSt=(sec,active,col)=>`style="font-family:var(--mono);font-size:10px;padding:3px 10px;border-radius:3px;cursor:pointer;border:1px solid ${active?col:'var(--border2)'};background:${active?col+'22':'var(--surface2)'};color:${active?col:'var(--text3)'};" onclick="curvasUsdSetSector('${sec}')" id="curvas-usd-chip-${sec}"`;
+  const secColors={ALL:'var(--accent)',GLO:'#6baed6',BON:'#d4a843',BOP:'#74c4a0'};
+  const chips=secOpts.map(s=>`<button ${chipSt(s.v,s.v===curvasUsdSector,secColors[s.v])}>${s.l}</button>`).join('');
+  pg.innerHTML=`<div style="height:100%;display:flex;flex-direction:column">
+  <div style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;background:var(--surface)">
+    <span style="font-family:var(--serif);font-size:15px;font-weight:300;font-style:italic;color:var(--accent)">Curvas · USD</span>
+    <div style="display:flex;gap:4px;">${chips}</div>
+    <div style="display:flex;align-items:center;gap:6px;margin-left:8px">
+      <span style="font-size:10px;color:var(--text3);font-family:var(--mono)">F1</span>
+      <input type="date" id="curvas-usd-d1" value="${d1}" style="font-family:var(--mono);font-size:11px;background:var(--surface);border:1px solid var(--border2);border-radius:3px;padding:2px 5px;color:var(--text)">
+      <span style="font-size:10px;color:var(--text3);font-family:var(--mono)">F2</span>
+      <input type="date" id="curvas-usd-d2" value="${d2}" style="font-family:var(--mono);font-size:11px;background:var(--surface);border:1px solid var(--border2);border-radius:3px;padding:2px 5px;color:var(--text)">
+      <button class="btn primary" style="padding:3px 10px;font-size:10px" onclick="curvasUsdRender()">Ver</button>
+    </div>
+    <div id="curvas-usd-msg" style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-left:auto"></div>
+  </div>
+  <div style="flex:1;min-height:0;position:relative;padding:8px">
+    <canvas id="curvas-usd-chart"></canvas>
+  </div>
+  </div>`;
+  curvasUsdRender();
+}
+
+function curvasUsdSetSector(sec){
+  curvasUsdSector=sec;
+  const secColors={ALL:'var(--accent)',GLO:'#6baed6',BON:'#d4a843',BOP:'#74c4a0'};
+  ['ALL','GLO','BON','BOP'].forEach(s=>{
+    const el=document.getElementById('curvas-usd-chip-'+s);
+    if(!el)return;
+    const col=secColors[s];
+    const active=s===sec;
+    el.style.border=`1px solid ${active?col:'var(--border2)'}`;
+    el.style.background=active?col+'22':'var(--surface2)';
+    el.style.color=active?col:'var(--text3)';
+  });
+  curvasUsdRender();
+}
+
+async function curvasUsdRender(){
+  const msg=document.getElementById('curvas-usd-msg');
+  const canvas=document.getElementById('curvas-usd-chart');
+  if(!canvas)return;
+  const d1El=document.getElementById('curvas-usd-d1');
+  const d2El=document.getElementById('curvas-usd-d2');
+  if(!d1El||!d2El)return;
+  const d1=d1El.value,d2=d2El.value;
+  if(msg)msg.textContent='Cargando...';
+
+  const [snap1,snap2]=await Promise.all([
+    curvasFetchSnapshot(d1,curvasUsdSector==='ALL'?null:curvasUsdSector),
+    curvasFetchSnapshot(d2,curvasUsdSector==='ALL'?null:curvasUsdSector),
+  ]);
+
+  const USD_SECS=curvasUsdSector==='ALL'?['GLO','BON','BOP']:[curvasUsdSector];
+  const secColors={GLO:'#6baed6',BON:'#d4a843',BOP:'#74c4a0'};
+
+  const toUsdPoints=(rows,sec)=>rows
+    .filter(r=>r.sector===sec&&r.md!=null&&r.md>0&&r.tir!=null&&!isNaN(r.tir))
+    .map(r=>({x:r.md,y:r.tir,ticker:r.ticker}))
+    .sort((a,b)=>a.x-b.x);
+
+  const datasets=[];
+  let totalPts=0;
+
+  USD_SECS.forEach(sec=>{
+    const col=secColors[sec];
+    const col2=col+'77';
+    const pts1=toUsdPoints(snap1,sec);
+    const pts2=toUsdPoints(snap2,sec);
+    totalPts+=pts1.length+pts2.length;
+    // Fecha 1 (tenue)
+    if(pts1.length){
+      const t1=pts1.map(p=>p.ticker);
+      datasets.push({label:`${sec} ${curvasFmtDate(d1)}`,data:pts1.map(p=>({x:p.x,y:p.y})),pointBackgroundColor:col2,pointBorderColor:col2,pointRadius:4,showLine:false,datalabels:{display:true,formatter:(_,ctx)=>t1[ctx.dataIndex]||'',color:col2,font:{size:8,family:'DM Mono, monospace'},anchor:'end',align:'top',offset:2}});
+      const r1=curvasLogReg(pts1);
+      if(r1)datasets.push({label:`_t_${sec}_1`,data:curvasTrendPts(r1,pts1),type:'line',borderColor:col2,borderWidth:1.5,borderDash:[4,3],pointRadius:0,fill:false,datalabels:{display:false}});
+    }
+    // Fecha 2 (sólido)
+    if(pts2.length){
+      const t2=pts2.map(p=>p.ticker);
+      datasets.push({label:`${sec} ${curvasFmtDate(d2)}`,data:pts2.map(p=>({x:p.x,y:p.y})),pointBackgroundColor:col,pointBorderColor:col,pointRadius:5,showLine:false,datalabels:{display:true,formatter:(_,ctx)=>t2[ctx.dataIndex]||'',color:col,font:{size:9,family:'DM Mono, monospace',weight:'bold'},anchor:'end',align:'top',offset:3}});
+      const r2=curvasLogReg(pts2);
+      if(r2)datasets.push({label:`_t_${sec}_2`,data:curvasTrendPts(r2,pts2),type:'line',borderColor:col,borderWidth:2,pointRadius:0,fill:false,datalabels:{display:false}});
+    }
+  });
+
+  if(!totalPts){
+    if(msg)msg.textContent='Sin datos para esas fechas';
+    if(curvasUsdChart){curvasUsdChart.destroy();curvasUsdChart=null;}
+    return;
+  }
+  const allPts=[...snap1,...snap2].filter(r=>USD_SECS.includes(r.sector));
+  if(msg)msg.textContent=`${curvasFmtDate(d1)}: ${snap1.filter(r=>USD_SECS.includes(r.sector)).length} bonos · ${curvasFmtDate(d2)}: ${snap2.filter(r=>USD_SECS.includes(r.sector)).length} bonos`;
+
+  if(curvasUsdChart){curvasUsdChart.destroy();curvasUsdChart=null;}
+  if(window.ChartDataLabels)Chart.register(ChartDataLabels);
+  const textColor=getComputedStyle(document.body).getPropertyValue('--text').trim()||'#e0e0e0';
+  const gridColor=getComputedStyle(document.body).getPropertyValue('--border').trim()||'#2a302a';
+  curvasUsdChart=new Chart(canvas,{type:'scatter',data:{datasets},options:{responsive:true,maintainAspectRatio:false,animation:{duration:300},plugins:{legend:{display:true,labels:{color:textColor,font:{size:10},filter:i=>!i.text.startsWith('_'),boxWidth:12,padding:12}},datalabels:{display:false},tooltip:{filter:i=>!i.dataset.label.startsWith('_'),callbacks:{label:i=>`${i.dataset.label} — MD ${i.parsed.x.toFixed(2)}, TIR ${i.parsed.y.toFixed(2)}%`}}},scales:{x:{type:'linear',title:{display:true,text:'Duration modificada (años)',color:textColor,font:{size:10}},grid:{color:gridColor},ticks:{color:textColor,font:{size:10}}},y:{title:{display:true,text:'TIR (%)',color:textColor,font:{size:10}},grid:{color:gridColor},ticks:{color:textColor,font:{size:10},callback:v=>v.toFixed(1)+'%'}}}}});
+}
 </script>
 </body>
 </html>
