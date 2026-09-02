@@ -12534,8 +12534,8 @@ async function _curvasSnapshotTodayImpl(){
       if(b.precio==null)return;
       try{
         const e=tamarEnrich(b);
-        if(!e||isNaN(e.tna)||!e.dias)return;
-        rows.push({snapshot_date:today,ticker:b.ticker,sector:'TAMAR',price:+b.precio.toFixed(4),tir:+e.tna.toFixed(6),md:null,dias:e.dias});
+        if(!e||isNaN(e.margenTNA)||!e.dias)return;
+        rows.push({snapshot_date:today,ticker:b.ticker,sector:'TAMAR',price:+b.precio.toFixed(4),tir:+e.margenTNA.toFixed(6),md:null,dias:e.dias});
       }catch(ex){}
     });
   }
