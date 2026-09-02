@@ -1329,7 +1329,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
     <div class="col-resizer" onmousedown="beStartResize(event,'be-col1')"></div>
 
     <!-- COL 2: Pesos Corto Plazo (resizable) -->
-    <div id="be-col2" style="width:450px;min-width:200px;overflow-y:auto;overflow-x:auto;padding:1.25rem 1rem;border-right:1px solid var(--border);flex-shrink:0;">
+    <div id="be-col2" style="width:580px;min-width:200px;overflow-y:auto;overflow-x:auto;padding:1.25rem 1rem;border-right:1px solid var(--border);flex-shrink:0;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem;">
         <div style="font-family:var(--serif);font-size:16px;font-weight:300;font-style:italic;color:var(--accent)">Resumen</div>
         <div style="display:flex;gap:4px;">
@@ -6418,6 +6418,7 @@ function beRefreshIfVisible(){
 function beInit(){
   beLoadLs();
   beCPLoadLs();
+  beColWidthsLoad();
   beChartSelLoadLs();
   beRecalc();
   beTamarRecalc();
@@ -7668,6 +7669,10 @@ function beCPSaveModal(){
 });
 
 // ── COLUMN RESIZER ────────────────────────────────────────────────────────────
+const BE_COL_LS='bonosAR_be_colwidths';
+function beColWidthsLoad(){
+  try{const r=localStorage.getItem(BE_COL_LS);if(r){const m=JSON.parse(r);['be-col1','be-col2'].forEach(id=>{const col=document.getElementById(id);if(col&&m[id])col.style.width=m[id]+'px';});}}catch(e){}
+}
 function beStartResize(e, colId){
   const col=document.getElementById(colId);
   if(!col)return;
@@ -7679,7 +7684,6 @@ function beStartResize(e, colId){
   function onMove(ev){
     const w=Math.max(parseInt(col.style.minWidth)||100, startW+(ev.clientX-startX));
     col.style.width=w+'px';
-    // resize charts if visible
     if(beChartTF)beChartTF.resize();
     if(beChartCER)beChartCER.resize();
   }
@@ -7689,6 +7693,7 @@ function beStartResize(e, colId){
     document.body.style.userSelect='';
     document.removeEventListener('mousemove',onMove);
     document.removeEventListener('mouseup',onUp);
+    try{const m=JSON.parse(localStorage.getItem(BE_COL_LS)||'{}');m[colId]=col.offsetWidth;localStorage.setItem(BE_COL_LS,JSON.stringify(m));}catch(e){}
   }
   document.addEventListener('mousemove',onMove);
   document.addEventListener('mouseup',onUp);
