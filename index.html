@@ -11091,6 +11091,7 @@ function usdResGetSec(ticker){
 }
 // GLO=azul acero, BON=ámbar, BOP=verde accent
 const USD_SEC_COLOR={GLO:'#6baed6',BON:'#d4a843',BOP:'var(--accent2)'};
+const USD_SEC_BG={GLO:'rgba(107,174,214,0.10)',BON:'rgba(212,168,67,0.10)',BOP:'rgba(110,184,104,0.10)'};
 
 function usdResCalcRow(b,liq){
   const flows=bopGenFlows(b);
@@ -11419,7 +11420,9 @@ function usdResSumRender(){
   tbody.innerHTML=enriched.map(e=>{
     const sec=usdResGetSec(e.ticker);
     const tc=USD_SEC_COLOR[sec]||'var(--accent)';
-    return`<tr style="border-bottom:1px solid var(--border);border-left:3px solid ${tc}" onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background=''">
+    const bg=USD_SEC_BG[sec]||'';
+    return`<tr style="border-bottom:1px solid var(--border);border-left:3px solid ${tc};background:${bg}" onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background='${bg}'">`+`
+
     <td style="padding:8px 8px;color:${tc};font-weight:600">${e.ticker}</td>
     <td style="padding:8px 10px;text-align:right;color:var(--text2);white-space:nowrap">${bopFmtDateDisp(e.b.vencimiento)}</td>
     <td style="padding:8px 10px;text-align:right">${(()=>{const p=e.b.lastPrecioDisplay??e.b.lastPrecio;return p!=null?`<span style="color:var(--text);font-variant-numeric:tabular-nums">${p>=1000?Math.round(p).toLocaleString('es-AR'):p.toFixed(2)}</span>`:'<span style="color:var(--text3)">—</span>';})()}</td>
