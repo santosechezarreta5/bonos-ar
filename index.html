@@ -11297,7 +11297,7 @@ function usdResSpreadRender(){
     const col=v>=0?'var(--accent2)':'var(--danger,#e05)';
     return`<span style="color:${col};font-variant-numeric:tabular-nums">${v>=0?'+':''}${v.toFixed(2)}%</span>`;
   };
-  list.innerHTML=rows.map(r=>`<div style="display:flex;align-items:center;padding:2px 5px;border-bottom:1px solid var(--border);font-size:9px;font-family:var(--mono)">
+  list.innerHTML=rows.map(r=>`<div style="display:flex;align-items:center;padding:3px 5px;border-bottom:1px solid var(--border);font-size:11px;font-family:var(--mono)">
     <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2)">${r.label}</span>
     <span style="flex-shrink:0;font-weight:600;padding-left:4px">${fmt(r.last)}</span>
   </div>`).join('');
@@ -11317,9 +11317,10 @@ function usdResFwdRender(){
     return{ticker:b.ticker,md};
   }).sort((a,z)=>a.md!=null&&z.md!=null?a.md-z.md:a.md!=null?-1:z.md!=null?1:a.ticker>z.ticker?1:-1);
   const mkOpts=(val)=>`<option value=""></option>`+withMD.map(x=>`<option value="${x.ticker}"${x.ticker===val?' selected':''}>${x.ticker}</option>`).join('');
-  const selSt='font-family:var(--mono);font-size:9px;background:var(--surface);border:1px solid var(--border2);border-radius:2px;padding:1px 0;color:var(--text);flex:1;min-width:0;box-sizing:border-box';
+  // appearance:none removes browser dropdown arrow; text-align:center centers the selected value
+  const selSt='font-family:var(--mono);font-size:11px;background:var(--surface);border:1px solid var(--border2);border-radius:2px;padding:1px 2px;color:var(--text);flex:1;min-width:0;box-sizing:border-box;appearance:none;-webkit-appearance:none;text-align:center;cursor:pointer';
   if(!usdResState.fwdRows.length){
-    list.innerHTML=`<div style="padding:16px 6px;text-align:center;color:var(--text3);font-size:9px;font-family:var(--mono)">+ para agregar</div>`;
+    list.innerHTML=`<div style="padding:16px 6px;text-align:center;color:var(--text3);font-size:11px;font-family:var(--mono)">+ para agregar</div>`;
     return;
   }
   list.innerHTML=usdResState.fwdRows.map((row,i)=>{
@@ -11334,14 +11335,13 @@ function usdResFwdRender(){
     }
     const tfStr=tfwd!=null?tfwd.toFixed(2)+'%':'—';
     const tfCol=tfwd!=null?'var(--accent2)':'var(--text3)';
-    // flex layout: selects shrink into available width, TF value below
-    return`<div style="border-bottom:1px solid var(--border);padding:2px 4px">
-      <div style="display:flex;gap:2px;align-items:center">
-        <select style="${selSt}" onchange="usdResFwdUpdate(${i},'b1',this.value)">${mkOpts(row.b1)}</select>
-        <select style="${selSt}" onchange="usdResFwdUpdate(${i},'b2',this.value)">${mkOpts(row.b2)}</select>
-        <button style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:10px;padding:0 1px;line-height:1;flex-shrink:0" onclick="usdResFwdRemove(${i})">✕</button>
-      </div>
-      <div style="text-align:right;font-size:9px;font-family:var(--mono);color:${tfCol};font-weight:600;padding-top:1px">${tfStr}</div>
+    // single row: B1 - B2 - TF - ✕
+    return`<div style="display:flex;align-items:center;gap:3px;border-bottom:1px solid var(--border);padding:3px 4px;font-family:var(--mono)">
+      <select style="${selSt}" onchange="usdResFwdUpdate(${i},'b1',this.value)">${mkOpts(row.b1)}</select>
+      <span style="color:var(--text3);font-size:10px;flex-shrink:0">-</span>
+      <select style="${selSt}" onchange="usdResFwdUpdate(${i},'b2',this.value)">${mkOpts(row.b2)}</select>
+      <span style="color:${tfCol};font-weight:600;font-size:11px;flex-shrink:0;white-space:nowrap;min-width:38px;text-align:right">${tfStr}</span>
+      <button style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:10px;padding:0;line-height:1;flex-shrink:0" onclick="usdResFwdRemove(${i})">✕</button>
     </div>`;
   }).join('');
 }
