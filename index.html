@@ -12471,7 +12471,14 @@ let curvasUsdSector='ALL';
 // ── Snapshot diario → Supabase ─────────────────────────────────────────────
 async function curvasSnapshotToday(){
   const today=TODAY instanceof Date?TODAY.toISOString().split('T')[0]:String(TODAY);
-  if(localStorage.getItem(CURVAS_SNAP_LS)===today) return;
+  // Cooldown de 1 hora: evita saturar Supabase con el auto-refresh cada 5 min,
+  // pero permite actualizar el snapshot varias veces en el día.
+  // El último update del día (cierre) queda como valor final en Supabase.
+  const lastSnap=localStorage.getItem(CURVAS_SNAP_LS);
+  if(lastSnap){
+    const elapsed=Date.now()-new Date(lastSnap).getTime();
+    if(elapsed<60*60*1000) return; // menos de 1 hora → saltar
+  }
   const liq=G_LIQ||addHabiles(TODAY,1);
   const rows=[];
 
@@ -12541,7 +12548,7 @@ async function curvasSnapshotToday(){
   if(!rows.length)return;
   try{
     const{error}=await supa.from('bond_price_snapshots').upsert(rows,{onConflict:'snapshot_date,ticker'});
-    if(!error)localStorage.setItem(CURVAS_SNAP_LS,today);
+    if(!error)localStorage.setItem(CURVAS_SNAP_LS,new Date().toISOString());
   }catch(e){}
 }
 
