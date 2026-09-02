@@ -12500,6 +12500,12 @@ async function _curvasSnapshotTodayImpl(){
       }catch(e){}
     });
   }
+  // Si algún sector USD está desactualizado y sin precios en memoria, buscarlos ahora
+  const usdStale=!fresh('BOP')||!fresh('BON')||!fresh('GLO');
+  if(usdStale){
+    const noUsdPrices=![...(BOP_BONDS||[]),...(BON_BONDS||[]),...(GLO_BONDS||[])].some(b=>b.lastPrecio!=null);
+    if(noUsdPrices) await usdRefreshPrices();
+  }
   if(BOP_BONDS&&BOP_BONDS.length) addUsd(BOP_BONDS,'BOP');
   if(BON_BONDS&&BON_BONDS.length) addUsd(BON_BONDS,'BON');
   if(GLO_BONDS&&GLO_BONDS.length) addUsd(GLO_BONDS,'GLO');
