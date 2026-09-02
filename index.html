@@ -11240,26 +11240,29 @@ function usdResVDragStart(e){
 }
 
 function usdResModalOpen(){
-  usdResModalSec='';
+  usdResModalSec='GLO';
   let modal=document.getElementById('ures-modal');
   if(!modal){
+    const lblSt='font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px';
+    const selSt='font-family:var(--mono);font-size:12px;background:var(--surface);border:1px solid var(--border2);border-radius:3px;color:var(--text);padding:2px 4px;width:100%';
     modal=document.createElement('div');
     modal.id='ures-modal';
     modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9000;display:flex;align-items:center;justify-content:center';
-    modal.innerHTML=`<div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:1.25rem 1.5rem;min-width:240px;max-width:300px;box-shadow:0 8px 32px rgba(0,0,0,.4)">
-      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:1rem">Agregar bono</div>
-      <div style="margin-bottom:.75rem">
-        <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.4rem">Tipo de bono</div>
-        <div style="display:flex;gap:4px;flex-wrap:wrap" id="ures-modal-types">
-          <button class="mode-btn active" onclick="usdResModalType(this,'')">Todos</button>
-          <button class="mode-btn" onclick="usdResModalType(this,'GLO')">Globales</button>
-          <button class="mode-btn" onclick="usdResModalType(this,'BON')">Bonares</button>
-          <button class="mode-btn" onclick="usdResModalType(this,'BOP')">Bopreales</button>
+    modal.innerHTML=`<div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:1.1rem 1.25rem;min-width:260px;max-width:320px;box-shadow:0 8px 32px rgba(0,0,0,.4)">
+      <div style="font-size:13px;font-style:italic;color:var(--accent);margin-bottom:1rem">Agregar bono · Resumen</div>
+      <div style="display:flex;gap:10px;margin-bottom:1rem">
+        <div style="flex:0 0 auto">
+          <div style="${lblSt}">Tipo</div>
+          <select id="ures-modal-tipo" style="${selSt}" onchange="usdResModalType(this.value)">
+            <option value="GLO">Globales</option>
+            <option value="BON">Bonares</option>
+            <option value="BOP">Bopreales</option>
+          </select>
         </div>
-      </div>
-      <div style="margin-bottom:1rem">
-        <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.4rem">Bono</div>
-        <select id="ures-modal-bond" size="8" style="width:100%;font-family:var(--mono);font-size:12px;background:var(--surface);border:1px solid var(--border2);border-radius:3px;color:var(--text);padding:2px"></select>
+        <div style="flex:1;min-width:0">
+          <div style="${lblSt}">Bono</div>
+          <select id="ures-modal-bond" style="${selSt}"></select>
+        </div>
       </div>
       <div style="display:flex;gap:.5rem;justify-content:flex-end">
         <button class="btn" onclick="usdResModalClose()">Cancelar</button>
@@ -11270,14 +11273,14 @@ function usdResModalOpen(){
     document.body.appendChild(modal);
   }else{
     modal.style.display='flex';
-    document.querySelectorAll('#ures-modal-types .mode-btn').forEach((b,i)=>b.classList.toggle('active',i===0));
+    const tipo=document.getElementById('ures-modal-tipo');
+    if(tipo){tipo.value='GLO';usdResModalSec='GLO';}
   }
-  usdResModalFill('');
+  usdResModalFill(usdResModalSec);
 }
 
-function usdResModalType(btn,sec){
+function usdResModalType(sec){
   usdResModalSec=sec;
-  document.querySelectorAll('#ures-modal-types .mode-btn').forEach(b=>b.classList.toggle('active',b===btn));
   usdResModalFill(sec);
 }
 
