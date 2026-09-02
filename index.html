@@ -11064,13 +11064,13 @@ function slegChartRender(rows){
 
 // ══════════════════════════════════════════════════════ USD RESUMEN ══════════
 const USD_RES_LS='bonosAR_usd_res_v1';
-let usdResState={sumBonds:[],fwdRows:[],chartBonds:[],colWidths:{c1:130,c2:420}};
+let usdResState={sumBonds:[],fwdRows:[],chartBonds:[],colWidths:{c1:100,c2:420}};
 let usdResChart=null;
 let usdResDragging=null;
 let usdResModalSec='';
 
 function usdResLoad(){
-  try{const r=localStorage.getItem(USD_RES_LS);if(r){usdResState=Object.assign({sumBonds:[],fwdRows:[],chartBonds:[],colWidths:{c1:130,c2:420}},JSON.parse(r));if(!usdResState.colWidths)usdResState.colWidths={c1:130,c2:420};if(!usdResState.chartBonds)usdResState.chartBonds=[];}}catch(e){}
+  try{const r=localStorage.getItem(USD_RES_LS);if(r){usdResState=Object.assign({sumBonds:[],fwdRows:[],chartBonds:[],colWidths:{c1:100,c2:420}},JSON.parse(r));if(!usdResState.colWidths)usdResState.colWidths={c1:100,c2:420};if(!usdResState.chartBonds)usdResState.chartBonds=[];}}catch(e){}
 }
 function usdResSave(){
   try{localStorage.setItem(USD_RES_LS,JSON.stringify(usdResState));}catch(e){}
@@ -11116,32 +11116,26 @@ function usdResumenRender(){
   const w1=usdResState.colWidths.c1,w2=usdResState.colWidths.c2;
   pg.innerHTML=`<div id="ures-root" style="display:flex;height:100%;overflow:hidden">
   <!-- COL 1 -->
-  <div id="ures-c1" style="width:${w1}px;min-width:130px;flex-shrink:0;display:flex;flex-direction:column;overflow:hidden">
+  <div id="ures-c1" style="width:${w1}px;min-width:80px;flex-shrink:0;display:flex;flex-direction:column;overflow:hidden">
     <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;border-bottom:1px solid var(--border)">
-      <div style="padding:5px 8px;background:var(--surface2);border-bottom:1px solid var(--border2);flex-shrink:0">
+      <div style="padding:3px 6px;background:var(--surface2);border-bottom:1px solid var(--border2);flex-shrink:0">
         <span style="${ttl}">Spread Leg.</span>
       </div>
       <div style="overflow-y:auto;flex:1">
-        <table style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:10px;font-family:var(--mono)">
-          <colgroup><col style="width:58%"><col style="width:42%"></colgroup>
-          <thead><tr><th style="${thL}">Par</th><th style="${thR}">Last</th></tr></thead>
+        <table style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:9px;font-family:var(--mono)">
+          <colgroup><col style="width:55%"><col style="width:45%"></colgroup>
           <tbody id="ures-sleg-tbody"></tbody>
         </table>
       </div>
     </div>
     <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
-      <div style="padding:5px 8px;display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border-bottom:1px solid var(--border2);flex-shrink:0">
+      <div style="padding:3px 6px;display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border-bottom:1px solid var(--border2);flex-shrink:0">
         <span style="${ttl}">TF Fwds</span>
-        <button class="btn" style="padding:1px 6px;font-size:10px" onclick="usdResFwdAdd()">+ Fila</button>
+        <button class="btn" style="padding:1px 4px;font-size:9px" onclick="usdResFwdAdd()">+</button>
       </div>
       <div style="overflow-y:auto;flex:1">
-        <table style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:10px;font-family:var(--mono)">
-          <colgroup><col style="width:40%"><col style="width:40%"><col style="width:14%"><col style="width:18px"></colgroup>
-          <thead><tr>
-            <th style="${thL}">B1</th><th style="${thL}">B2</th>
-            <th style="${thR}">TF</th>
-            <th style="width:18px;background:var(--surface2);position:sticky;top:0;border-bottom:1px solid var(--border2)"></th>
-          </tr></thead>
+        <table style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:9px;font-family:var(--mono)">
+          <colgroup><col style="width:38%"><col style="width:38%"><col style="width:16%"><col style="width:16px"></colgroup>
           <tbody id="ures-fwd-tbody"></tbody>
         </table>
       </div>
@@ -11311,8 +11305,8 @@ function usdResSpreadRender(){
     return`<span style="color:${col};font-variant-numeric:tabular-nums">${v>=0?'+':''}${v.toFixed(2)}%</span>`;
   };
   tbody.innerHTML=rows.map(r=>`<tr style="border-bottom:1px solid var(--border)">
-    <td style="padding:4px 5px;color:var(--text2);width:58%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.label}</td>
-    <td style="padding:4px 5px;text-align:right;font-weight:600;white-space:nowrap;width:42%">${fmt(r.last)}</td>
+    <td style="padding:2px 4px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.label}</td>
+    <td style="padding:2px 4px;text-align:right;font-weight:600;white-space:nowrap">${fmt(r.last)}</td>
   </tr>`).join('');
 }
 
@@ -11476,42 +11470,96 @@ function usdResChartRender(enriched){
   if(usdResChart){usdResChart.destroy();usdResChart=null;}
   const pts=enriched.filter(e=>e.md!=null&&e.tir!=null);
   if(!pts.length)return;
-  const n=pts.length;
-  const sx=pts.reduce((s,p)=>s+p.md,0),sy=pts.reduce((s,p)=>s+p.tir,0);
-  const sxx=pts.reduce((s,p)=>s+p.md*p.md,0),sxy=pts.reduce((s,p)=>s+p.md*p.tir,0);
-  const denom=n*sxx-sx*sx;
-  const slope=denom?((n*sxy-sx*sy)/denom):0;
-  const intercept=(sy-slope*sx)/n;
-  const mdMin=Math.min(...pts.map(p=>p.md)),mdMax=Math.max(...pts.map(p=>p.md));
-  const trend=[{x:+mdMin.toFixed(3),y:+(intercept+slope*mdMin).toFixed(4)},{x:+mdMax.toFixed(3),y:+(intercept+slope*mdMax).toFixed(4)}];
+
+  const GRP=[
+    {sec:'GLO',col:'#6baed6'},
+    {sec:'BON',col:'#d4a843'},
+    {sec:'BOP',col:'#74c4a0'},
+  ];
+
+  function linReg(arr){
+    const n=arr.length;
+    if(n<2)return null;
+    const sx=arr.reduce((s,p)=>s+p.md,0),sy=arr.reduce((s,p)=>s+p.tir,0);
+    const sxx=arr.reduce((s,p)=>s+p.md*p.md,0),sxy=arr.reduce((s,p)=>s+p.md*p.tir,0);
+    const den=n*sxx-sx*sx;
+    if(!den)return null;
+    const slope=(n*sxy-sx*sy)/den,intercept=(sy-slope*sx)/n;
+    return{slope,intercept};
+  }
+
+  const groups=GRP.map(g=>({...g,pts:pts.filter(p=>usdResGetSec(p.ticker)===g.sec)})).filter(g=>g.pts.length>0);
+
+  // scatter + trend dataset pairs, one per group
+  const datasets=[];
+  const groupMeta=[];  // for ticker-labels plugin
+  groups.forEach(g=>{
+    const scatterIdx=datasets.length;
+    datasets.push({
+      label:g.sec,
+      data:g.pts.map(p=>({x:+p.md.toFixed(3),y:+p.tir.toFixed(4),ticker:p.ticker})),
+      backgroundColor:g.col+'bb',
+      borderColor:g.col,
+      borderWidth:1.5,
+      pointRadius:5,
+      pointHoverRadius:7,
+      showLine:false,
+    });
+    groupMeta.push({col:g.col,dsIdx:scatterIdx});
+    const reg=linReg(g.pts);
+    if(reg){
+      const mdMin=Math.min(...g.pts.map(p=>p.md)),mdMax=Math.max(...g.pts.map(p=>p.md));
+      const trendPts=[];
+      for(let i=0;i<=80;i++){
+        const x=mdMin+(mdMax-mdMin)*i/80;
+        trendPts.push({x:+x.toFixed(3),y:+(reg.intercept+reg.slope*x).toFixed(4)});
+      }
+      datasets.push({
+        label:g.sec+' trend',
+        type:'line',
+        data:trendPts,
+        borderColor:g.col,
+        borderWidth:2,
+        borderDash:[],
+        pointRadius:0,
+        fill:false,
+        tension:0.3,
+      });
+    }
+  });
+
   usdResChart=new Chart(canvas,{
     type:'scatter',
-    data:{datasets:[
-      {label:'Bonos',data:pts.map(p=>({x:+p.md.toFixed(3),y:+p.tir.toFixed(4),ticker:p.ticker})),backgroundColor:'rgba(100,200,120,0.85)',pointRadius:5,pointHoverRadius:7},
-      {label:'Tendencia',type:'line',data:trend,borderColor:'rgba(100,200,120,0.3)',borderWidth:1,borderDash:[5,4],pointRadius:0,fill:false},
-    ]},
+    data:{datasets},
     options:{
       responsive:true,maintainAspectRatio:false,
+      layout:{padding:{top:18,right:8,bottom:4,left:4}},
       plugins:{
         legend:{display:false},
-        tooltip:{callbacks:{label:ctx=>{const d=ctx.raw;return`${d.ticker||''} · TIR ${d.y!=null?d.y.toFixed(2)+'%':'—'} · MD ${d.x!=null?d.x.toFixed(2):'—'}`;}}}
+        tooltip:{callbacks:{label:ctx=>{const d=ctx.raw;return d.ticker?`${d.ticker} · TIR ${d.y!=null?d.y.toFixed(2)+'%':'—'}`:'';}}}
       },
       scales:{
-        x:{title:{display:true,text:'Duración Mod.',color:'#4d554e',font:{size:10,family:'DM Mono, monospace'}},ticks:{color:'#4d554e',font:{size:10,family:'DM Mono, monospace'}},grid:{color:'#252825'}},
-        y:{title:{display:true,text:'TIR (%)',color:'#4d554e',font:{size:10,family:'DM Mono, monospace'}},ticks:{color:'#4d554e',font:{size:10,family:'DM Mono, monospace'},callback:v=>v.toFixed(2)+'%'},grid:{color:'#252825'}},
+        x:{ticks:{display:false},title:{display:false},grid:{color:'#1e2420'},border:{display:false}},
+        y:{ticks:{display:false},title:{display:false},grid:{color:'#1e2420'},border:{display:false}},
       },
     },
-    plugins:[{id:'ticker-labels',afterDatasetsDraw(chart){
-      const ctx=chart.ctx,ds=chart.data.datasets[0];
-      if(!ds||!ds.data)return;
-      ctx.save();ctx.font='bold 10px DM Mono, monospace';ctx.fillStyle='rgba(200,230,200,0.9)';ctx.textAlign='left';ctx.textBaseline='bottom';
-      ds.data.forEach((pt,i)=>{
-        const meta=chart.getDatasetMeta(0);
-        if(!meta.data[i])return;
-        const{x,y}=meta.data[i].getProps(['x','y'],true);
-        ctx.fillText(pt.ticker||'',x+5,y-3);
+    plugins:[{id:'usd-ticker-labels',afterDatasetsDraw(chart){
+      const ctx=chart.ctx;
+      groupMeta.forEach(({col,dsIdx})=>{
+        const ds=chart.data.datasets[dsIdx];
+        if(!ds||!ds.data)return;
+        const meta=chart.getDatasetMeta(dsIdx);
+        ctx.save();
+        ctx.font='bold 9px DM Mono, monospace';
+        ctx.fillStyle=col;
+        ctx.textAlign='left';ctx.textBaseline='bottom';
+        ds.data.forEach((pt,i)=>{
+          if(!meta.data[i])return;
+          const{x,y}=meta.data[i].getProps(['x','y'],true);
+          ctx.fillText(pt.ticker||'',x+5,y-3);
+        });
+        ctx.restore();
       });
-      ctx.restore();
     }}],
   });
 }
