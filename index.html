@@ -12483,7 +12483,17 @@ async function _curvasSnapshotTodayImpl(){
   let sectorTs={};
   try{const raw=localStorage.getItem(CURVAS_SNAP_LS);if(raw)sectorTs=JSON.parse(raw);}catch{}
   const now=Date.now();
-  const fresh=s=>sectorTs[s]&&(now-new Date(sectorTs[s]).getTime())<60*60*1000;
+  // 17:15 ART = 20:15 UTC (sin DST)
+  const _nowD=new Date();
+  const _esCierre=_nowD.getUTCHours()>20||(_nowD.getUTCHours()===20&&_nowD.getUTCMinutes()>=15);
+  const _antesCierre=d=>d.getUTCHours()<20||(d.getUTCHours()===20&&d.getUTCMinutes()<15);
+  const fresh=s=>{
+    if(!sectorTs[s])return false;
+    const savedAt=new Date(sectorTs[s]);
+    if(now-savedAt.getTime()>=60*60*1000)return false; // más de 1h → stale
+    if(_esCierre&&_antesCierre(savedAt))return false;  // post-cierre pero guardado pre-cierre → stale
+    return true;
+  };
   const _liqRaw=G_LIQ||addHabiles(TODAY,1);
   const liq=_liqRaw instanceof Date?_liqRaw.toISOString().split('T')[0]:String(_liqRaw);
   const rows=[];
