@@ -4066,6 +4066,7 @@ async function cerFetchPrices(){
     st.textContent=notFound.length?`${updated} actualizados · sin precio: ${notFound.join(', ')} · ${now}`:`${updated} actualizados · ${now}`;
     st.className=notFound.length?'api-status err':'api-status ok';
     beRefreshIfVisible();
+    curvasSnapshotToday();
   }catch(e){
     document.getElementById('cer-api-status').textContent='error de conexión';
     document.getElementById('cer-api-status').className='api-status err';
@@ -12471,19 +12472,18 @@ let curvasUsdSector='ALL';
 // ── Snapshot diario → Supabase ─────────────────────────────────────────────
 async function curvasSnapshotToday(){
   const today=TODAY instanceof Date?TODAY.toISOString().split('T')[0]:String(TODAY);
-  // Cooldown de 1 hora: evita saturar Supabase con el auto-refresh cada 5 min,
-  // pero permite actualizar el snapshot varias veces en el día.
-  // El último update del día (cierre) queda como valor final en Supabase.
-  const lastSnap=localStorage.getItem(CURVAS_SNAP_LS);
-  if(lastSnap){
-    const elapsed=Date.now()-new Date(lastSnap).getTime();
-    if(elapsed<60*60*1000) return; // menos de 1 hora → saltar
-  }
+  // Cooldown per-sector (1 hora): cada sector tiene su propio timer independiente.
+  // Así fetchPrices (TF) y usdRefreshPrices (GLO/BON/BOP) no se bloquean mutuamente.
+  let sectorTs={};
+  try{const raw=localStorage.getItem(CURVAS_SNAP_LS);if(raw)sectorTs=JSON.parse(raw);}catch{}
+  const now=Date.now();
+  const fresh=s=>sectorTs[s]&&(now-new Date(sectorTs[s]).getTime())<60*60*1000;
   const liq=G_LIQ||addHabiles(TODAY,1);
   const rows=[];
 
   // USD: BOP/BON/GLO — reutiliza usdResCalcRow que ya calcula TIR+MD
   function addUsd(bonds,sector){
+    if(fresh(sector))return;
     bonds.forEach(b=>{
       if(b.lastPrecio==null)return;
       try{
@@ -12498,7 +12498,7 @@ async function curvasSnapshotToday(){
   if(GLO_BONDS&&GLO_BONDS.length) addUsd(GLO_BONDS,'GLO');
 
   // ARS TF (LECAPS) — usa enrich() que ya computa tna/tir/dias
-  if(LECAPS&&LECAPS.length){
+  if(!fresh('TF')&&LECAPS&&LECAPS.length){
     LECAPS.forEach(b=>{
       if(b.precio==null)return;
       try{
@@ -12510,7 +12510,8 @@ async function curvasSnapshotToday(){
   }
 
   // ARS CER
-  if(CER_BONDS&&CER_BONDS.length){
+  if(!fresh('CER')&&CER_BONDS&&CER_BONDS.length){
+    if(!CER_INDEX.length) await cerFetchIndex();
     CER_BONDS.forEach(b=>{
       if(b.precio==null)return;
       try{
@@ -12522,7 +12523,7 @@ async function curvasSnapshotToday(){
   }
 
   // ARS TAMAR
-  if(typeof TAMAR_BONDS!=='undefined'&&TAMAR_BONDS&&TAMAR_BONDS.length){
+  if(!fresh('TAMAR')&&typeof TAMAR_BONDS!=='undefined'&&TAMAR_BONDS&&TAMAR_BONDS.length){
     TAMAR_BONDS.forEach(b=>{
       if(b.precio==null)return;
       try{
@@ -12534,7 +12535,7 @@ async function curvasSnapshotToday(){
   }
 
   // ARS DLK
-  if(typeof DLK_BONDS!=='undefined'&&DLK_BONDS&&DLK_BONDS.length){
+  if(!fresh('DLK')&&typeof DLK_BONDS!=='undefined'&&DLK_BONDS&&DLK_BONDS.length){
     DLK_BONDS.forEach(b=>{
       if(b.precio==null)return;
       try{
@@ -12548,7 +12549,12 @@ async function curvasSnapshotToday(){
   if(!rows.length)return;
   try{
     const{error}=await supa.from('bond_price_snapshots').upsert(rows,{onConflict:'snapshot_date,ticker'});
-    if(!error)localStorage.setItem(CURVAS_SNAP_LS,new Date().toISOString());
+    if(!error){
+      const ts=new Date().toISOString();
+      const written=new Set(rows.map(r=>r.sector));
+      for(const s of written)sectorTs[s]=ts;
+      localStorage.setItem(CURVAS_SNAP_LS,JSON.stringify(sectorTs));
+    }
   }catch(e){}
 }
 
