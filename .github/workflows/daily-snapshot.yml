@@ -1,0 +1,26 @@
+name: Daily Market Snapshot
+
+on:
+  schedule:
+    - cron: '20 20 * * 1-5'   # 17:20 ART (20:20 UTC), lunes a viernes
+  workflow_dispatch:            # también se puede disparar manualmente desde GitHub
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Playwright + Chromium
+        run: |
+          npm install playwright
+          npx playwright install --with-deps chromium
+
+      - name: Run snapshot
+        run: node .github/scripts/snapshot.js
