@@ -12470,7 +12470,13 @@ let curvasArsSector='TF';
 let curvasUsdSector='ALL';
 
 // ── Snapshot diario → Supabase ─────────────────────────────────────────────
+let _curvasSnapRunning=false;
 async function curvasSnapshotToday(){
+  if(_curvasSnapRunning)return;
+  _curvasSnapRunning=true;
+  try{await _curvasSnapshotTodayImpl();}finally{_curvasSnapRunning=false;}
+}
+async function _curvasSnapshotTodayImpl(){
   const today=TODAY instanceof Date?TODAY.toISOString().split('T')[0]:String(TODAY);
   // Cooldown per-sector (1 hora): cada sector tiene su propio timer independiente.
   // Así fetchPrices (TF) y usdRefreshPrices (GLO/BON/BOP) no se bloquean mutuamente.
@@ -12547,11 +12553,12 @@ async function curvasSnapshotToday(){
   }
 
   if(!rows.length)return;
+  const deduped=[...new Map(rows.map(r=>[r.ticker,r])).values()];
   try{
-    const{error}=await supa.from('bond_price_snapshots').upsert(rows,{onConflict:'snapshot_date,ticker'});
+    const{error}=await supa.from('bond_price_snapshots').upsert(deduped,{onConflict:'snapshot_date,ticker'});
     if(!error){
       const ts=new Date().toISOString();
-      const written=new Set(rows.map(r=>r.sector));
+      const written=new Set(deduped.map(r=>r.sector));
       for(const s of written)sectorTs[s]=ts;
       localStorage.setItem(CURVAS_SNAP_LS,JSON.stringify(sectorTs));
     }
