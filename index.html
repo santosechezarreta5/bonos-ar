@@ -10046,7 +10046,7 @@ async function usdRefreshPrices(){
     }
     if(bonUpdated){bonSave();if(document.getElementById('page-usd-bonares').style.display!=='none')bonRenderSummaryRows();}
     if(document.getElementById('page-usd-spreadleg').style.display!=='none')spreadLegRender();
-    if(document.getElementById('ures-sleg-tbody'))usdResRefresh();
+    if(document.getElementById('ures-sleg-list'))usdResRefresh();
 
     const now=new Date();
     const hhmm=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
@@ -11124,12 +11124,7 @@ function usdResumenRender(){
       <div style="padding:3px 6px;background:var(--surface2);border-bottom:1px solid var(--border2);flex-shrink:0">
         <span style="${ttl}">Spread Leg.</span>
       </div>
-      <div style="overflow-x:hidden;overflow-y:auto;flex:1">
-        <table style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:9px;font-family:var(--mono)">
-          <colgroup><col><col style="width:44px"></colgroup>
-          <tbody id="ures-sleg-tbody"></tbody>
-        </table>
-      </div>
+      <div id="ures-sleg-list" style="overflow-x:hidden;overflow-y:auto;flex:1"></div>
     </div>
     <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
       <div style="padding:3px 6px;display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border-bottom:1px solid var(--border2);flex-shrink:0">
@@ -11284,8 +11279,8 @@ function usdResRefresh(){
 }
 
 function usdResSpreadRender(){
-  const tbody=document.getElementById('ures-sleg-tbody');
-  if(!tbody)return;
+  const list=document.getElementById('ures-sleg-list');
+  if(!list)return;
   if(!GLO_BONDS.length)gloLoad();
   if(!BON_BONDS.length)bonLoad();
   const rows=[];
@@ -11296,16 +11291,16 @@ function usdResSpreadRender(){
     rows.push({label:`${glo.ticker}/${bon.ticker}`,last,vcto:glo.vencimiento});
   }
   rows.sort((a,b)=>a.vcto>b.vcto?1:-1);
-  if(!rows.length){tbody.innerHTML=`<tr><td colspan="2" style="padding:1.5rem;text-align:center;color:var(--text3);font-size:10px">Sin pares GLO/BON</td></tr>`;return;}
+  if(!rows.length){list.innerHTML=`<div style="padding:16px 6px;text-align:center;color:var(--text3);font-size:9px;font-family:var(--mono)">Sin pares GLO/BON</div>`;return;}
   const fmt=v=>{
     if(v==null)return'<span style="color:var(--text3)">—</span>';
     const col=v>=0?'var(--accent2)':'var(--danger,#e05)';
     return`<span style="color:${col};font-variant-numeric:tabular-nums">${v>=0?'+':''}${v.toFixed(2)}%</span>`;
   };
-  tbody.innerHTML=rows.map(r=>`<tr style="border-bottom:1px solid var(--border)">
-    <td style="padding:2px 3px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.label}</td>
-    <td style="padding:2px 3px;text-align:right;font-weight:600;white-space:nowrap">${fmt(r.last)}</td>
-  </tr>`).join('');
+  list.innerHTML=rows.map(r=>`<div style="display:flex;align-items:center;padding:2px 5px;border-bottom:1px solid var(--border);font-size:9px;font-family:var(--mono)">
+    <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2)">${r.label}</span>
+    <span style="flex-shrink:0;font-weight:600;padding-left:4px">${fmt(r.last)}</span>
+  </div>`).join('');
 }
 
 function usdResFwdRender(){
