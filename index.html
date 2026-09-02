@@ -11065,15 +11065,13 @@ function slegChartRender(rows){
 
 // ══════════════════════════════════════════════════════ USD RESUMEN ══════════
 const USD_RES_LS='bonosAR_usd_res_v1';
-let usdResState={sumBonds:[],fwdRows:[],chartBonds:[],colWidths:{c1:120,c2:420}};
+let usdResState={sumBonds:[],fwdRows:[],chartBonds:[],colWidths:{c1:155,c2:420},c1Split:0.5};
 let usdResChart=null;
 let usdResDragging=null;
 let usdResModalSec='';
 
 function usdResLoad(){
-  try{const r=localStorage.getItem(USD_RES_LS);if(r){usdResState=Object.assign({sumBonds:[],fwdRows:[],chartBonds:[],colWidths:{c1:120,c2:420}},JSON.parse(r));if(!usdResState.colWidths)usdResState.colWidths={c1:120,c2:420};if(!usdResState.chartBonds)usdResState.chartBonds=[];}}catch(e){}
-  // clamp col1 in case localStorage has a stale large value
-  if(usdResState.colWidths&&usdResState.colWidths.c1>130)usdResState.colWidths.c1=120;
+  try{const r=localStorage.getItem(USD_RES_LS);if(r){usdResState=Object.assign({sumBonds:[],fwdRows:[],chartBonds:[],colWidths:{c1:155,c2:420},c1Split:0.5},JSON.parse(r));if(!usdResState.colWidths)usdResState.colWidths={c1:155,c2:420};if(!usdResState.chartBonds)usdResState.chartBonds=[];if(usdResState.c1Split==null)usdResState.c1Split=0.5;}}catch(e){}
 }
 function usdResSave(){
   try{localStorage.setItem(USD_RES_LS,JSON.stringify(usdResState));}catch(e){}
@@ -11116,17 +11114,20 @@ function usdResumenRender(){
   const thL=thR.replace('right','left');
   const ttl='font-size:11px;font-weight:600;color:var(--text);letter-spacing:.03em;text-transform:uppercase';
   const drag='width:4px;flex-shrink:0;cursor:col-resize;background:var(--border2);transition:background .12s';
+  const vdrag='height:4px;flex-shrink:0;cursor:row-resize;background:var(--border2);transition:background .12s';
   const w1=usdResState.colWidths.c1,w2=usdResState.colWidths.c2;
+  const sp=usdResState.c1Split??0.5;
   pg.innerHTML=`<div id="ures-root" style="display:flex;height:100%;overflow:hidden">
   <!-- COL 1 -->
   <div id="ures-c1" style="width:${w1}px;min-width:80px;flex-shrink:0;display:flex;flex-direction:column;overflow:hidden">
-    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;border-bottom:1px solid var(--border)">
+    <div id="ures-sleg-wrap" style="flex:${sp} 0 0;min-height:50px;display:flex;flex-direction:column;overflow:hidden">
       <div style="padding:3px 6px;background:var(--surface2);border-bottom:1px solid var(--border2);flex-shrink:0">
         <span style="${ttl}">Spread Leg.</span>
       </div>
       <div id="ures-sleg-list" style="overflow-x:hidden;overflow-y:auto;flex:1"></div>
     </div>
-    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+    <div style="${vdrag}" onmousedown="usdResVDragStart(event)" onmouseover="this.style.background='var(--accent)'" onmouseout="this.style.background='var(--border2)'"></div>
+    <div id="ures-fwd-wrap" style="flex:${1-sp} 0 0;min-height:50px;display:flex;flex-direction:column;overflow:hidden">
       <div style="padding:3px 6px;display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border-bottom:1px solid var(--border2);flex-shrink:0">
         <span style="${ttl}">TF Fwds</span>
         <button class="btn" style="padding:1px 4px;font-size:9px" onclick="usdResFwdAdd()">+</button>
@@ -11195,6 +11196,35 @@ function usdResDragStart(e,col){
   const up=()=>{
     if(!usdResDragging)return;
     usdResDragging=null;
+    document.body.style.cursor='';
+    document.body.style.userSelect='';
+    document.removeEventListener('mousemove',move);
+    document.removeEventListener('mouseup',up);
+    usdResSave();
+  };
+  document.addEventListener('mousemove',move);
+  document.addEventListener('mouseup',up);
+  e.preventDefault();
+}
+
+function usdResVDragStart(e){
+  const sleg=document.getElementById('ures-sleg-wrap');
+  const fwd=document.getElementById('ures-fwd-wrap');
+  const c1=document.getElementById('ures-c1');
+  if(!sleg||!fwd||!c1)return;
+  const startY=e.clientY;
+  const startH=sleg.getBoundingClientRect().height;
+  const c1H=c1.getBoundingClientRect().height;
+  document.body.style.cursor='row-resize';
+  document.body.style.userSelect='none';
+  const move=ev=>{
+    const newH=Math.max(50,Math.min(c1H-50,startH+(ev.clientY-startY)));
+    const newSplit=newH/c1H;
+    sleg.style.flex=newSplit+' 0 0';
+    fwd.style.flex=(1-newSplit)+' 0 0';
+    usdResState.c1Split=newSplit;
+  };
+  const up=()=>{
     document.body.style.cursor='';
     document.body.style.userSelect='';
     document.removeEventListener('mousemove',move);
@@ -11297,7 +11327,7 @@ function usdResSpreadRender(){
     const col=v>=0?'var(--accent2)':'var(--danger,#e05)';
     return`<span style="color:${col};font-variant-numeric:tabular-nums">${v>=0?'+':''}${v.toFixed(2)}%</span>`;
   };
-  list.innerHTML=rows.map(r=>`<div style="display:flex;align-items:center;padding:3px 5px;border-bottom:1px solid var(--border);font-size:11px;font-family:var(--mono)">
+  list.innerHTML=rows.map(r=>`<div style="display:flex;align-items:center;padding:3px 5px;border-bottom:1px solid var(--border);font-size:12px;font-family:var(--mono)">
     <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2)">${r.label}</span>
     <span style="flex-shrink:0;font-weight:600;padding-left:4px">${fmt(r.last)}</span>
   </div>`).join('');
