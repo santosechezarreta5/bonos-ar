@@ -12511,7 +12511,8 @@ async function _curvasSnapshotTodayImpl(){
       try{
         const e=enrich(b);
         if(!e||isNaN(e.tna)||!e.dias)return;
-        rows.push({snapshot_date:today,ticker:b.ticker,sector:'TF',price:+b.precio.toFixed(4),tir:+e.tna.toFixed(6),md:null,dias:e.dias});
+        const mdTF=(!isNaN(e.modDuration)&&e.modDuration>0)?+e.modDuration.toFixed(4):null;
+        rows.push({snapshot_date:today,ticker:b.ticker,sector:'TF',price:+b.precio.toFixed(4),tir:+e.tna.toFixed(6),md:mdTF,dias:e.dias});
       }catch(ex){}
     });
   }
@@ -12524,7 +12525,8 @@ async function _curvasSnapshotTodayImpl(){
       try{
         const e=cerEnrich(b);
         if(!e||isNaN(e.tir)||!e.dias)return;
-        rows.push({snapshot_date:today,ticker:b.ticker,sector:'CER',price:+b.precio.toFixed(4),tir:+e.tir.toFixed(6),md:null,dias:e.dias});
+        const mdCER=(!isNaN(e.modDuration)&&e.modDuration>0)?+e.modDuration.toFixed(4):null;
+        rows.push({snapshot_date:today,ticker:b.ticker,sector:'CER',price:+b.precio.toFixed(4),tir:+e.tir.toFixed(6),md:mdCER,dias:e.dias});
       }catch(ex){}
     });
   }
@@ -12536,7 +12538,8 @@ async function _curvasSnapshotTodayImpl(){
       try{
         const e=tamarEnrich(b);
         if(!e||isNaN(e.margenTNA)||!e.dias)return;
-        rows.push({snapshot_date:today,ticker:b.ticker,sector:'TAMAR',price:+b.precio.toFixed(4),tir:+e.margenTNA.toFixed(6),md:null,dias:e.dias});
+        const mdTAMAR=(!isNaN(e.modDuration)&&e.modDuration>0)?+e.modDuration.toFixed(4):null;
+        rows.push({snapshot_date:today,ticker:b.ticker,sector:'TAMAR',price:+b.precio.toFixed(4),tir:+e.margenTNA.toFixed(6),md:mdTAMAR,dias:e.dias});
       }catch(ex){}
     });
   }
@@ -12548,7 +12551,8 @@ async function _curvasSnapshotTodayImpl(){
       try{
         const e=dlkEnrich(b);
         if(!e||e.tna==null||!e.dias)return;
-        rows.push({snapshot_date:today,ticker:b.ticker,sector:'DLK',price:+b.precio.toFixed(4),tir:+e.tna.toFixed(6),md:null,dias:e.dias});
+        const mdDLK=(e.dias>0&&!isNaN(e.tna))?+(e.dias/365/(1+e.tna/100)).toFixed(4):null;
+        rows.push({snapshot_date:today,ticker:b.ticker,sector:'DLK',price:+b.precio.toFixed(4),tir:+e.tna.toFixed(6),md:mdDLK,dias:e.dias});
       }catch(ex){}
     });
   }
