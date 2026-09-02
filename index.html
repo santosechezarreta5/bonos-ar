@@ -11123,9 +11123,9 @@ function usdResumenRender(){
       <div style="padding:3px 6px;background:var(--surface2);border-bottom:1px solid var(--border2);flex-shrink:0">
         <span style="${ttl}">Spread Leg.</span>
       </div>
-      <div style="overflow-y:auto;flex:1">
+      <div style="overflow-x:hidden;overflow-y:auto;flex:1">
         <table style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:9px;font-family:var(--mono)">
-          <colgroup><col style="width:55%"><col style="width:45%"></colgroup>
+          <colgroup><col style="width:58%"><col style="width:42%"></colgroup>
           <tbody id="ures-sleg-tbody"></tbody>
         </table>
       </div>
@@ -11135,12 +11135,7 @@ function usdResumenRender(){
         <span style="${ttl}">TF Fwds</span>
         <button class="btn" style="padding:1px 4px;font-size:9px" onclick="usdResFwdAdd()">+</button>
       </div>
-      <div style="overflow-y:auto;flex:1">
-        <table style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:9px;font-family:var(--mono)">
-          <colgroup><col style="width:38%"><col style="width:38%"><col style="width:16%"><col style="width:16px"></colgroup>
-          <tbody id="ures-fwd-tbody"></tbody>
-        </table>
-      </div>
+      <div id="ures-fwd-list" style="overflow-x:hidden;overflow-y:auto;flex:1"></div>
     </div>
   </div>
   <!-- DRAG 1 -->
@@ -11307,19 +11302,18 @@ function usdResSpreadRender(){
     return`<span style="color:${col};font-variant-numeric:tabular-nums">${v>=0?'+':''}${v.toFixed(2)}%</span>`;
   };
   tbody.innerHTML=rows.map(r=>`<tr style="border-bottom:1px solid var(--border)">
-    <td style="padding:2px 4px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.label}</td>
-    <td style="padding:2px 4px;text-align:right;font-weight:600;white-space:nowrap">${fmt(r.last)}</td>
+    <td style="padding:2px 3px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:0">${r.label}</td>
+    <td style="padding:2px 3px;text-align:right;font-weight:600;white-space:nowrap">${fmt(r.last)}</td>
   </tr>`).join('');
 }
 
 function usdResFwdRender(){
-  const tbody=document.getElementById('ures-fwd-tbody');
-  if(!tbody)return;
+  const list=document.getElementById('ures-fwd-list');
+  if(!list)return;
   if(!BOP_BONDS.length)bopLoad();
   if(!BON_BONDS.length)bonLoad();
   if(!GLO_BONDS.length)gloLoad();
   const liq=bopFmtDate(G_LIQ||addHabiles(TODAY,1));
-  // Sort bonds by MD ascending (bonds without price go last, then alphabetical)
   const allBonds=[...BOP_BONDS,...BON_BONDS,...GLO_BONDS];
   const withMD=allBonds.map(b=>{
     let md=null;
@@ -11327,12 +11321,12 @@ function usdResFwdRender(){
     return{ticker:b.ticker,md};
   }).sort((a,z)=>a.md!=null&&z.md!=null?a.md-z.md:a.md!=null?-1:z.md!=null?1:a.ticker>z.ticker?1:-1);
   const mkOpts=(val)=>`<option value=""></option>`+withMD.map(x=>`<option value="${x.ticker}"${x.ticker===val?' selected':''}>${x.ticker}</option>`).join('');
-  const selSt='font-family:var(--mono);font-size:9px;background:var(--surface);border:1px solid var(--border2);border-radius:2px;padding:1px 2px;color:var(--text);width:100%;box-sizing:border-box';
+  const selSt='font-family:var(--mono);font-size:9px;background:var(--surface);border:1px solid var(--border2);border-radius:2px;padding:1px 0;color:var(--text);flex:1;min-width:0;box-sizing:border-box';
   if(!usdResState.fwdRows.length){
-    tbody.innerHTML=`<tr><td colspan="4" style="padding:1.5rem;text-align:center;color:var(--text3);font-size:10px">Usá + Fila para agregar</td></tr>`;
+    list.innerHTML=`<div style="padding:16px 6px;text-align:center;color:var(--text3);font-size:9px;font-family:var(--mono)">+ para agregar</div>`;
     return;
   }
-  tbody.innerHTML=usdResState.fwdRows.map((row,i)=>{
+  list.innerHTML=usdResState.fwdRows.map((row,i)=>{
     let tfwd=null;
     if(row.b1&&row.b2){
       const b1=usdResGetBond(row.b1),b2=usdResGetBond(row.b2);
@@ -11344,12 +11338,15 @@ function usdResFwdRender(){
     }
     const tfStr=tfwd!=null?tfwd.toFixed(2)+'%':'—';
     const tfCol=tfwd!=null?'var(--accent2)':'var(--text3)';
-    return`<tr style="border-bottom:1px solid var(--border)">
-      <td style="padding:2px 3px"><select style="${selSt}" onchange="usdResFwdUpdate(${i},'b1',this.value)">${mkOpts(row.b1)}</select></td>
-      <td style="padding:2px 3px"><select style="${selSt}" onchange="usdResFwdUpdate(${i},'b2',this.value)">${mkOpts(row.b2)}</select></td>
-      <td style="padding:2px 6px;text-align:right;color:${tfCol};font-weight:600;white-space:nowrap;font-size:10px">${tfStr}</td>
-      <td style="padding:2px 2px;text-align:center"><button style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:10px;padding:0 2px;line-height:1" onclick="usdResFwdRemove(${i})">✕</button></td>
-    </tr>`;
+    // flex layout: selects shrink into available width, TF value below
+    return`<div style="border-bottom:1px solid var(--border);padding:2px 4px">
+      <div style="display:flex;gap:2px;align-items:center">
+        <select style="${selSt}" onchange="usdResFwdUpdate(${i},'b1',this.value)">${mkOpts(row.b1)}</select>
+        <select style="${selSt}" onchange="usdResFwdUpdate(${i},'b2',this.value)">${mkOpts(row.b2)}</select>
+        <button style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:10px;padding:0 1px;line-height:1;flex-shrink:0" onclick="usdResFwdRemove(${i})">✕</button>
+      </div>
+      <div style="text-align:right;font-size:9px;font-family:var(--mono);color:${tfCol};font-weight:600;padding-top:1px">${tfStr}</div>
+    </div>`;
   }).join('');
 }
 
@@ -11479,13 +11476,17 @@ function usdResChartRender(enriched){
     {sec:'BOP',col:'#74c4a0'},
   ];
 
+  // logarithmic regression: y = a + b*ln(x) — same approach as ARS chart
   function linReg(arr){
     const n=arr.length;if(n<2)return null;
-    const sx=arr.reduce((s,p)=>s+p.md,0),sy=arr.reduce((s,p)=>s+p.tir,0);
-    const sxx=arr.reduce((s,p)=>s+p.md*p.md,0),sxy=arr.reduce((s,p)=>s+p.md*p.tir,0);
-    const den=n*sxx-sx*sx;if(!den)return null;
-    const slope=(n*sxy-sx*sy)/den,intercept=(sy-slope*sx)/n;
-    return{slope,intercept};
+    const lx=arr.map(p=>Math.log(Math.max(p.md,0.01)));
+    const sy=arr.reduce((s,p)=>s+p.tir,0);
+    const slx=lx.reduce((s,v)=>s+v,0);
+    const slx2=lx.reduce((s,v)=>s+v*v,0);
+    const slxy=lx.reduce((s,v,i)=>s+v*arr[i].tir,0);
+    const den=n*slx2-slx*slx;if(!den)return null;
+    const b=(n*slxy-slx*sy)/den,a=(sy-b*slx)/n;
+    return{a,b};
   }
 
   const groups=GRP.map(g=>({...g,pts:pts.filter(p=>usdResGetSec(p.ticker)===g.sec)})).filter(g=>g.pts.length>0);
@@ -11519,14 +11520,16 @@ function usdResChartRender(enriched){
     });
     dsInfo.push({type:'scatter',grpIdx:gi});
 
+    // logarithmic regression: y = a + b*ln(x), same approach as ARS chart
     const reg=linReg(g.pts);
     if(reg){
       const mdArr=g.pts.map(p=>p.md);
-      const mdMin=Math.min(...mdArr),mdMax=Math.max(...mdArr);
+      const mdMin=Math.max(Math.min(...mdArr),0.01),mdMax=Math.max(...mdArr);
       const trendPts=[];
-      for(let i=0;i<=80;i++){
-        const x=mdMin+(mdMax-mdMin)*i/80;
-        trendPts.push({x:+x.toFixed(3),y:+(reg.intercept+reg.slope*x).toFixed(4)});
+      for(let i=0;i<=120;i++){
+        const x=mdMin+(mdMax-mdMin)*i/120;
+        const y=reg.a+reg.b*Math.log(Math.max(x,0.01));
+        trendPts.push({x:+x.toFixed(3),y:+y.toFixed(4)});
       }
       datasets.push({
         label:g.sec+'_trend',
