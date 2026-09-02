@@ -12484,7 +12484,8 @@ async function _curvasSnapshotTodayImpl(){
   try{const raw=localStorage.getItem(CURVAS_SNAP_LS);if(raw)sectorTs=JSON.parse(raw);}catch{}
   const now=Date.now();
   const fresh=s=>sectorTs[s]&&(now-new Date(sectorTs[s]).getTime())<60*60*1000;
-  const liq=G_LIQ||addHabiles(TODAY,1);
+  const _liqRaw=G_LIQ||addHabiles(TODAY,1);
+  const liq=_liqRaw instanceof Date?_liqRaw.toISOString().split('T')[0]:String(_liqRaw);
   const rows=[];
 
   // USD: BOP/BON/GLO — reutiliza usdResCalcRow que ya calcula TIR+MD
