@@ -11486,12 +11486,28 @@ function usdResChartRenderChips(){
     {sec:'BOP',bonds:[...BOP_BONDS].sort((a,z)=>a.vencimiento>z.vencimiento?1:-1),col:'var(--accent2)'},
   ];
   chips.innerHTML=groups.filter(g=>g.bonds.length).map(g=>{
+    const allOn=g.bonds.every(b=>active.has(b.ticker));
+    const secBtn=`<button onclick="usdResChartToggleGroup('${g.sec}')" title="${allOn?'Desactivar':'Activar'} todos los ${g.sec}" style="font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:3px;cursor:pointer;font-weight:700;border:1px solid ${allOn?g.col:'var(--border2)'};background:${allOn?g.col+'33':'var(--surface2)'};color:${allOn?g.col:'var(--text3)'};">${g.sec}</button>`;
     const btns=g.bonds.map(b=>{
       const on=active.has(b.ticker);
       return`<button onclick="usdResChartToggleBond('${b.ticker}')" style="font-family:var(--mono);font-size:9px;padding:2px 5px;border-radius:3px;cursor:pointer;border:1px solid ${on?g.col:'var(--border2)'};background:${on?g.col+'22':'var(--surface2)'};color:${on?g.col:'var(--text3)'};">${b.ticker}</button>`;
     }).join('');
-    return`<span style="font-size:9px;color:var(--text3);font-family:var(--mono);white-space:nowrap">${g.sec}</span>${btns}<span style="display:inline-block;width:1px;background:var(--border2);height:14px;margin:0 6px;vertical-align:middle"></span>`;
+    return`${secBtn}${btns}<span style="display:inline-block;width:1px;background:var(--border2);height:14px;margin:0 6px;vertical-align:middle"></span>`;
   }).join('');
+}
+
+function usdResChartToggleGroup(sec){
+  const groups={GLO:GLO_BONDS,BON:BON_BONDS,BOP:BOP_BONDS};
+  const bonds=(groups[sec]||[]).map(b=>b.ticker);
+  const allOn=bonds.every(t=>usdResState.chartBonds.includes(t));
+  if(allOn){
+    usdResState.chartBonds=usdResState.chartBonds.filter(t=>!bonds.includes(t));
+  }else{
+    bonds.forEach(t=>{if(!usdResState.chartBonds.includes(t))usdResState.chartBonds.push(t);});
+  }
+  usdResSave();
+  usdResChartRenderChips();
+  usdResChartRenderIndep();
 }
 
 function usdResChartToggleBond(ticker){
