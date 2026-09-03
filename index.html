@@ -10003,7 +10003,7 @@ async function usdRefreshPrices(){
         const raw=map[row.cable];
         if(raw!=null){usdPrecio=raw;sym=row.cable;}
       }
-      if(usdPrecio!=null){bond.lastPrecio=+usdPrecio.toFixed(4);bond.lastPrecioDisplay=usdCurrency==='ARS'?+(map[row.ars]).toFixed(2):+usdPrecio.toFixed(2);bond.lastPctChange=sym&&pctMap[sym]!=null?pctMap[sym]:null;if(!bond.lastLiq)bond.lastLiq=liq;updated++;}
+      if(usdPrecio!=null){bond.lastPrecio=+usdPrecio.toFixed(4);bond.lastPrecioDisplay=usdCurrency==='ARS'?+(map[row.ars]).toFixed(2):+usdPrecio.toFixed(2);bond.lastPctChange=sym&&pctMap[sym]!=null?pctMap[sym]:null;if(!bond.lastLiq)bond.lastLiq=liq;bond.manualOverride=false;updated++;}
     }
 
     if(updated)bopSave();
@@ -10026,7 +10026,7 @@ async function usdRefreshPrices(){
         if(raw!=null){gloPrecio=raw;gloSym=row.cable;}
       }
       if(gloPrecio!=null){
-        bond.lastPrecio=+gloPrecio.toFixed(4);
+        bond.lastPrecio=+gloPrecio.toFixed(4);bond.manualOverride=false;
         bond.lastPrecioDisplay=usdCurrency==='ARS'?+(map[row.ars]).toFixed(2):+gloPrecio.toFixed(2);
         bond.lastPctChange=gloSym&&pctMap[gloSym]!=null?pctMap[gloSym]:null;
         if(gloSym){
@@ -10056,7 +10056,7 @@ async function usdRefreshPrices(){
         if(raw!=null){bonPrecio=raw;bonSym=row.cable;}
       }
       if(bonPrecio!=null){
-        bond.lastPrecio=+bonPrecio.toFixed(4);
+        bond.lastPrecio=+bonPrecio.toFixed(4);bond.manualOverride=false;
         bond.lastPrecioDisplay=usdCurrency==='ARS'?+(map[row.ars]).toFixed(2):+bonPrecio.toFixed(2);
         bond.lastPctChange=bonSym&&pctMap[bonSym]!=null?pctMap[bonSym]:null;
         if(bonSym){
@@ -10175,14 +10175,17 @@ function usdSumRowHtml(e,isSel,onClickFn,group){
   const editHint='title="Doble click para editar"';
   const pxVal=precioRaw!=null?precioRaw.toFixed(4):'';
   const tirVal=tirRaw!=null?tirRaw.toFixed(4):'';
+  const ovr=b.manualOverride&&precioRaw!=null;
+  const ovrStyle=ovr?'background:rgba(212,167,106,.14);box-shadow:inset 0 0 0 1px rgba(212,167,106,.45);':'';
+  const ovrMark=ovr?` <span style="color:var(--warn);font-size:9px">✎</span>`:'';
   return`<tr style="cursor:pointer;border-bottom:1px solid var(--border);${bg}" onclick="${onClickFn}('${b.ticker}')" ${hov}>
     <td style="padding:9px 14px;color:var(--accent);font-weight:600">${b.ticker}</td>
-    <td ${editHint} ondblclick="usdRowEdit(event,'${g}','${b.ticker}','precio',this,'${pxVal}')" style="padding:9px 12px;text-align:right;color:var(--text);font-variant-numeric:tabular-nums;cursor:text">${precioStr}</td>
+    <td ${editHint} ondblclick="usdRowEdit(event,'${g}','${b.ticker}','precio',this,'${pxVal}')" style="padding:9px 12px;text-align:right;color:${ovr?'var(--warn)':'var(--text)'};font-variant-numeric:tabular-nums;cursor:text;${ovrStyle}">${precioStr}${ovrMark}</td>
     <td style="padding:9px 12px;text-align:right;color:var(--text3)">${varStr}</td>
     <td style="padding:9px 12px;text-align:right;color:var(--warn);font-variant-numeric:tabular-nums">${mdStr}</td>
     <td style="padding:9px 12px;text-align:right;color:var(--text2)">${bopFmtDateDisp(b.vencimiento)}</td>
     <td style="padding:9px 12px;text-align:right;color:var(--text);font-variant-numeric:tabular-nums">${parStr}</td>
-    <td ${editHint} ondblclick="usdRowEdit(event,'${g}','${b.ticker}','tir',this,'${tirVal}')" style="padding:9px 12px;text-align:right;color:var(--accent2);font-weight:600;font-variant-numeric:tabular-nums;cursor:text">${tirStr}</td>
+    <td ${editHint} ondblclick="usdRowEdit(event,'${g}','${b.ticker}','tir',this,'${tirVal}')" style="padding:9px 12px;text-align:right;color:${ovr?'var(--warn)':'var(--accent2)'};font-weight:600;font-variant-numeric:tabular-nums;cursor:text;${ovrStyle}">${tirStr}</td>
     <td style="padding:9px 12px;text-align:right;color:var(--accent2);font-variant-numeric:tabular-nums">${tnaStr}</td>
   </tr>`;
 }
@@ -10221,6 +10224,7 @@ function usdRowCommit(inp){
     if(px==null||px<=0){usdRowRerender(group);return;}
     bond.lastPrecio=+px.toFixed(4);
   }
+  bond.manualOverride=true;
   if(group==='bop'){bopSave();bopRenderSummaryRows();}
   else if(group==='bon'){bonSave();bonRenderSummaryRows();}
   else{gloSave();gloRenderSummaryRows();}
