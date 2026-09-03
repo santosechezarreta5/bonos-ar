@@ -12468,6 +12468,10 @@ let curvasArsChart=null;
 let curvasUsdChart=null;
 let curvasArsSector='TF';
 let curvasUsdSector='ALL';
+let curvasArsFilter=null; // null=todos; Set<ticker>=selección
+let curvasUsdFilter=null;
+let _curvasArsCache={snap1:[],snap2:[],d1:'',d2:'',sector:''};
+let _curvasUsdCache={snap1:[],snap2:[],d1:'',d2:'',sector:''};
 
 // ── Snapshot diario → Supabase ─────────────────────────────────────────────
 let _curvasSnapRunning=false;
@@ -12691,6 +12695,7 @@ function curvasArsInit(){
     </div>
     <div id="curvas-ars-msg" style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-left:auto"></div>
   </div>
+  <div id="curvas-ars-bonds" style="padding:5px 14px;border-bottom:1px solid var(--border);flex-shrink:0;min-height:28px;background:var(--surface2);display:flex;flex-wrap:wrap;align-items:center;gap:3px"></div>
   <div style="flex:1;min-height:0;position:relative;padding:8px">
     <canvas id="curvas-ars-chart"></canvas>
   </div>`;
@@ -12719,53 +12724,78 @@ async function curvasArsRender(){
   if(!d1El||!d2El)return;
   const d1=d1El.value,d2=d2El.value;
   if(msg)msg.textContent='Cargando...';
-
   const [snap1,snap2]=await Promise.all([
     curvasFetchSnapshot(d1,curvasArsSector),
     curvasFetchSnapshot(d2,curvasArsSector),
   ]);
+  _curvasArsCache={snap1,snap2,d1,d2,sector:curvasArsSector};
+  curvasArsFilter=null; // reset: todos seleccionados
+  _curvasArsDraw();
+}
 
-  const toArsPoints=rows=>rows
-    .filter(r=>r.sector===curvasArsSector&&r.dias>0&&r.tir!=null&&!isNaN(r.tir))
-    .map(r=>({x:r.dias,y:r.tir,ticker:r.ticker}))
-    .sort((a,b)=>a.x-b.x);
+function curvasArsToggleBond(ticker){
+  const {snap1,snap2,sector}=_curvasArsCache;
+  const toT=rows=>rows.filter(r=>r.sector===sector&&r.tir!=null&&r.dias>0).map(r=>r.ticker);
+  const all=[...new Set([...toT(snap1),...toT(snap2)])];
+  if(!curvasArsFilter) curvasArsFilter=new Set(all);
+  if(curvasArsFilter.has(ticker)) curvasArsFilter.delete(ticker);
+  else curvasArsFilter.add(ticker);
+  if(curvasArsFilter.size===all.length) curvasArsFilter=null;
+  _curvasArsDraw();
+}
 
-  const pts1=toArsPoints(snap1);
-  const pts2=toArsPoints(snap2);
+function _curvasArsDraw(){
+  const {snap1,snap2,d1,d2,sector}=_curvasArsCache;
+  const msg=document.getElementById('curvas-ars-msg');
+  const canvas=document.getElementById('curvas-ars-chart');
+  const bondsDiv=document.getElementById('curvas-ars-bonds');
+  const SEC_COLORS={TF:'#fbbf24',CER:'#4ade80',TAMAR:'#38bdf8',DLK:'#a855f7'};
+  const col=SEC_COLORS[sector]||'#a8d5a2';
+
+  const toAll=rows=>rows.filter(r=>r.sector===sector&&r.dias>0&&r.tir!=null&&!isNaN(r.tir)).map(r=>({x:r.dias,y:r.tir,ticker:r.ticker})).sort((a,b)=>a.x-b.x);
+  const allPts1=toAll(snap1), allPts2=toAll(snap2);
+  const allTickers=[...new Set([...allPts1.map(p=>p.ticker),...allPts2.map(p=>p.ticker)])].sort();
+
+  // Chips de bonos
+  if(bondsDiv){
+    bondsDiv.innerHTML=allTickers.map(t=>{
+      const sel=!curvasArsFilter||curvasArsFilter.has(t);
+      const st=`font-family:var(--mono);font-size:9px;padding:2px 8px;border-radius:2px;cursor:pointer;border:1px solid ${sel?col:'var(--border2)'};background:${sel?col+'22':'transparent'};color:${sel?col:'var(--text3)'};transition:all .1s`;
+      return `<button style="${st}" onclick="curvasArsToggleBond('${t}')">${t}</button>`;
+    }).join('');
+  }
+
+  const pts1=allPts1.filter(p=>!curvasArsFilter||curvasArsFilter.has(p.ticker));
+  const pts2=allPts2.filter(p=>!curvasArsFilter||curvasArsFilter.has(p.ticker));
 
   if(!pts1.length&&!pts2.length){
-    if(msg)msg.textContent='Sin datos para esas fechas';
+    if(msg)msg.textContent=allTickers.length?'Todos los bonos desactivados':'Sin datos para esas fechas';
     if(curvasArsChart){curvasArsChart.destroy();curvasArsChart=null;}
     return;
   }
-  if(msg)msg.textContent=`${curvasFmtDate(d1)}: ${pts1.length} bonos · ${curvasFmtDate(d2)}: ${pts2.length} bonos`;
+  if(msg)msg.textContent=`${curvasFmtDate(d1)}: ${pts1.length} · ${curvasFmtDate(d2)}: ${pts2.length}`;
 
-  const SEC_COLORS={TF:'#fbbf24',CER:'#4ade80',TAMAR:'#38bdf8',DLK:'#a855f7'};
-  const col=SEC_COLORS[curvasArsSector]||'#a8d5a2';
   const col2=col+'88';
-
   const datasets=[];
-  // Fecha 1: scatter + trend (colores tenues)
   if(pts1.length){
-    const tickers1=pts1.map(p=>p.ticker);
-    datasets.push({label:curvasFmtDate(d1),data:pts1.map(p=>({x:p.x,y:p.y})),pointBackgroundColor:col2,pointBorderColor:col2,pointRadius:4,showLine:false,datalabels:{display:true,formatter:(_,ctx)=>tickers1[ctx.dataIndex]||'',color:col2,font:{size:8,family:'DM Mono, monospace'},anchor:'end',align:'top',offset:2}});
-    const reg1=curvasLogReg(pts1);
-    if(reg1){const td=curvasTrendPts(reg1,pts1);datasets.push({label:'_trend1',data:td,type:'line',borderColor:col2,borderWidth:1.5,borderDash:[4,3],pointRadius:0,fill:false,datalabels:{display:false}});}
+    const t1=pts1.map(p=>p.ticker);
+    datasets.push({label:curvasFmtDate(d1),data:pts1.map(p=>({x:p.x,y:p.y})),pointBackgroundColor:col2,pointBorderColor:col2,pointRadius:4,showLine:false,datalabels:{display:true,formatter:(_,ctx)=>t1[ctx.dataIndex]||'',color:col2,font:{size:8,family:'DM Mono, monospace'},anchor:'end',align:'top',offset:2}});
+    const r1=curvasLogReg(pts1);
+    if(r1)datasets.push({label:'_t1',data:curvasTrendPts(r1,pts1),type:'line',borderColor:col2,borderWidth:1.5,borderDash:[4,3],pointRadius:0,fill:false,datalabels:{display:false}});
   }
-  // Fecha 2: scatter + trend (color sólido)
   if(pts2.length){
-    const tickers2=pts2.map(p=>p.ticker);
-    datasets.push({label:curvasFmtDate(d2),data:pts2.map(p=>({x:p.x,y:p.y})),pointBackgroundColor:col,pointBorderColor:col,pointRadius:5,showLine:false,datalabels:{display:true,formatter:(_,ctx)=>tickers2[ctx.dataIndex]||'',color:col,font:{size:9,family:'DM Mono, monospace',weight:'bold'},anchor:'end',align:'top',offset:3}});
-    const reg2=curvasLogReg(pts2);
-    if(reg2){const td=curvasTrendPts(reg2,pts2);datasets.push({label:'_trend2',data:td,type:'line',borderColor:col,borderWidth:2,pointRadius:0,fill:false,datalabels:{display:false}});}
+    const t2=pts2.map(p=>p.ticker);
+    datasets.push({label:curvasFmtDate(d2),data:pts2.map(p=>({x:p.x,y:p.y})),pointBackgroundColor:col,pointBorderColor:col,pointRadius:5,showLine:false,datalabels:{display:true,formatter:(_,ctx)=>t2[ctx.dataIndex]||'',color:col,font:{size:9,family:'DM Mono, monospace',weight:'bold'},anchor:'end',align:'top',offset:3}});
+    const r2=curvasLogReg(pts2);
+    if(r2)datasets.push({label:'_t2',data:curvasTrendPts(r2,pts2),type:'line',borderColor:col,borderWidth:2,pointRadius:0,fill:false,datalabels:{display:false}});
   }
 
   if(curvasArsChart){curvasArsChart.destroy();curvasArsChart=null;}
   if(window.ChartDataLabels)Chart.register(ChartDataLabels);
-  const yLabel={TF:'TNA (%)',CER:'TIR real (%)',TAMAR:'TNA (%)',DLK:'TNA (%)'}[curvasArsSector]||'Tasa (%)';
+  const yLabel={TF:'TNA (%)',CER:'TIR real (%)',TAMAR:'Margen TNA (%)',DLK:'TNA (%)'}[sector]||'Tasa (%)';
   const textColor=getComputedStyle(document.body).getPropertyValue('--text').trim()||'#e0e0e0';
   const gridColor=getComputedStyle(document.body).getPropertyValue('--border').trim()||'#2a302a';
-  curvasArsChart=new Chart(canvas,{type:'scatter',data:{datasets},options:{responsive:true,maintainAspectRatio:false,animation:{duration:300},plugins:{legend:{display:true,labels:{color:textColor,font:{size:10},filter:i=>!i.text.startsWith('_'),boxWidth:12,padding:12}},datalabels:{display:false},tooltip:{filter:i=>!i.dataset.label.startsWith('_'),callbacks:{label:i=>`${i.dataset.label} — ${i.parsed.x}d, ${i.parsed.y.toFixed(2)}%`}}},scales:{x:{type:'linear',title:{display:true,text:'Días al vencimiento',color:textColor,font:{size:10}},grid:{color:gridColor},ticks:{color:textColor,font:{size:10}}},y:{title:{display:true,text:yLabel,color:textColor,font:{size:10}},grid:{color:gridColor},ticks:{color:textColor,font:{size:10},callback:v=>v.toFixed(1)+'%'}}}}});
+  curvasArsChart=new Chart(canvas,{type:'scatter',data:{datasets},options:{responsive:true,maintainAspectRatio:false,animation:{duration:200},plugins:{legend:{display:true,labels:{color:textColor,font:{size:10},filter:i=>!i.text.startsWith('_'),boxWidth:12,padding:12}},datalabels:{display:false},tooltip:{filter:i=>!i.dataset.label.startsWith('_'),callbacks:{label:i=>`${i.dataset.label} — ${i.parsed.x}d, ${i.parsed.y.toFixed(2)}%`}}},scales:{x:{type:'linear',title:{display:true,text:'Días al vencimiento',color:textColor,font:{size:10}},grid:{color:gridColor},ticks:{color:textColor,font:{size:10}}},y:{title:{display:true,text:yLabel,color:textColor,font:{size:10}},grid:{color:gridColor},ticks:{color:textColor,font:{size:10},callback:v=>v.toFixed(1)+'%'}}}}});
 }
 
 // ══════════════════════════════════════════════════════════════ CURVAS USD
@@ -12798,6 +12828,7 @@ function curvasUsdInit(){
     </div>
     <div id="curvas-usd-msg" style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-left:auto"></div>
   </div>
+  <div id="curvas-usd-bonds" style="padding:5px 14px;border-bottom:1px solid var(--border);flex-shrink:0;min-height:28px;background:var(--surface2);display:flex;flex-wrap:wrap;align-items:center;gap:3px"></div>
   <div style="flex:1;min-height:0;position:relative;padding:8px">
     <canvas id="curvas-usd-chart"></canvas>
   </div>
@@ -12829,37 +12860,69 @@ async function curvasUsdRender(){
   if(!d1El||!d2El)return;
   const d1=d1El.value,d2=d2El.value;
   if(msg)msg.textContent='Cargando...';
-
+  const secFilter=curvasUsdSector==='ALL'?null:curvasUsdSector;
   const [snap1,snap2]=await Promise.all([
-    curvasFetchSnapshot(d1,curvasUsdSector==='ALL'?null:curvasUsdSector),
-    curvasFetchSnapshot(d2,curvasUsdSector==='ALL'?null:curvasUsdSector),
+    curvasFetchSnapshot(d1,secFilter),
+    curvasFetchSnapshot(d2,secFilter),
   ]);
+  _curvasUsdCache={snap1,snap2,d1,d2,sector:curvasUsdSector};
+  curvasUsdFilter=null;
+  _curvasUsdDraw();
+}
 
-  const USD_SECS=curvasUsdSector==='ALL'?['GLO','BON','BOP']:[curvasUsdSector];
+function curvasUsdToggleBond(ticker){
+  const {snap1,snap2,sector}=_curvasUsdCache;
+  const USD_SECS=sector==='ALL'?['GLO','BON','BOP']:[sector];
+  const toT=rows=>rows.filter(r=>USD_SECS.includes(r.sector)&&r.md>0&&r.tir!=null).map(r=>r.ticker);
+  const all=[...new Set([...toT(snap1),...toT(snap2)])];
+  if(!curvasUsdFilter) curvasUsdFilter=new Set(all);
+  if(curvasUsdFilter.has(ticker)) curvasUsdFilter.delete(ticker);
+  else curvasUsdFilter.add(ticker);
+  if(curvasUsdFilter.size===all.length) curvasUsdFilter=null;
+  _curvasUsdDraw();
+}
+
+function _curvasUsdDraw(){
+  const {snap1,snap2,d1,d2,sector}=_curvasUsdCache;
+  const msg=document.getElementById('curvas-usd-msg');
+  const canvas=document.getElementById('curvas-usd-chart');
+  const bondsDiv=document.getElementById('curvas-usd-bonds');
+  const USD_SECS=sector==='ALL'?['GLO','BON','BOP']:[sector];
   const secColors={GLO:'#6baed6',BON:'#d4a843',BOP:'#74c4a0'};
 
-  const toUsdPoints=(rows,sec)=>rows
-    .filter(r=>r.sector===sec&&r.md!=null&&r.md>0&&r.tir!=null&&!isNaN(r.tir))
-    .map(r=>({x:r.md,y:r.tir,ticker:r.ticker}))
-    .sort((a,b)=>a.x-b.x);
+  const toAll=(rows,sec)=>rows.filter(r=>r.sector===sec&&r.md!=null&&r.md>0&&r.tir!=null&&!isNaN(r.tir)).map(r=>({x:r.md,y:r.tir,ticker:r.ticker})).sort((a,b)=>a.x-b.x);
+  const allTickers=[...new Set(USD_SECS.flatMap(sec=>[...toAll(snap1,sec),...toAll(snap2,sec)].map(p=>p.ticker)))].sort();
+
+  // Chips de bonos (agrupados por sector con mini-cabecera)
+  if(bondsDiv){
+    const secChips=USD_SECS.map(sec=>{
+      const col=secColors[sec];
+      const secT=[...new Set([...toAll(snap1,sec),...toAll(snap2,sec)].map(p=>p.ticker))].sort();
+      if(!secT.length)return '';
+      const chips=secT.map(t=>{
+        const sel=!curvasUsdFilter||curvasUsdFilter.has(t);
+        const st=`font-family:var(--mono);font-size:9px;padding:2px 8px;border-radius:2px;cursor:pointer;border:1px solid ${sel?col:'var(--border2)'};background:${sel?col+'22':'transparent'};color:${sel?col:'var(--text3)'};transition:all .1s`;
+        return `<button style="${st}" onclick="curvasUsdToggleBond('${t}')">${t}</button>`;
+      }).join('');
+      return `<span style="font-family:var(--mono);font-size:9px;color:${col};margin-right:2px">${sec}</span>${chips}`;
+    }).join('<span style="width:10px;display:inline-block"></span>');
+    bondsDiv.innerHTML=secChips||'';
+  }
 
   const datasets=[];
   let totalPts=0;
-
   USD_SECS.forEach(sec=>{
     const col=secColors[sec];
     const col2=col+'77';
-    const pts1=toUsdPoints(snap1,sec);
-    const pts2=toUsdPoints(snap2,sec);
+    const pts1=toAll(snap1,sec).filter(p=>!curvasUsdFilter||curvasUsdFilter.has(p.ticker));
+    const pts2=toAll(snap2,sec).filter(p=>!curvasUsdFilter||curvasUsdFilter.has(p.ticker));
     totalPts+=pts1.length+pts2.length;
-    // Fecha 1 (tenue)
     if(pts1.length){
       const t1=pts1.map(p=>p.ticker);
       datasets.push({label:`${sec} ${curvasFmtDate(d1)}`,data:pts1.map(p=>({x:p.x,y:p.y})),pointBackgroundColor:col2,pointBorderColor:col2,pointRadius:4,showLine:false,datalabels:{display:true,formatter:(_,ctx)=>t1[ctx.dataIndex]||'',color:col2,font:{size:8,family:'DM Mono, monospace'},anchor:'end',align:'top',offset:2}});
       const r1=curvasLogReg(pts1);
       if(r1)datasets.push({label:`_t_${sec}_1`,data:curvasTrendPts(r1,pts1),type:'line',borderColor:col2,borderWidth:1.5,borderDash:[4,3],pointRadius:0,fill:false,datalabels:{display:false}});
     }
-    // Fecha 2 (sólido)
     if(pts2.length){
       const t2=pts2.map(p=>p.ticker);
       datasets.push({label:`${sec} ${curvasFmtDate(d2)}`,data:pts2.map(p=>({x:p.x,y:p.y})),pointBackgroundColor:col,pointBorderColor:col,pointRadius:5,showLine:false,datalabels:{display:true,formatter:(_,ctx)=>t2[ctx.dataIndex]||'',color:col,font:{size:9,family:'DM Mono, monospace',weight:'bold'},anchor:'end',align:'top',offset:3}});
@@ -12869,18 +12932,19 @@ async function curvasUsdRender(){
   });
 
   if(!totalPts){
-    if(msg)msg.textContent='Sin datos para esas fechas';
+    if(msg)msg.textContent=allTickers.length?'Todos los bonos desactivados':'Sin datos para esas fechas';
     if(curvasUsdChart){curvasUsdChart.destroy();curvasUsdChart=null;}
     return;
   }
-  const allPts=[...snap1,...snap2].filter(r=>USD_SECS.includes(r.sector));
-  if(msg)msg.textContent=`${curvasFmtDate(d1)}: ${snap1.filter(r=>USD_SECS.includes(r.sector)).length} bonos · ${curvasFmtDate(d2)}: ${snap2.filter(r=>USD_SECS.includes(r.sector)).length} bonos`;
+  const cnt1=snap1.filter(r=>USD_SECS.includes(r.sector)&&(!curvasUsdFilter||curvasUsdFilter.has(r.ticker))).length;
+  const cnt2=snap2.filter(r=>USD_SECS.includes(r.sector)&&(!curvasUsdFilter||curvasUsdFilter.has(r.ticker))).length;
+  if(msg)msg.textContent=`${curvasFmtDate(d1)}: ${cnt1} · ${curvasFmtDate(d2)}: ${cnt2}`;
 
   if(curvasUsdChart){curvasUsdChart.destroy();curvasUsdChart=null;}
   if(window.ChartDataLabels)Chart.register(ChartDataLabels);
   const textColor=getComputedStyle(document.body).getPropertyValue('--text').trim()||'#e0e0e0';
   const gridColor=getComputedStyle(document.body).getPropertyValue('--border').trim()||'#2a302a';
-  curvasUsdChart=new Chart(canvas,{type:'scatter',data:{datasets},options:{responsive:true,maintainAspectRatio:false,animation:{duration:300},plugins:{legend:{display:true,labels:{color:textColor,font:{size:10},filter:i=>!i.text.startsWith('_'),boxWidth:12,padding:12}},datalabels:{display:false},tooltip:{filter:i=>!i.dataset.label.startsWith('_'),callbacks:{label:i=>`${i.dataset.label} — MD ${i.parsed.x.toFixed(2)}, TIR ${i.parsed.y.toFixed(2)}%`}}},scales:{x:{type:'linear',title:{display:true,text:'Duration modificada (años)',color:textColor,font:{size:10}},grid:{color:gridColor},ticks:{color:textColor,font:{size:10}}},y:{title:{display:true,text:'TIR (%)',color:textColor,font:{size:10}},grid:{color:gridColor},ticks:{color:textColor,font:{size:10},callback:v=>v.toFixed(1)+'%'}}}}});
+  curvasUsdChart=new Chart(canvas,{type:'scatter',data:{datasets},options:{responsive:true,maintainAspectRatio:false,animation:{duration:200},plugins:{legend:{display:true,labels:{color:textColor,font:{size:10},filter:i=>!i.text.startsWith('_'),boxWidth:12,padding:12}},datalabels:{display:false},tooltip:{filter:i=>!i.dataset.label.startsWith('_'),callbacks:{label:i=>`${i.dataset.label} — MD ${i.parsed.x.toFixed(2)}, TIR ${i.parsed.y.toFixed(2)}%`}}},scales:{x:{type:'linear',title:{display:true,text:'Duration modificada (años)',color:textColor,font:{size:10}},grid:{color:gridColor},ticks:{color:textColor,font:{size:10}}},y:{title:{display:true,text:'TIR (%)',color:textColor,font:{size:10}},grid:{color:gridColor},ticks:{color:textColor,font:{size:10},callback:v=>v.toFixed(1)+'%'}}}}});
 }
 </script>
 </body>
