@@ -12598,9 +12598,11 @@ async function _curvasSnapshotTodayImpl(){
 // ── Fetch snapshot desde Supabase ─────────────────────────────────────────
 async function curvasFetchSnapshot(dateStr,sector){
   const todayStr=TODAY instanceof Date?TODAY.toISOString().split('T')[0]:String(TODAY);
-  // Si es hoy → construir desde memoria (sin ir a Supabase)
+  // Si es hoy → intentar desde memoria primero (precios live)
   if(dateStr===todayStr){
-    return curvasSnapshotFromMemory(sector);
+    const memRows=curvasSnapshotFromMemory(sector);
+    if(memRows.length>0)return memRows;
+    // Memoria vacía (precios no cargados) → fallback a Supabase
   }
   try{
     let q=supa.from('bond_price_snapshots').select('ticker,tir,md,dias,sector').eq('snapshot_date',dateStr);
