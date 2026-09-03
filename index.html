@@ -10218,10 +10218,12 @@ function usdRowCommit(inp){
   const flows=bopGenFlows(bond);
   if(field==='precio'){
     bond.lastPrecio=val;
+    bond.lastPrecioDisplay=val;
   }else{
     const px=bopPrecio(bond,liq,val,flows);
     if(px==null||px<=0){usdRowRerender(group);return;}
     bond.lastPrecio=+px.toFixed(4);
+    bond.lastPrecioDisplay=+px.toFixed(4);
   }
   bond.manualOverride=true;
   if(group==='bop'){bopSave();bopRenderSummaryRows();}
