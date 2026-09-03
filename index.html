@@ -12754,7 +12754,8 @@ function _curvasArsDraw(){
 
   const toAll=rows=>rows.filter(r=>r.sector===sector&&r.dias>0&&r.tir!=null&&!isNaN(r.tir)).map(r=>({x:r.dias,y:r.tir,ticker:r.ticker})).sort((a,b)=>a.x-b.x);
   const allPts1=toAll(snap1), allPts2=toAll(snap2);
-  const allTickers=[...new Set([...allPts1.map(p=>p.ticker),...allPts2.map(p=>p.ticker)])].sort();
+  const diasMap=new Map([...allPts1,...allPts2].map(p=>[p.ticker,p.x]));
+  const allTickers=[...new Set([...allPts1.map(p=>p.ticker),...allPts2.map(p=>p.ticker)])].sort((a,b)=>(diasMap.get(a)||0)-(diasMap.get(b)||0));
 
   // Chips de bonos
   if(bondsDiv){
@@ -12891,7 +12892,9 @@ function _curvasUsdDraw(){
   const secColors={GLO:'#6baed6',BON:'#d4a843',BOP:'#74c4a0'};
 
   const toAll=(rows,sec)=>rows.filter(r=>r.sector===sec&&r.md!=null&&r.md>0&&r.tir!=null&&!isNaN(r.tir)).map(r=>({x:r.md,y:r.tir,ticker:r.ticker})).sort((a,b)=>a.x-b.x);
-  const allTickers=[...new Set(USD_SECS.flatMap(sec=>[...toAll(snap1,sec),...toAll(snap2,sec)].map(p=>p.ticker)))].sort();
+  const allPtsFlat=USD_SECS.flatMap(sec=>[...toAll(snap1,sec),...toAll(snap2,sec)]);
+  const mdMap=new Map(allPtsFlat.map(p=>[p.ticker,p.x]));
+  const allTickers=[...new Set(allPtsFlat.map(p=>p.ticker))].sort((a,b)=>(mdMap.get(a)||0)-(mdMap.get(b)||0));
 
   // Chips de bonos (agrupados por sector con mini-cabecera)
   if(bondsDiv){
