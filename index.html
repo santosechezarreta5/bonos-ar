@@ -2979,7 +2979,7 @@ function startCell(e,ticker,col){
   editingCell={ticker,col};
   renderTable();
   // focus after render
-  setTimeout(()=>{const inp=document.getElementById('ci-input');if(inp)inp.focus();},10);
+  setTimeout(()=>{const inp=document.getElementById('ci-input');if(inp){inp.focus();inp.select();}},10);
 }
 
 function cellKey(e){
@@ -4171,7 +4171,7 @@ function cerRenderTable(){
 // ── CER INLINE EDIT ───────────────────────────────────────────────────────────
 function cerStartCell(e,ticker,col){
   e.stopPropagation();cerEditingCell={ticker,col};cerRenderTable();
-  setTimeout(()=>{const i=document.getElementById('cer-ci-input');if(i)i.focus();},10);
+  setTimeout(()=>{const i=document.getElementById('cer-ci-input');if(i){i.focus();i.select();}},10);
 }
 function cerCellKey(e){if(e.key==='Enter')cerCommitCell();if(e.key==='Escape'){cerEditingCell=null;cerRenderTable();}}
 function cerCommitCell(){
@@ -6075,7 +6075,7 @@ function tamarStartCell(e,ticker){
   e.stopPropagation();
   tamarEditingCell={ticker};
   tamarRenderTable();
-  setTimeout(()=>{const inp=document.getElementById('tamar-ci-input');if(inp)inp.focus();},10);
+  setTimeout(()=>{const inp=document.getElementById('tamar-ci-input');if(inp){inp.focus();inp.select();}},10);
 }
 function tamarCellKey(e){
   if(e.key==='Enter')tamarCommitCell();
@@ -8177,7 +8177,7 @@ function dlkStartCell(e,ticker){
   e.stopPropagation();
   dlkEditingCell={ticker};
   dlkRenderTable();
-  setTimeout(()=>{const inp=document.getElementById('dlk-ci-input');if(inp)inp.focus();},10);
+  setTimeout(()=>{const inp=document.getElementById('dlk-ci-input');if(inp){inp.focus();inp.select();}},10);
 }
 function dlkCellKey(e){
   if(e.key==='Enter')dlkCommitCell();
@@ -9194,7 +9194,7 @@ function sintStartCell(e,ticker,field){
   e.stopPropagation();
   sintEditingCell={ticker,field:field||'precioFuturo'};
   sintRenderTable();
-  setTimeout(()=>{const inp=document.getElementById('sint-ci-input');if(inp)inp.focus();},10);
+  setTimeout(()=>{const inp=document.getElementById('sint-ci-input');if(inp){inp.focus();inp.select();}},10);
 }
 
 function sintCellKey(e){
