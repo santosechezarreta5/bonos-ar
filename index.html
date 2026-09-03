@@ -12702,7 +12702,7 @@ function curvasSnapshotFromMemory(sector){
     CER_BONDS.forEach(b=>{if(b.precio==null)return;try{const e=cerEnrich(b);if(!e||isNaN(e.tir))return;rows.push({ticker:b.ticker,tir:e.tir,md:null,dias:e.dias,sector:'CER'});}catch(ex){}});
   }
   if((!sector||sector==='TAMAR'||sector==='ALL')&&typeof TAMAR_BONDS!=='undefined'&&TAMAR_BONDS&&TAMAR_BONDS.length){
-    TAMAR_BONDS.forEach(b=>{if(b.precio==null)return;try{const e=tamarEnrich(b);if(!e||isNaN(e.tna)||!e.dias)return;rows.push({ticker:b.ticker,tir:e.tna,md:null,dias:e.dias,sector:'TAMAR'});}catch(ex){}});
+    TAMAR_BONDS.forEach(b=>{if(b.precio==null)return;try{const e=tamarEnrich(b);if(!e||isNaN(e.margenTNA)||!e.dias)return;rows.push({ticker:b.ticker,tir:e.margenTNA,md:null,dias:e.dias,sector:'TAMAR'});}catch(ex){}});
   }
   if((!sector||sector==='DLK'||sector==='ALL')&&typeof DLK_BONDS!=='undefined'&&DLK_BONDS&&DLK_BONDS.length){
     DLK_BONDS.forEach(b=>{if(b.precio==null)return;try{const e=dlkEnrich(b);if(!e||e.tna==null)return;rows.push({ticker:b.ticker,tir:e.tna,md:null,dias:e.dias,sector:'DLK'});}catch(ex){}});
