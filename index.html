@@ -12536,7 +12536,7 @@ const CURVAS_SNAP_LS='bonosAR_curvas_snap_date_v1';
 let curvasArsChart=null;
 let curvasUsdChart=null;
 let curvasArsSector='TF';
-let curvasUsdSector='ALL';
+let curvasUsdSector='GLO';
 let curvasArsFilter=null; // null=todos; Set<ticker>=selección
 let curvasUsdFilter=null;
 let _curvasArsCache={snap1:[],snap2:[],d1:'',d2:'',sector:''};
@@ -12879,13 +12879,12 @@ function curvasUsdInit(){
   const d1=curvasDateMinus7(today);
   const d2=today;
   const secOpts=[
-    {v:'ALL',l:'Todos'},
     {v:'GLO',l:'Globales'},
     {v:'BON',l:'Bonares'},
     {v:'BOP',l:'Bopreales'},
   ];
   const chipSt=(sec,active,col)=>`style="font-family:var(--mono);font-size:10px;padding:3px 10px;border-radius:3px;cursor:pointer;border:1px solid ${active?col:'var(--border2)'};background:${active?col+'22':'var(--surface2)'};color:${active?col:'var(--text3)'};" onclick="curvasUsdSetSector('${sec}')" id="curvas-usd-chip-${sec}"`;
-  const secColors={ALL:'var(--accent)',GLO:'#6baed6',BON:'#d4a843',BOP:'#74c4a0'};
+  const secColors={GLO:'#6baed6',BON:'#d4a843',BOP:'#74c4a0'};
   const chips=secOpts.map(s=>`<button ${chipSt(s.v,s.v===curvasUsdSector,secColors[s.v])}>${s.l}</button>`).join('');
   pg.innerHTML=`<div style="height:100%;display:flex;flex-direction:column">
   <div style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;background:var(--surface)">
@@ -12910,8 +12909,8 @@ function curvasUsdInit(){
 
 function curvasUsdSetSector(sec){
   curvasUsdSector=sec;
-  const secColors={ALL:'var(--accent)',GLO:'#6baed6',BON:'#d4a843',BOP:'#74c4a0'};
-  ['ALL','GLO','BON','BOP'].forEach(s=>{
+  const secColors={GLO:'#6baed6',BON:'#d4a843',BOP:'#74c4a0'};
+  ['GLO','BON','BOP'].forEach(s=>{
     const el=document.getElementById('curvas-usd-chip-'+s);
     if(!el)return;
     const col=secColors[s];
@@ -12932,7 +12931,7 @@ async function curvasUsdRender(){
   if(!d1El||!d2El)return;
   const d1=d1El.value,d2=d2El.value;
   if(msg)msg.textContent='Cargando...';
-  const secFilter=curvasUsdSector==='ALL'?null:curvasUsdSector;
+  const secFilter=curvasUsdSector;
   const [snap1,snap2]=await Promise.all([
     curvasFetchSnapshot(d1,secFilter),
     curvasFetchSnapshot(d2,secFilter),
@@ -12944,7 +12943,7 @@ async function curvasUsdRender(){
 
 function curvasUsdToggleBond(ticker){
   const {snap1,snap2,sector}=_curvasUsdCache;
-  const USD_SECS=sector==='ALL'?['GLO','BON','BOP']:[sector];
+  const USD_SECS=[sector];
   const toT=rows=>rows.filter(r=>USD_SECS.includes(r.sector)&&r.md>0&&r.tir!=null).map(r=>r.ticker);
   const all=[...new Set([...toT(snap1),...toT(snap2)])];
   if(!curvasUsdFilter) curvasUsdFilter=new Set(all);
@@ -12959,7 +12958,7 @@ function _curvasUsdDraw(){
   const msg=document.getElementById('curvas-usd-msg');
   const canvas=document.getElementById('curvas-usd-chart');
   const bondsDiv=document.getElementById('curvas-usd-bonds');
-  const USD_SECS=sector==='ALL'?['GLO','BON','BOP']:[sector];
+  const USD_SECS=[sector];
   const secColors={GLO:'#6baed6',BON:'#d4a843',BOP:'#74c4a0'};
 
   const toAll=(rows,sec)=>rows.filter(r=>r.sector===sec&&r.md!=null&&r.md>0&&r.tir!=null&&!isNaN(r.tir)).map(r=>({x:r.md,y:r.tir,ticker:r.ticker})).sort((a,b)=>a.x-b.x);
