@@ -37,7 +37,26 @@ const check = (cond, label, detalle = '') => {
 
   await page.goto(APP, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => typeof supa !== 'undefined', null, { timeout: 60000 });
-  await page.waitForTimeout(20000);
+
+  // Esperar la CONDICIÓN, no un tiempo fijo. Los precios USD dependen de que
+  // supaLoadSharedData() traiga primero las equivalencias ticker → símbolo MEP,
+  // y ese encadenamiento tarda distinto según de dónde se sirva la app. Con un
+  // waitForTimeout el test quedaba atado a la suerte del timing.
+  try {
+    await page.waitForFunction(() => {
+      const ars = typeof LECAPS !== 'undefined' && LECAPS.some(b => b.precio != null);
+      const usd = [BOP_BONDS, BON_BONDS, GLO_BONDS].flat().some(b => b.lastPrecio != null);
+      return ars && usd;
+    }, null, { timeout: 90000 });
+  } catch (e) {
+    // Si no llegan, seguimos igual: los checks de abajo reportan qué faltó.
+    const d = await page.evaluate(() => ({
+      equiv: typeof EQUIV_DATA !== 'undefined' ? EQUIV_DATA.length : -1,
+      usdBonos: [BOP_BONDS, BON_BONDS, GLO_BONDS].flat().length,
+    }));
+    console.log(`  \x1b[33m(timeout esperando precios — EQUIV_DATA: ${d.equiv}, bonos USD: ${d.usdBonos})\x1b[0m`);
+  }
+  await page.waitForTimeout(3000);
 
   console.log('Fechas y días hábiles');
   const u = await page.evaluate(() => ({
