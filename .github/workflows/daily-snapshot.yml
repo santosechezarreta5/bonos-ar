@@ -23,4 +23,7 @@ jobs:
           npx playwright install --with-deps chromium
 
       - name: Run snapshot
+        env:
+          SUPABASE_BOT_EMAIL: ${{ secrets.SUPABASE_BOT_EMAIL }}
+          SUPABASE_BOT_PASSWORD: ${{ secrets.SUPABASE_BOT_PASSWORD }}
         run: node .github/scripts/snapshot.js

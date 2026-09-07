@@ -2200,6 +2200,31 @@ function isAdmin(){
   return SUPA_USER&&SUPA_USER.email===ADMIN_EMAIL;
 }
 
+// Permiso de escritura del histórico, consultado al servidor.
+// No alcanza con isAdmin(): la cuenta bot del GitHub Action tiene rol
+// 'snapshot' y otro email, pero sí debe poder escribir.
+//
+// La autoridad real son las policies de RLS (supabase/policies.sql). Este
+// flag sólo evita disparar peticiones condenadas a fallar, así que ante la
+// duda conviene intentar: arranca en true y si el RPC no está disponible
+// (por ejemplo, antes de aplicar la migración) se deja que decida RLS.
+let SUPA_PUEDE_SNAPSHOT=true;
+
+async function authCargarPermisos(){
+  if(!SUPA_USER){SUPA_PUEDE_SNAPSHOT=true;return;}
+  try{
+    const{data,error}=await supa.rpc('puede_escribir_snapshots');
+    if(error){
+      console.warn('[Supa] permiso de snapshot indeterminado, se intenta igual:',error.message);
+      SUPA_PUEDE_SNAPSHOT=true;return;
+    }
+    SUPA_PUEDE_SNAPSHOT=!!data;
+  }catch(e){
+    console.warn('[Supa] authCargarPermisos, se intenta igual:',e);
+    SUPA_PUEDE_SNAPSHOT=true;
+  }
+}
+
 function authUpdateAdminUI(){
   const admin=isAdmin();
   // Solo ocultar botones de agregar/eliminar bonos en las toolbars de TF/CER/TAMAR
@@ -2236,6 +2261,7 @@ async function authSetUser(user){
   SUPA_USER=user;
   authUpdateUI(user);
   authUpdateAdminUI();
+  await authCargarPermisos();
   await supaLoadUserData();
   await supaLoadSharedData();
   // Admin: push USD bond data to Supabase in case it predates sync setup
@@ -2331,6 +2357,9 @@ async function supaSaveUserKey(key){
 
 async function supaSaveSharedKey(key){
   if(!SUPA_USER){console.warn('[Supa] supaSaveSharedKey: sin usuario, abortando',key);return;}
+  // RLS ya rechaza la escritura si no sos admin; cortamos antes para no
+  // disparar peticiones condenadas a fallar en cada setItem.
+  if(!isAdmin()){console.warn('[Supa] supaSaveSharedKey: sin permiso de admin, omitiendo',key);return;}
   try{
     const raw=localStorage.getItem(key);
     if(raw==null){console.warn('[Supa] supaSaveSharedKey: localStorage vacío para',key);return;}
@@ -12581,6 +12610,10 @@ async function curvasSnapshotToday(){
   try{await _curvasSnapshotTodayImpl();}finally{_curvasSnapRunning=false;}
 }
 async function _curvasSnapshotTodayImpl(){
+  // Sin permiso de escritura, RLS rechaza el upsert. Cortamos acá para no
+  // recalcular toda la valuación y disparar peticiones inútiles en el
+  // navegador de quien sólo consulta.
+  if(!SUPA_PUEDE_SNAPSHOT)return;
   const today=hoyAR();
   // Cooldown per-sector (1 hora): cada sector tiene su propio timer independiente.
   // Así fetchPrices (TF) y usdRefreshPrices (GLO/BON/BOP) no se bloquean mutuamente.
@@ -12685,13 +12718,19 @@ async function _curvasSnapshotTodayImpl(){
     bySector.get(r.sector).push(r);
   }
   const ts=new Date().toISOString();
+  const fallos=[];
   for(const[sector,sRows]of bySector){
     const deduped=[...new Map(sRows.map(r=>[r.ticker,r])).values()];
     try{
       const{error}=await supa.from('bond_price_snapshots').upsert(deduped,{onConflict:'snapshot_date,ticker'});
-      if(!error)sectorTs[sector]=ts;
-    }catch(e){}
+      if(error)fallos.push(`${sector}: ${error.message}`);
+      else sectorTs[sector]=ts;
+    }catch(e){fallos.push(`${sector}: ${e.message}`);}
   }
+  // Antes estos errores se tragaban por completo: un rechazo de RLS o un
+  // timeout era indistinguible del éxito, y el hueco en la curva recién se
+  // notaba días después.
+  if(fallos.length)console.error('[Snapshot] sectores que no se guardaron →',fallos.join(' · '));
   localStorage.setItem(CURVAS_SNAP_LS,JSON.stringify(sectorTs));
 }
 
