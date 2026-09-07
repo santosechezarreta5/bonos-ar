@@ -2729,7 +2729,7 @@ function usdFamShowDetail(fam,bond){
   }
 }
 
-function usdFamDRenderFlows(fam,liqOverride,tirOverride){
+function usdFamDRenderFlows(fam,liq,tirPct){
   const tbody=document.getElementById(fam.id+'-d-tbody');
   if(!tbody)return;
   const flows=fam.flows;
@@ -11062,7 +11062,7 @@ function bopShowDetail(bond){usdFamShowDetail(USD_FAM.bop,bond);}
 
 function bopDCalc(){usdFamDCalc(USD_FAM.bop);}
 
-function bopDRenderFlows(liqOverride,tirOverride){usdFamDRenderFlows(USD_FAM.bop,liqOverride,tirOverride);}
+function bopDRenderFlows(liq,tirPct){usdFamDRenderFlows(USD_FAM.bop,liq,tirPct);}
 
 function bopDPreviewRow(i){usdFamDPreviewRow(USD_FAM.bop,i);}
 
@@ -12021,7 +12021,7 @@ function bonShowDetail(bond){usdFamShowDetail(USD_FAM.bon,bond);}
 
 function bonDCalc(){usdFamDCalc(USD_FAM.bon);}
 
-function bonDRenderFlows(liqOverride,tirOverride){usdFamDRenderFlows(USD_FAM.bon,liqOverride,tirOverride);}
+function bonDRenderFlows(liq,tirPct){usdFamDRenderFlows(USD_FAM.bon,liq,tirPct);}
 
 function bonDPreviewRow(i){usdFamDPreviewRow(USD_FAM.bon,i);}
 
@@ -12085,7 +12085,7 @@ function gloShowDetail(bond){usdFamShowDetail(USD_FAM.glo,bond);}
 
 function gloDCalc(){usdFamDCalc(USD_FAM.glo);}
 
-function gloDRenderFlows(liqOverride,tirOverride){usdFamDRenderFlows(USD_FAM.glo,liqOverride,tirOverride);}
+function gloDRenderFlows(liq,tirPct){usdFamDRenderFlows(USD_FAM.glo,liq,tirPct);}
 
 function gloDPreviewRow(i){usdFamDPreviewRow(USD_FAM.glo,i);}
 
