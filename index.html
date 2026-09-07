@@ -2208,10 +2208,12 @@ function isAdmin(){
 // flag sólo evita disparar peticiones condenadas a fallar, así que ante la
 // duda conviene intentar: arranca en true y si el RPC no está disponible
 // (por ejemplo, antes de aplicar la migración) se deja que decida RLS.
-let SUPA_PUEDE_SNAPSHOT=true;
+// Arranca en false: sin sesión, RLS rechaza toda escritura, así que intentarlo
+// sólo genera 401 repetidos. Se resuelve al iniciar sesión.
+let SUPA_PUEDE_SNAPSHOT=false;
 
 async function authCargarPermisos(){
-  if(!SUPA_USER){SUPA_PUEDE_SNAPSHOT=true;return;}
+  if(!SUPA_USER){SUPA_PUEDE_SNAPSHOT=false;return;}
   try{
     const{data,error}=await supa.rpc('puede_escribir_snapshots');
     if(error){
@@ -2387,6 +2389,16 @@ localStorage.setItem=function(key,val){
 };
 
 // ── GLOBAL STATE (declared first to avoid TDZ issues with let/const) ──────────
+// USD price fetch: declaradas acá y no junto a usdFetchPriceMap porque
+// equivInit() corre como sentencia top-level en la línea ~7364, mucho antes
+// de que la ejecución llegue a esa sección. Con var la variable existía pero
+// valía undefined, así que las dos primeras llamadas hacían fetch(undefined)
+// —que el navegador resuelve como /bonos-ar/undefined y devuelve 404— y los
+// precios USD no cargaban hasta el refresco de los 5 minutos.
+var usdCurrency='MEP';
+var usdRefreshTimer=null;
+var USD_PRICE_API='https://data912.com/live/arg_bonds';
+
 let fwdMode='tir';
 const FWD_LS='bonosAR_fwd_v1';
 let fwdTFExcluded=new Set();
@@ -10000,9 +10012,9 @@ function equivRender(){
 }
 
 // ── USD PRICE FETCH ──────────────────────────────────────────────────────────
-var usdCurrency='MEP';
-var usdRefreshTimer=null;
-var USD_PRICE_API='https://data912.com/live/arg_bonds';
+// usdCurrency, usdRefreshTimer y USD_PRICE_API están declaradas en el bloque
+// GLOBAL STATE del principio: equivInit() las usa antes de que la ejecución
+// llegue hasta acá.
 
 function usdSetCurrency(cur){
   usdCurrency=cur;
