@@ -32,6 +32,14 @@ function fatal(msg) {
   });
   page.on('pageerror', e => console.error('  [pageerror]', e.message));
 
+  // "Failed to load resource: 404" en la consola no dice qué recurso falló.
+  // Estos dos handlers sí dan la URL, que es lo único accionable.
+  page.on('response', r => {
+    if (r.status() >= 400) console.log(`  [HTTP ${r.status()}] ${r.url().slice(0, 160)}`);
+  });
+  page.on('requestfailed', r =>
+    console.log(`  [request fallida] ${r.url().slice(0, 160)} — ${r.failure()?.errorText || '?'}`));
+
   try {
     console.log('→ Abriendo la app...');
     await page.goto(APP_URL, { waitUntil: 'domcontentloaded' });
