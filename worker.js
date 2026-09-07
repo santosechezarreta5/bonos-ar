@@ -132,7 +132,7 @@ async function takeDailySnapshot(env) {
   // Con clave sólo por ticker se perdía una de las dos filas en silencio.
   const deduped = [...new Map(rows.map(r => [`${r.sector}|${r.ticker}`, r])).values()];
 
-  if (deduped.length) await supaUpsert(env, 'bond_price_snapshots', deduped, 'snapshot_date,ticker');
+  if (deduped.length) await supaUpsert(env, 'bond_price_snapshots', deduped, 'snapshot_date,ticker,sector');
   return deduped.length;
 }
 
