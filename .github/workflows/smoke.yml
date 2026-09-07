@@ -1,13 +1,45 @@
 name: Smoke test
 
+# Corre en TODO push, en cualquier rama.
+#
+# Son dos jobs a propósito. El test verifica una app servida por HTTP, y
+# GitHub Pages publica solamente desde main: apuntar a la URL publicada en un
+# push a dev probaría el código viejo y diría "todo bien" con dev roto. Por eso
+# el job que corre siempre sirve el index.html del propio commit.
 on:
   push:
-    branches: [main]
-    paths: ['index.html']
   workflow_dispatch:
 
 jobs:
-  smoke:
+  # En cada push: prueba el código de ESE commit, servido localmente.
+  # Es el que atrapa los problemas antes de que lleguen a main.
+  commit:
+    name: Codigo del commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: npm install playwright && npx playwright install --with-deps chromium
+
+      # python3 viene preinstalado en el runner: evita bajar un paquete extra.
+      # El puerto 8000 está en ALLOWED_ORIGINS del Worker, así que el proxy
+      # del BCRA (índices CER/TAMAR/DLK) responde igual que en producción.
+      - name: Servir el repo
+        run: python3 -m http.server 8000 --directory . &
+      - name: Esperar al servidor
+        run: for i in $(seq 1 20); do curl -sf http://localhost:8000/ >/dev/null && break || sleep 1; done
+
+      - run: node .github/scripts/smoke.js
+        env:
+          APP_URL: http://localhost:8000/
+
+  # Solo en main: verifica lo que realmente quedó publicado en GitHub Pages.
+  # Cubre lo que el job anterior no puede ver: que el deploy haya salido bien.
+  publicado:
+    name: App publicada
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
