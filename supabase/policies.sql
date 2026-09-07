@@ -13,6 +13,38 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 
 
+-- ── 0. Diagnóstico ─────────────────────────────────────────────────────────
+-- Corta con un mensaje útil si alguna tabla no está donde se espera, en vez
+-- de fallar con un "relation does not exist" a secas.
+-- Causa más frecuente: el SQL Editor abierto en otro proyecto.
+-- La app usa el proyecto hxkxyawsstivjsxmafge.
+
+do $diag$
+declare
+  faltan  text[] := '{}';
+  existen text;
+begin
+  if to_regclass('public.shared_data')          is null then faltan := faltan || 'shared_data';          end if;
+  if to_regclass('public.bond_price_snapshots') is null then faltan := faltan || 'bond_price_snapshots'; end if;
+  if to_regclass('public.user_data')            is null then faltan := faltan || 'user_data';            end if;
+
+  if array_length(faltan, 1) > 0 then
+    select string_agg(table_schema || '.' || table_name, E'\n  ' order by table_schema, table_name)
+      into existen
+    from information_schema.tables
+    where table_type = 'BASE TABLE'
+      and table_schema not in (
+        'pg_catalog','information_schema','auth','storage','realtime','vault',
+        'extensions','graphql','graphql_public','net','pgsodium','pgsodium_masks',
+        'supabase_functions','supabase_migrations','cron'
+      );
+
+    raise exception E'No se encontraron: %\n\nTablas que sí existen en este proyecto:\n  %\n\nSi no reconocés ninguna, el SQL Editor está en otro proyecto:\nla app usa hxkxyawsstivjsxmafge (Settings -> General -> Reference ID).',
+      array_to_string(faltan, ', '), coalesce(existen, '(ninguna)');
+  end if;
+end $diag$;
+
+
 -- ── 1. Tabla de roles ──────────────────────────────────────────────────────
 -- 'admin'    → edita definiciones de bonos (shared_data) y snapshots
 -- 'snapshot' → sólo escribe bond_price_snapshots (cuenta del GitHub Action)
