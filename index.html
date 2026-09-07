@@ -349,6 +349,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
   <button class="nav-tab" id="nav-calendario" onclick="switchTab('calendario')">Calendario</button>
   <button class="nav-tab" id="nav-proyecciones" onclick="switchTab('proyecciones')">Proyecciones</button>
   <button class="nav-tab" id="nav-curvas-ars" onclick="switchTab('curvas-ars')">Curvas</button>
+  <button class="nav-tab" id="nav-alertas" onclick="switchTab('alertas')">Alertas</button>
   <button class="nav-tab" id="nav-feriados" onclick="switchTab('feriados')" style="margin-left:auto">Feriados</button>
 </nav>
 <nav class="nav" id="nav-usd" style="display:none">
@@ -1678,6 +1679,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 
 <!-- ARS CURVAS PAGE -->
 <div id="page-curvas-ars" style="display:none;height:calc(100vh - 64px);flex-direction:column;overflow:hidden;"></div>
+<div id="page-alertas" style="display:none;height:calc(100vh - 64px);overflow-y:auto;"></div>
 
 <!-- USD PAGES -->
 <div id="page-usd-resumen"   class="pg"></div>
@@ -4011,7 +4013,7 @@ const USD_TABS=['usd-resumen','usd-forwards','usd-spreadleg','usd-bonares','usd-
 function hideAllPages(){
   const ids=['lecap-workspace','chart-area','page-cer','page-feriados',
     'page-proyecciones','page-breakeven','page-tamar','page-forwards',
-    'page-dlk','page-sintetico','page-calendario','page-curvas-ars'];
+    'page-dlk','page-sintetico','page-calendario','page-curvas-ars','page-alertas'];
   ids.forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
   USD_TABS.forEach(t=>{const p=document.getElementById('page-'+t);if(p)p.style.display='none';});
 }
@@ -4113,6 +4115,9 @@ function switchTab(tab){
   } else if(tab==='curvas-ars'){
     document.getElementById('page-curvas-ars').style.display='flex';
     curvasArsInit();
+  } else if(tab==='alertas'){
+    document.getElementById('page-alertas').style.display='block';
+    alertasInit();
   }
 }
 
@@ -12539,6 +12544,190 @@ function _curvasArsDraw(){
   const textColor=getComputedStyle(document.body).getPropertyValue('--text').trim()||'#e0e0e0';
   const gridColor=getComputedStyle(document.body).getPropertyValue('--border').trim()||'#2a302a';
   curvasArsChart=new Chart(canvas,{type:'scatter',data:{datasets},options:{responsive:true,maintainAspectRatio:false,animation:{duration:200},plugins:{legend:{display:true,labels:{color:textColor,font:{size:10},filter:i=>!i.text.startsWith('_'),boxWidth:12,padding:12}},datalabels:{display:false},tooltip:{filter:i=>!i.dataset.label.startsWith('_'),callbacks:{label:i=>`${i.dataset.label} — ${i.parsed.x}d, ${i.parsed.y.toFixed(2)}%`}}},scales:{x:{type:'linear',title:{display:true,text:'Días al vencimiento',color:textColor,font:{size:10}},grid:{color:gridColor},ticks:{color:textColor,font:{size:10}}},y:{title:{display:true,text:yLabel,color:textColor,font:{size:10}},grid:{color:gridColor},ticks:{color:textColor,font:{size:10},callback:v=>v.toFixed(1)+'%'}}}}});
+}
+
+// ══════════════════════════════════════════════════════════════ ALERTAS
+// Lee la serie histórica que el snapshot viene acumulando y responde dos
+// preguntas que hoy había que sacar mirando los gráficos a ojo:
+//   · qué se movió fuerte contra la rueda anterior
+//   · qué está fuera de la curva de su sector (rich / cheap)
+//
+// Todo se calcula acá con datos ya guardados: no agrega ninguna dependencia
+// ni pide credenciales nuevas.
+
+const ALERTAS_SECTORES=[
+  {id:'TF',    nom:'Tasa Fija', col:'#fbbf24', eje:'dias', metrica:'TNA'},
+  {id:'CER',   nom:'CER',       col:'#4ade80', eje:'dias', metrica:'TIR real'},
+  {id:'TAMAR', nom:'TAMAR',     col:'#38bdf8', eje:'dias', metrica:'Margen TNA'},
+  {id:'DLK',   nom:'Dollar Linked', col:'#a855f7', eje:'dias', metrica:'TNA'},
+  {id:'BOP',   nom:'Bopreales', col:'#74c4a0', eje:'md',   metrica:'TIR'},
+  {id:'BON',   nom:'Bonares',   col:'#d4a843', eje:'md',   metrica:'TIR'},
+  {id:'GLO',   nom:'Globales',  col:'#6baed6', eje:'md',   metrica:'TIR'},
+];
+
+let alertasUmbralBps=20;
+
+function alertasInit(){
+  const pg=document.getElementById('page-alertas');
+  if(!pg)return;
+  if(pg.dataset.listo)return;
+  pg.dataset.listo='1';
+  pg.innerHTML=`
+  <div style="padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:var(--surface)">
+    <span style="font-family:var(--serif);font-size:16px;font-weight:300;font-style:italic;color:var(--accent)">Alertas</span>
+    <div style="display:flex;align-items:center;gap:6px">
+      <span style="font-size:10px;color:var(--text3);font-family:var(--mono)">Umbral</span>
+      <input id="alertas-umbral" type="number" min="1" step="5" value="${alertasUmbralBps}"
+        onchange="alertasUmbralBps=Math.max(1,+this.value||20);alertasCargar()"
+        style="width:60px;font-family:var(--mono);font-size:11px;background:var(--surface2);border:1px solid var(--border2);border-radius:3px;padding:2px 5px;color:var(--text);text-align:right">
+      <span style="font-size:10px;color:var(--text3);font-family:var(--mono)">bps</span>
+    </div>
+    <button class="btn" style="padding:3px 10px;font-size:10px" onclick="alertasCargar()">Actualizar</button>
+    <span id="alertas-msg" style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-left:auto"></span>
+  </div>
+  <div id="alertas-body" style="padding:16px 18px"></div>`;
+  alertasCargar();
+}
+
+// Últimas dos fechas con datos. No se asume "hoy y ayer": puede haber
+// feriados, y el snapshot sólo corre en días de rueda.
+async function alertasUltimasFechas(){
+  const{data,error}=await supa
+    .from('bond_price_snapshots')
+    .select('snapshot_date')
+    .order('snapshot_date',{ascending:false})
+    .limit(400);
+  if(error||!data||!data.length)return[];
+  return[...new Set(data.map(r=>r.snapshot_date))].slice(0,2);
+}
+
+async function alertasCargar(){
+  const msg=document.getElementById('alertas-msg');
+  const body=document.getElementById('alertas-body');
+  if(!body)return;
+  if(msg)msg.textContent='Cargando...';
+  body.innerHTML='';
+  try{
+    const fechas=await alertasUltimasFechas();
+    if(fechas.length<2){
+      if(msg)msg.textContent='';
+      body.innerHTML=`<div style="font-family:var(--mono);font-size:12px;color:var(--text3);padding:20px 0">
+        Hacen falta al menos dos ruedas guardadas para comparar. Hay ${fechas.length}.</div>`;
+      return;
+    }
+    const[hoyF,prevF]=fechas;
+    const[hoyD,prevD]=await Promise.all([
+      supa.from('bond_price_snapshots').select('ticker,sector,tir,md,dias,price').eq('snapshot_date',hoyF),
+      supa.from('bond_price_snapshots').select('ticker,sector,tir,md,dias,price').eq('snapshot_date',prevF),
+    ]);
+    if(hoyD.error||prevD.error)throw(hoyD.error||prevD.error);
+
+    const prevMap=new Map((prevD.data||[]).map(r=>[r.sector+'|'+r.ticker,r]));
+    const hoy=(hoyD.data||[]).filter(r=>r.tir!=null);
+
+    if(msg)msg.textContent=`${curvasFmtDate(prevF)} → ${curvasFmtDate(hoyF)} · ${hoy.length} bonos`;
+
+    body.innerHTML=
+      alertasBloqueMovimientos(hoy,prevMap,hoyF,prevF)+
+      alertasBloqueCurva(hoy,hoyF);
+  }catch(e){
+    if(msg)msg.textContent='';
+    body.innerHTML=`<div style="font-family:var(--mono);font-size:12px;color:var(--danger);padding:20px 0">
+      No se pudo cargar: ${(e&&e.message)||e}</div>`;
+  }
+}
+
+// ── Movimientos contra la rueda anterior ──────────────────────────────────
+function alertasBloqueMovimientos(hoy,prevMap,hoyF,prevF){
+  const movs=[];
+  for(const r of hoy){
+    const p=prevMap.get(r.sector+'|'+r.ticker);
+    if(!p||p.tir==null)continue;
+    const bps=(r.tir-p.tir)*100;                      // 1 punto de TIR = 100 bps
+    const pxPct=(p.price&&r.price)?((r.price/p.price-1)*100):null;
+    movs.push({...r,bps,tirPrev:p.tir,pxPct});
+  }
+  const fuertes=movs.filter(m=>Math.abs(m.bps)>=alertasUmbralBps)
+                    .sort((a,b)=>Math.abs(b.bps)-Math.abs(a.bps));
+  const sec=id=>ALERTAS_SECTORES.find(s=>s.id===id)||{nom:id,col:'var(--text3)'};
+
+  if(!fuertes.length)
+    return alertasCaja('Movimientos de tasa',
+      `Ningún bono se movió más de ${alertasUmbralBps} bps entre ${curvasFmtDate(prevF)} y ${curvasFmtDate(hoyF)}.`,
+      '');
+
+  const filas=fuertes.map(m=>{
+    const s=sec(m.sector);
+    const signo=m.bps>=0?'+':'';
+    const col=m.bps>=0?'var(--danger)':'var(--accent2)';   // sube tasa = cae precio
+    return `<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:6px 10px;font-family:var(--mono);font-size:11px;color:var(--accent);font-weight:600">${m.ticker}</td>
+      <td style="padding:6px 10px;font-size:10px;color:${s.col};font-family:var(--mono)">${s.nom}</td>
+      <td style="padding:6px 10px;text-align:right;font-family:var(--mono);font-size:11px;color:var(--text3);font-variant-numeric:tabular-nums">${m.tirPrev.toFixed(2)}%</td>
+      <td style="padding:6px 10px;text-align:right;font-family:var(--mono);font-size:11px;color:var(--text);font-variant-numeric:tabular-nums">${m.tir.toFixed(2)}%</td>
+      <td style="padding:6px 10px;text-align:right;font-family:var(--mono);font-size:11px;font-weight:600;color:${col};font-variant-numeric:tabular-nums">${signo}${m.bps.toFixed(0)} bps</td>
+      <td style="padding:6px 10px;text-align:right;font-family:var(--mono);font-size:11px;color:var(--text3);font-variant-numeric:tabular-nums">${m.pxPct!=null?(m.pxPct>=0?'+':'')+m.pxPct.toFixed(2)+'%':'—'}</td>
+    </tr>`;
+  }).join('');
+
+  const th='padding:5px 10px;font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:500;border-bottom:1px solid var(--border2)';
+  return alertasCaja(`Movimientos de tasa · ${fuertes.length} sobre ${alertasUmbralBps} bps`,
+    `Comparado con ${curvasFmtDate(prevF)}. Una suba de tasa implica caída de precio.`,
+    `<table style="width:100%;border-collapse:collapse">
+      <thead><tr>
+        <th style="${th};text-align:left">Ticker</th>
+        <th style="${th};text-align:left">Sector</th>
+        <th style="${th};text-align:right">Anterior</th>
+        <th style="${th};text-align:right">Actual</th>
+        <th style="${th};text-align:right">Δ</th>
+        <th style="${th};text-align:right">Precio</th>
+      </tr></thead><tbody>${filas}</tbody></table>`);
+}
+
+// ── Desvíos respecto de la curva del sector ───────────────────────────────
+// Se ajusta la misma regresión logarítmica que dibuja la pestaña Curvas y se
+// mide, para cada bono, cuánto se aparta del valor ajustado.
+//   residuo > 0  → rinde por encima de su curva  (barato)
+//   residuo < 0  → rinde por debajo               (caro)
+function alertasBloqueCurva(hoy,hoyF){
+  const bloques=[];
+  for(const s of ALERTAS_SECTORES){
+    const pts=hoy.filter(r=>r.sector===s.id)
+      .map(r=>({x:s.eje==='md'?r.md:r.dias,y:r.tir,ticker:r.ticker}))
+      .filter(p=>p.x!=null&&p.x>0&&p.y!=null&&!isNaN(p.y));
+    if(pts.length<4)continue;                 // con menos puntos el ajuste no dice nada
+    const reg=curvasLogReg(pts);
+    if(!reg)continue;
+    const conRes=pts.map(p=>({...p,res:(p.y-(reg.a+reg.b*Math.log(Math.max(p.x,0.01))))*100}));
+    const sd=Math.sqrt(conRes.reduce((acc,p)=>acc+p.res*p.res,0)/conRes.length);
+    if(!(sd>0))continue;
+    // Sólo lo que se aparta más de un desvío estándar
+    const fuera=conRes.filter(p=>Math.abs(p.res)>=sd).sort((a,b)=>b.res-a.res);
+    if(!fuera.length)continue;
+    const chips=fuera.map(p=>{
+      const barato=p.res>0;
+      const col=barato?'var(--accent2)':'var(--warn)';
+      return `<span title="${barato?'Rinde por encima de su curva':'Rinde por debajo de su curva'}: ${p.res>=0?'+':''}${p.res.toFixed(0)} bps"
+        style="display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:2px;border:1px solid ${col};color:${col};background:${col}18">
+        ${p.ticker} <b>${p.res>=0?'+':''}${p.res.toFixed(0)}</b></span>`;
+    }).join(' ');
+    bloques.push(`<div style="margin-bottom:10px">
+      <div style="font-family:var(--mono);font-size:10px;color:${s.col};margin-bottom:5px;text-transform:uppercase;letter-spacing:.06em">
+        ${s.nom} <span style="color:var(--text3)">· ${pts.length} bonos · desvío típico ${sd.toFixed(0)} bps</span></div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px">${chips}</div></div>`);
+  }
+  if(!bloques.length)
+    return alertasCaja('Desvíos de la curva','Ningún sector tiene bonos apartados más de un desvío estándar.','');
+  return alertasCaja('Desvíos de la curva',
+    `Ajuste logarítmico por sector al ${curvasFmtDate(hoyF)}. Verde: rinde por encima de su curva. Ámbar: por debajo.`,
+    bloques.join(''));
+}
+
+function alertasCaja(titulo,sub,contenido){
+  return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:14px 16px;margin-bottom:16px">
+    <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:3px">${titulo}</div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:${contenido?'12px':'0'}">${sub}</div>
+    ${contenido}</div>`;
 }
 
 // ══════════════════════════════════════════════════════════════ CURVAS USD
