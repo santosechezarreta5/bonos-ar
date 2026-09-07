@@ -303,6 +303,13 @@ tbody tr.selected .c-ticker{color:var(--accent);}
   .left-pane.narrowed{flex:none;}
   .metrics{grid-template-columns:repeat(2,minmax(0,1fr));}
 }
+
+/* Patrones estructurales repetidos, antes duplicados inline.
+   Solo estructura: los de color se dejaron inline a proposito, porque
+   una clase puede perder contra otra regla mas especifica y el inline no. */
+.pg{display:none;height:calc(100vh - 200px);overflow:hidden;}
+.bb{border-bottom:1px solid var(--border);}
+.bb2{border-bottom:1px solid var(--border2);}
 </style>
 </head>
 <body>
@@ -774,7 +781,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
         <div style="overflow-x:auto;">
           <table style="width:100%;border-collapse:collapse;font-size:11px;" id="cer-ff-table">
             <thead>
-              <tr style="border-bottom:1px solid var(--border2)">
+              <tr class="bb2">
                 <th style="text-align:left;padding:4px 6px;color:var(--text3);font-weight:400">Fecha</th>
                 <th style="text-align:right;padding:4px 6px;color:var(--text3);font-weight:400">CF Real</th>
                 <th style="text-align:right;padding:4px 6px;color:var(--warn);font-weight:400">CF Nominal</th>
@@ -892,7 +899,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
         <div id="tamar-index-table-wrap" style="display:none;max-height:180px;overflow-y:auto;">
           <table style="width:100%;border-collapse:collapse;font-size:12px;">
             <thead style="position:sticky;top:0;background:var(--surface2);z-index:1;">
-              <tr style="border-bottom:1px solid var(--border2)">
+              <tr class="bb2">
                 <th style="text-align:left;padding:5px 8px;font-size:10px;color:var(--text3);font-weight:400;text-transform:uppercase;letter-spacing:.06em">Fecha</th>
                 <th style="text-align:right;padding:5px 8px;font-size:10px;color:var(--text3);font-weight:400;text-transform:uppercase;letter-spacing:.06em">TNA %</th>
                 <th style="text-align:right;padding:5px 8px;font-size:10px;color:var(--accent2);font-weight:400;text-transform:uppercase;letter-spacing:.06em">TEM %</th>
@@ -1010,7 +1017,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
     <div id="dlk-index-table-wrap" style="display:none;max-height:200px;overflow-y:auto;">
       <table style="width:100%;border-collapse:collapse;font-size:12px;">
         <thead style="position:sticky;top:0;background:var(--surface2);z-index:1;">
-          <tr style="border-bottom:1px solid var(--border2)">
+          <tr class="bb2">
             <th style="text-align:left;padding:4px 8px;font-size:10px;color:var(--text3);font-weight:400;text-transform:uppercase;letter-spacing:.06em">Fecha</th>
             <th style="text-align:right;padding:4px 8px;font-size:10px;color:var(--accent);font-weight:400;text-transform:uppercase;letter-spacing:.06em">$ / USD</th>
             <th style="text-align:right;padding:4px 8px;font-size:10px;color:var(--text3);font-weight:400;text-transform:uppercase;letter-spacing:.06em">Var. diaria</th>
@@ -1294,7 +1301,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
         </div>
         <table class="be-table">
           <thead>
-            <tr style="border-bottom:1px solid var(--border2)">
+            <tr class="bb2">
               <th style="padding:1px 4px;font-size:9px;font-family:var(--mono);color:var(--text3);font-weight:400;text-transform:uppercase;text-align:left">CER</th>
               <th style="padding:1px 4px;font-size:9px;font-family:var(--mono);color:var(--text3);font-weight:400;text-transform:uppercase;text-align:right">BE</th>
               <th></th>
@@ -1318,7 +1325,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
         </div>
         <table class="be-table">
           <thead>
-            <tr style="border-bottom:1px solid var(--border2)">
+            <tr class="bb2">
               <th style="padding:1px 4px;font-size:9px;font-family:var(--mono);color:var(--text3);font-weight:400;text-transform:uppercase">Bono</th>
               <th style="padding:1px 4px;font-size:9px;font-family:var(--mono);color:var(--text3);font-weight:400;text-transform:uppercase;text-align:right">Fixing</th>
               <th style="padding:1px 4px;font-size:9px;font-family:var(--mono);color:var(--warn);font-weight:400;text-transform:uppercase;text-align:right">TNA%</th>
@@ -1353,7 +1360,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
       </div>
       <table style="border-collapse:collapse;white-space:nowrap;">
         <thead>
-          <tr style="border-bottom:1px solid var(--border2)">
+          <tr class="bb2">
             <th style="text-align:left;padding:4px 6px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Bono</th>
             <th style="text-align:center;padding:4px 6px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Vto</th>
             <th style="text-align:right;padding:4px 6px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:400">Px</th>
@@ -1548,7 +1555,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
       </div>
       <table style="width:100%;border-collapse:collapse;" id="proj-table">
         <thead>
-          <tr style="border-bottom:1px solid var(--border2)">
+          <tr class="bb2">
             <th style="text-align:left;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Mes</th>
             <th style="text-align:left;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Publicación</th>
             <th style="text-align:right;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Infl. %</th>
@@ -1588,7 +1595,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
     <!-- tabla -->
     <table style="width:100%;border-collapse:collapse;" id="fer-table">
       <thead>
-        <tr style="border-bottom:1px solid var(--border2)">
+        <tr class="bb2">
           <th style="text-align:left;padding:6px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Fecha</th>
           <th style="text-align:left;padding:6px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Día</th>
           <th style="text-align:left;padding:6px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Descripción</th>
@@ -1673,7 +1680,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 <div id="page-curvas-ars" style="display:none;height:calc(100vh - 64px);flex-direction:column;overflow:hidden;"></div>
 
 <!-- USD PAGES -->
-<div id="page-usd-resumen"   style="display:none;height:calc(100vh - 200px);overflow:hidden;"></div>
+<div id="page-usd-resumen"   class="pg"></div>
 <div id="page-usd-forwards" style="display:none;height:calc(100vh - 200px);overflow-y:auto;padding:1.5rem 2rem;">
 
   <!-- CONTROLES -->
@@ -1708,7 +1715,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
   </div>
 
 </div>
-<div id="page-usd-spreadleg" style="display:none;height:calc(100vh - 200px);overflow:hidden;">
+<div id="page-usd-spreadleg" class="pg">
   <div style="display:flex;flex-direction:column;height:100%">
     <div style="display:flex;align-items:center;gap:8px;padding:0 1rem;height:40px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface)">
       <span style="font-family:var(--serif);font-size:13px;font-weight:300;font-style:italic;color:var(--accent);flex-shrink:0">Spread Legislación</span>
@@ -1735,7 +1742,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
     </div>
   </div>
 </div>
-<div id="page-usd-bonares" style="display:none;height:calc(100vh - 200px);overflow:hidden;">
+<div id="page-usd-bonares" class="pg">
   <div style="display:flex;flex-direction:column;height:100%">
     <div style="display:flex;align-items:center;gap:8px;padding:0 1rem;height:40px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface)">
       <span style="font-family:var(--serif);font-size:13px;font-weight:300;font-style:italic;color:var(--accent);flex-shrink:0">Bonares</span>
@@ -1768,7 +1775,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
     </div>
   </div>
 </div>
-<div id="page-usd-globales" style="display:none;height:calc(100vh - 200px);overflow:hidden;">
+<div id="page-usd-globales" class="pg">
   <div style="display:flex;flex-direction:column;height:100%">
     <div style="display:flex;align-items:center;gap:8px;padding:0 1rem;height:40px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface)">
       <span style="font-family:var(--serif);font-size:13px;font-weight:300;font-style:italic;color:var(--accent);flex-shrink:0">Globales</span>
@@ -1801,7 +1808,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
     </div>
   </div>
 </div>
-<div id="page-usd-bopreales" style="display:none;height:calc(100vh - 200px);overflow:hidden;">
+<div id="page-usd-bopreales" class="pg">
   <div style="display:flex;flex-direction:column;height:100%">
     <!-- top bar -->
     <div style="display:flex;align-items:center;gap:8px;padding:0 1rem;height:40px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface)">
@@ -1873,7 +1880,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 </div>
 
 <!-- EQUIVALENCIAS PAGE -->
-<div id="page-usd-equiv" style="display:none;height:calc(100vh - 200px);overflow:hidden;">
+<div id="page-usd-equiv" class="pg">
   <div style="display:flex;flex-direction:column;height:100%">
     <div style="display:flex;align-items:center;height:40px;padding:0 1rem;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface);gap:8px">
       <span style="font-family:var(--serif);font-size:13px;font-weight:300;font-style:italic;color:var(--accent)">Equivalencias de Tickers</span>
@@ -1937,7 +1944,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
       <div style="max-height:160px;overflow-y:auto;border:1px solid var(--border2);border-radius:3px;">
         <table style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:11px;font-family:var(--mono)">
           <colgroup><col style="width:39%"><col style="width:39%"><col style="width:16%"><col style="width:24px"></colgroup>
-          <thead style="position:sticky;top:0;background:var(--surface2);z-index:1"><tr style="border-bottom:1px solid var(--border2)">
+          <thead style="position:sticky;top:0;background:var(--surface2);z-index:1"><tr class="bb2">
             <th style="padding:3px 6px;text-align:left;font-weight:400;color:var(--text3);font-size:10px">Desde</th>
             <th style="padding:3px 6px;text-align:left;font-weight:400;color:var(--text3);font-size:10px">Hasta</th>
             <th style="padding:3px 6px;text-align:right;font-weight:400;color:var(--text3);font-size:10px">Tasa%</th>
@@ -1968,7 +1975,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
         <div style="max-height:220px;overflow-y:auto;border:1px solid var(--border2);border-radius:3px;margin-bottom:.4rem">
           <table style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:11px;font-family:var(--mono)">
             <colgroup><col style="width:62%"><col style="width:30%"><col style="width:24px"></colgroup>
-            <thead style="position:sticky;top:0;background:var(--surface2);z-index:1"><tr style="border-bottom:1px solid var(--border2)">
+            <thead style="position:sticky;top:0;background:var(--surface2);z-index:1"><tr class="bb2">
               <th style="padding:3px 6px;text-align:left;font-weight:400;color:var(--text3);font-size:10px">Fecha pago</th>
               <th style="padding:3px 6px;text-align:right;font-weight:400;color:var(--text3);font-size:10px">% del VN</th>
               <th></th>
@@ -4924,7 +4931,7 @@ function cerRecalcPanel(){
       const isNeg=f.monto<0;
       const color=isNeg?'color:var(--danger)':'color:var(--accent)';
       const colorP=isNeg?'color:var(--danger)':'color:var(--warn)';
-      return`<tr style="border-bottom:1px solid var(--border)">
+      return`<tr class="bb">
         <td style="padding:4px 6px;color:var(--text2);font-family:var(--mono)">${fs.split('-').reverse().join('/')}</td>
         <td style="padding:4px 6px;text-align:right;font-family:var(--mono);${color}">${f.monto>=0?'+':''}${f.monto.toFixed(6)}</td>
         <td style="padding:4px 6px;text-align:right;font-family:var(--mono);${colorP}">${proy!=null?(proy>=0?'+':'')+proy.toFixed(6):'—'}</td>
@@ -5672,7 +5679,7 @@ function ferRender(){
     const delBtn=esExtra
       ?`<button onclick="ferEliminar('${f.fecha}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:2px 6px" title="Eliminar">✕</button>`
       :'';
-    return`<tr style="border-bottom:1px solid var(--border)">
+    return`<tr class="bb">
       <td style="padding:7px 8px;font-size:12px;color:var(--accent);font-family:var(--mono)">${fechaDisp}</td>
       <td style="padding:7px 8px;font-size:11px;color:var(--text3);text-transform:capitalize">${diaSem}</td>
       <td style="padding:7px 8px;font-size:12px;color:var(--text2)">${f.desc||'—'}</td>
@@ -6069,7 +6076,7 @@ function projRenderTabla(){
       ?`<tr><td colspan="6" style="padding:3px 8px 2px;background:var(--surface2);border-top:2px solid var(--border2);border-bottom:1px solid var(--border2)"><span style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);font-weight:600">${y}</span></td></tr>`
       :'';
 
-    return yearSep+`<tr style="border-bottom:1px solid var(--border)">
+    return yearSep+`<tr class="bb">
       <td style="padding:5px 8px;font-size:12px;color:${esPublicado?'var(--text2)':'var(--text)'}">${mesLabel} ${tipoBadge}</td>
       <td style="padding:5px 8px;font-size:11px;color:var(--text3);font-family:var(--mono)">${pubDisp}</td>
       <td style="padding:5px 8px;text-align:right;">
@@ -7184,7 +7191,7 @@ function beRenderTabla(resultados){
     const hm=res.hastaMes;
     const hmLabel=`${MESES_ES_BE[hm.mes]}-${String(hm.año).slice(2)}`;
     const promStr=res.promInfla!=null?fmtP2(res.promInfla):'—';
-    return`<tr style="border-bottom:1px solid var(--border)">
+    return`<tr class="bb">
       <td style="padding:1px 4px;font-family:var(--mono);white-space:nowrap;vertical-align:middle">
         <div style="font-size:10px;color:var(--accent2);font-weight:600">${ticker}</div>
         <div style="font-size:9px;color:var(--text3)">${hmLabel} · ${promStr}</div>
@@ -7392,7 +7399,7 @@ function beTamarRecalc(){
   tbody.innerHTML=bondsOrdenados.map(bond=>{
     const res=beTamarCalcular(bond.ticker);
     if(!res||res.error){
-      return`<tr style="border-bottom:1px solid var(--border)">
+      return`<tr class="bb">
         <td colspan="2" style="padding:1px 4px;font-family:var(--mono);font-size:10px;color:var(--accent)">${bond.ticker}</td>
         <td colspan="2" style="padding:1px 4px;text-align:right;color:var(--danger);font-size:9px">${res?.error||'—'}</td>
       </tr>`;
@@ -7402,7 +7409,7 @@ function beTamarRecalc(){
     const realCell=res.tamar_real!=null
       ?`<td style="padding:1px 4px;text-align:right;font-family:var(--mono);font-size:10px;color:${res.tamar_real>=0?'var(--accent2)':'var(--danger)'};font-weight:600;white-space:nowrap">${fmtP2(res.tamar_real)}</td>`
       :`<td style="padding:1px 4px;text-align:right;color:var(--text3);font-size:10px">—</td>`;
-    return`<tr style="border-bottom:1px solid var(--border)">
+    return`<tr class="bb">
       <td style="padding:1px 4px;font-family:var(--mono);font-size:10px;color:var(--accent);font-weight:600;white-space:nowrap">${bond.ticker}</td>
       <td style="padding:1px 4px;font-family:var(--mono);font-size:10px;color:var(--text2);text-align:right;white-space:nowrap">${fixDisp}</td>
       <td style="padding:1px 4px;text-align:right;font-family:var(--mono);font-size:10px;color:var(--warn);font-weight:600;white-space:nowrap">${fmtP2(res.tamar_be_tna)}</td>
@@ -9034,7 +9041,7 @@ function dlkRenderFFTable(ff){
   const f4=v=>v==null||isNaN(v)?'—':v.toFixed(4);
   const f2=v=>v==null||isNaN(v)?'—':v.toFixed(2);
   el.innerHTML=`<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:11px;">
-    <thead><tr style="border-bottom:1px solid var(--border2)">
+    <thead><tr class="bb2">
       <th style="text-align:left;padding:3px 6px;color:var(--text3);font-weight:400">Fecha</th>
       <th style="text-align:right;padding:3px 6px;color:var(--text3);font-weight:400">Días</th>
       <th style="text-align:right;padding:3px 6px;color:var(--text3);font-weight:400">Amort</th>
@@ -9042,7 +9049,7 @@ function dlkRenderFFTable(ff){
       <th style="text-align:right;padding:3px 6px;color:var(--accent);font-weight:400">CF Total</th>
     </tr></thead>
     <tbody>
-      ${ff.map(ev=>`<tr style="border-bottom:1px solid var(--border)">
+      ${ff.map(ev=>`<tr class="bb">
         <td style="padding:3px 6px;color:var(--text2);font-family:var(--mono)">${ev.fecha.split('-').reverse().join('/')}</td>
         <td style="padding:3px 6px;text-align:right;color:var(--text3)">${ev.dias}</td>
         <td style="padding:3px 6px;text-align:right;color:var(--warn)">${ev.amort>0?f2(ev.amort):'—'}</td>
@@ -10531,7 +10538,7 @@ function equivRender(){
   if(!tbody)return;
   var html='';
   for(var i=0;i<EQUIV_DATA.length;i++){
-    html+='<tr style="border-bottom:1px solid var(--border)">'
+    html+='<tr class="bb">'
       +'<td style="padding:5px 12px"><input class="equiv-inp" id="eqt'+i+'" onchange="equivUpdate('+i+',\'ticker\',this.value)"></td>'
       +'<td style="padding:5px 12px"><input class="equiv-inp" id="eqa'+i+'" onchange="equivUpdate('+i+',\'ars\',this.value)"></td>'
       +'<td style="padding:5px 12px"><input class="equiv-inp" id="eqm'+i+'" onchange="equivUpdate('+i+',\'mep\',this.value)"></td>'
@@ -11155,7 +11162,7 @@ function bopRenderStepRows(){
   const tbody=document.getElementById('bop-stepup-rows');
   if(!tbody)return;
   const inp='font-family:var(--mono);font-size:11px;background:var(--surface);border:1px solid var(--border2);border-radius:3px;padding:2px 5px;color:var(--text);width:100%;box-sizing:border-box';
-  tbody.innerHTML=bopStepRows.map((r,i)=>`<tr style="border-bottom:1px solid var(--border)">
+  tbody.innerHTML=bopStepRows.map((r,i)=>`<tr class="bb">
     <td style="padding:3px 5px"><input type="date" value="${r.desde||''}" oninput="bopStepRows[${i}].desde=this.value" style="${inp}"></td>
     <td style="padding:3px 5px"><input type="date" value="${r.hasta||''}" oninput="bopStepRows[${i}].hasta=this.value" style="${inp}"></td>
     <td style="padding:3px 5px"><input type="number" step="0.01" value="${r.tasa||''}" oninput="bopStepRows[${i}].tasa=parseFloat(this.value)||0" style="${inp};text-align:right"></td>
@@ -11183,7 +11190,7 @@ function bopRenderAmortRows(){
   const tbody=document.getElementById('bop-amort-rows');
   if(!tbody)return;
   const inp='font-family:var(--mono);font-size:11px;background:var(--surface);border:1px solid var(--border2);border-radius:3px;padding:2px 5px;color:var(--text);width:100%;box-sizing:border-box';
-  tbody.innerHTML=bopAmortRows.map((r,i)=>`<tr style="border-bottom:1px solid var(--border)">
+  tbody.innerHTML=bopAmortRows.map((r,i)=>`<tr class="bb">
     <td style="padding:3px 5px"><input type="date" value="${r.fecha||''}" oninput="bopAmortRows[${i}].fecha=this.value" style="${inp}"></td>
     <td style="padding:3px 5px"><input type="number" step="0.0001" value="${r.pct!==undefined?r.pct:''}" oninput="bopAmortRows[${i}].pct=parseFloat(this.value)||0;bopUpdateAmortTotal()" style="${inp};text-align:right"></td>
     <td style="padding:3px 4px;text-align:center"><button onclick="bopRemoveAmortRow(${i})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;line-height:1">✕</button></td>
@@ -11296,7 +11303,7 @@ function spreadLegRender(){
     const col=v>=0?'var(--accent2)':'var(--danger)';
     return`<span style="color:${col}">${v>=0?'+':''}${v.toFixed(2)}%</span>`;
   };
-  tbody.innerHTML=rows.map(r=>`<tr style="border-bottom:1px solid var(--border)">
+  tbody.innerHTML=rows.map(r=>`<tr class="bb">
     <td style="padding:9px 14px;color:var(--text);font-weight:600;font-variant-numeric:tabular-nums">${r.label}</td>
     <td style="padding:9px 12px;text-align:right;font-variant-numeric:tabular-nums">${fmt(r.bid)}</td>
     <td style="padding:9px 12px;text-align:right;font-variant-numeric:tabular-nums">${fmt(r.offer)}</td>
