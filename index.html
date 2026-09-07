@@ -2433,6 +2433,138 @@ var USD_PRICE_API='https://data912.com/live/arg_bonds';
 // Al ser const, declararla más abajo daría ReferenceError por TDZ.
 const REFRESCO_MS=5*60*1000;
 
+// ── FAMILIAS DE BONOS USD ─────────────────────────────────────────────────────
+// Bopreales, Bonares y Globales tenían tres copias de cada función, idénticas
+// salvo el prefijo. Este descriptor concentra lo único que las diferencia:
+// estado, funciones propias y prefijo de los ids del DOM. Las implementaciones
+// compartidas lo reciben como parámetro.
+//
+// Los accesores son la pieza clave: BOP_BONDS y bopSelTicker se reasignan
+// (BOP_BONDS = BOP_BONDS.filter(...)), así que pasar el valor no alcanza —
+// hay que leer y escribir la variable real de cada familia.
+//
+// Va acá arriba porque usdRefreshPrices() puede llamar a gloRenderSummaryRows()
+// desde equivInit(), mucho antes de la sección USD. No hay problema de TDZ con
+// las variables que menciona: el cuerpo de un getter sólo corre al accederlo,
+// no al definirlo.
+const USD_FAM={
+  bop:{
+    id:'bop', selectFn:'bopSelect',
+    get bonds(){return BOP_BONDS;},        set bonds(v){BOP_BONDS=v;},
+    get sel(){return bopSelTicker;},       set sel(v){bopSelTicker=v;},
+    get sortCol(){return bopSortCol;},     set sortCol(v){bopSortCol=v;},
+    get sortAsc(){return bopSortAsc;},     set sortAsc(v){bopSortAsc=v;},
+    get editMode(){return bopDetailEditMode;}, set editMode(v){bopDetailEditMode=v;},
+    save:()=>bopSave(),
+    chartRender:()=>bopChartRender(),
+    renderSummary:()=>bopRenderSummary(),
+    renderRows:()=>bopRenderSummaryRows(),
+    dRenderFlows:(l,t)=>bopDRenderFlows(l,t),
+    dSaveEdits:()=>bopDSaveEdits(),
+  },
+  bon:{
+    id:'bon', selectFn:'bonSelect',
+    get bonds(){return BON_BONDS;},        set bonds(v){BON_BONDS=v;},
+    get sel(){return bonSelTicker;},       set sel(v){bonSelTicker=v;},
+    get sortCol(){return bonSortCol;},     set sortCol(v){bonSortCol=v;},
+    get sortAsc(){return bonSortAsc;},     set sortAsc(v){bonSortAsc=v;},
+    get editMode(){return bonDetailEditMode;}, set editMode(v){bonDetailEditMode=v;},
+    save:()=>bonSave(),
+    chartRender:()=>bonChartRender(),
+    renderSummary:()=>bonRenderSummary(),
+    renderRows:()=>bonRenderSummaryRows(),
+    dRenderFlows:(l,t)=>bonDRenderFlows(l,t),
+    dSaveEdits:()=>bonDSaveEdits(),
+  },
+  glo:{
+    id:'glo', selectFn:'gloSelect',
+    get bonds(){return GLO_BONDS;},        set bonds(v){GLO_BONDS=v;},
+    get sel(){return gloSelTicker;},       set sel(v){gloSelTicker=v;},
+    get sortCol(){return gloSortCol;},     set sortCol(v){gloSortCol=v;},
+    get sortAsc(){return gloSortAsc;},     set sortAsc(v){gloSortAsc=v;},
+    get editMode(){return gloDetailEditMode;}, set editMode(v){gloDetailEditMode=v;},
+    save:()=>gloSave(),
+    chartRender:()=>gloChartRender(),
+    renderSummary:()=>gloRenderSummary(),
+    renderRows:()=>gloRenderSummaryRows(),
+    dRenderFlows:(l,t)=>gloDRenderFlows(l,t),
+    dSaveEdits:()=>gloDSaveEdits(),
+  },
+};
+
+// ── IMPLEMENTACIONES COMPARTIDAS ──────────────────────────────────────────────
+// Un solo cuerpo por función. Los nombres bopX/bonX/gloX siguen existiendo como
+// envoltorios de una línea, así que ningún onclick del HTML ni ninguna llamada
+// existente cambia.
+
+function usdFamSortBy(f,col){
+  if(f.sortCol===col)f.sortAsc=!f.sortAsc;
+  else{f.sortCol=col;f.sortAsc=col!=='ticker';}
+  f.renderRows();
+}
+
+function usdFamRenderSummaryRows(f){
+  const empty=document.getElementById(f.id+'-empty');
+  const table=document.getElementById(f.id+'-summary-table');
+  if(!f.bonds.length){
+    if(empty)empty.style.display='flex';
+    if(table)table.style.display='none';
+    return;
+  }
+  if(empty)empty.style.display='none';
+  if(table)table.style.display='table';
+  const thead=document.getElementById(f.id+'-thead');
+  const tbody=document.getElementById(f.id+'-summary-tbody');
+  if(!tbody)return;
+  const liq=bopFmtDate(G_LIQ||addHabiles(TODAY,1));
+  if(thead)thead.innerHTML=usdSumTheadHtml(f.id,f.sortCol,f.sortAsc);
+  const enriched=usdSumSort(usdSumEnrich(f.bonds,liq),f.sortCol,f.sortAsc);
+  tbody.innerHTML=enriched.map(e=>usdSumRowHtml(e,f.sel===e.b.ticker,f.selectFn,f.id)).join('');
+  f.chartRender();
+}
+
+function usdFamRenderSummary(f){
+  f.sel=null;
+  const detView=document.getElementById(f.id+'-view-detail');
+  const sumView=document.getElementById(f.id+'-view-summary');
+  if(detView)detView.style.display='none';
+  if(sumView){sumView.style.flex='1';sumView.style.minWidth='';}
+  f.renderRows();
+}
+
+function usdFamDeleteDirect(f){
+  if(!f.sel)return;
+  if(!confirm(`¿Eliminar ${f.sel}?`))return;
+  f.bonds=f.bonds.filter(b=>b.ticker!==f.sel);
+  f.save();f.sel=null;f.renderSummary();
+}
+
+function usdFamDToggleEdit(f){
+  if(!f.editMode){
+    f.editMode=true;
+    const btn=document.getElementById(f.id+'-d-edit-btn');
+    const cBtn=document.getElementById(f.id+'-d-cancel-btn');
+    if(btn){btn.textContent='✓ Guardar FF';btn.classList.add('primary');}
+    if(cBtn)cBtn.style.display='inline-block';
+    const liq=document.getElementById(f.id+'-d-liq').value;
+    const tir=parseFloat(document.getElementById(f.id+'-d-tir').value);
+    f.dRenderFlows(liq||null,isNaN(tir)?null:tir);
+  }else{
+    f.dSaveEdits();
+  }
+}
+
+function usdFamDCancelEdit(f){
+  f.editMode=false;
+  const btn=document.getElementById(f.id+'-d-edit-btn');
+  const cBtn=document.getElementById(f.id+'-d-cancel-btn');
+  if(btn){btn.textContent='✎ Editar FF';btn.classList.remove('primary');}
+  if(cBtn)cBtn.style.display='none';
+  const liq=document.getElementById(f.id+'-d-liq').value;
+  const tir=parseFloat(document.getElementById(f.id+'-d-tir').value);
+  f.dRenderFlows(liq||null,isNaN(tir)?null:tir);
+}
+
 let fwdMode='tir';
 const FWD_LS='bonosAR_fwd_v1';
 let fwdTFExcluded=new Set();
@@ -10543,36 +10675,11 @@ function bopInit(){
 }
 
 let bopSortCol='vencimiento',bopSortAsc=true;
-function bopSortBy(col){if(bopSortCol===col)bopSortAsc=!bopSortAsc;else{bopSortCol=col;bopSortAsc=col!=='ticker';}bopRenderSummaryRows();}
+function bopSortBy(col){usdFamSortBy(USD_FAM.bop,col);}
 
-function bopRenderSummaryRows(){
-  const empty=document.getElementById('bop-empty');
-  const table=document.getElementById('bop-summary-table');
-  if(!BOP_BONDS.length){
-    if(empty)empty.style.display='flex';
-    if(table)table.style.display='none';
-    return;
-  }
-  if(empty)empty.style.display='none';
-  if(table)table.style.display='table';
-  const thead=document.getElementById('bop-thead');
-  const tbody=document.getElementById('bop-summary-tbody');
-  if(!tbody)return;
-  const liq=bopFmtDate(G_LIQ||addHabiles(TODAY,1));
-  if(thead)thead.innerHTML=usdSumTheadHtml('bop',bopSortCol,bopSortAsc);
-  const enriched=usdSumSort(usdSumEnrich(BOP_BONDS,liq),bopSortCol,bopSortAsc);
-  tbody.innerHTML=enriched.map(e=>usdSumRowHtml(e,bopSelTicker===e.b.ticker,'bopSelect','bop')).join('');
-  bopChartRender();
-}
+function bopRenderSummaryRows(){usdFamRenderSummaryRows(USD_FAM.bop);}
 
-function bopRenderSummary(){
-  bopSelTicker=null;
-  const detView=document.getElementById('bop-view-detail');
-  const sumView=document.getElementById('bop-view-summary');
-  if(detView)detView.style.display='none';
-  if(sumView){sumView.style.flex='1';sumView.style.minWidth='';}
-  bopRenderSummaryRows();
-}
+function bopRenderSummary(){usdFamRenderSummary(USD_FAM.bop);}
 
 // ── BOP YIELD CURVE ──────────────────────────────────────────────────────────
 var bopYieldChart=null;
@@ -10892,31 +10999,9 @@ function bopDPreviewRow(i){
   if(flujoEl)flujoEl.textContent=(cupon+amort).toFixed(4);
 }
 
-function bopDToggleEdit(){
-  if(!bopDetailEditMode){
-    bopDetailEditMode=true;
-    const btn=document.getElementById('bop-d-edit-btn');
-    const cBtn=document.getElementById('bop-d-cancel-btn');
-    if(btn){btn.textContent='✓ Guardar FF';btn.classList.add('primary');}
-    if(cBtn)cBtn.style.display='inline-block';
-    const liq=document.getElementById('bop-d-liq').value;
-    const tir=parseFloat(document.getElementById('bop-d-tir').value);
-    bopDRenderFlows(liq||null,isNaN(tir)?null:tir);
-  }else{
-    bopDSaveEdits();
-  }
-}
+function bopDToggleEdit(){usdFamDToggleEdit(USD_FAM.bop);}
 
-function bopDCancelEdit(){
-  bopDetailEditMode=false;
-  const btn=document.getElementById('bop-d-edit-btn');
-  const cBtn=document.getElementById('bop-d-cancel-btn');
-  if(btn){btn.textContent='✎ Editar FF';btn.classList.remove('primary');}
-  if(cBtn)cBtn.style.display='none';
-  const liq=document.getElementById('bop-d-liq').value;
-  const tir=parseFloat(document.getElementById('bop-d-tir').value);
-  bopDRenderFlows(liq||null,isNaN(tir)?null:tir);
-}
+function bopDCancelEdit(){usdFamDCancelEdit(USD_FAM.bop);}
 
 function bopDSaveEdits(){
   const bond=BOP_BONDS.find(b=>b.ticker===bopSelTicker);
@@ -11133,19 +11218,9 @@ function bopDeleteBond(){
   bopEditingTicker=null;
 }
 
-function bopDeleteDirect(){
-  if(!bopSelTicker)return;
-  if(!confirm(`¿Eliminar ${bopSelTicker}?`))return;
-  BOP_BONDS=BOP_BONDS.filter(b=>b.ticker!==bopSelTicker);
-  bopSave();bopSelTicker=null;bopRenderSummary();
-}
+function bopDeleteDirect(){usdFamDeleteDirect(USD_FAM.bop);}
 
-function gloDeleteDirect(){
-  if(!gloSelTicker)return;
-  if(!confirm(`¿Eliminar ${gloSelTicker}?`))return;
-  GLO_BONDS=GLO_BONDS.filter(b=>b.ticker!==gloSelTicker);
-  gloSave();gloSelTicker=null;gloRenderSummary();
-}
+function gloDeleteDirect(){usdFamDeleteDirect(USD_FAM.glo);}
 
 // ══════════════════════════════════════════════════════ SPREAD LEG. ══════════
 var slegChart=null;
@@ -11894,36 +11969,11 @@ function bonSave(){try{localStorage.setItem(BON_LS_KEY,JSON.stringify(BON_BONDS)
 function bonInit(){bonLoad();bonRenderSummary();usdStartAutoRefresh();}
 
 let bonSortCol='vencimiento',bonSortAsc=true;
-function bonSortBy(col){if(bonSortCol===col)bonSortAsc=!bonSortAsc;else{bonSortCol=col;bonSortAsc=col!=='ticker';}bonRenderSummaryRows();}
+function bonSortBy(col){usdFamSortBy(USD_FAM.bon,col);}
 
-function bonRenderSummaryRows(){
-  const empty=document.getElementById('bon-empty');
-  const table=document.getElementById('bon-summary-table');
-  if(!BON_BONDS.length){
-    if(empty)empty.style.display='flex';
-    if(table)table.style.display='none';
-    return;
-  }
-  if(empty)empty.style.display='none';
-  if(table)table.style.display='table';
-  const thead=document.getElementById('bon-thead');
-  const tbody=document.getElementById('bon-summary-tbody');
-  if(!tbody)return;
-  const liq=bopFmtDate(G_LIQ||addHabiles(TODAY,1));
-  if(thead)thead.innerHTML=usdSumTheadHtml('bon',bonSortCol,bonSortAsc);
-  const enriched=usdSumSort(usdSumEnrich(BON_BONDS,liq),bonSortCol,bonSortAsc);
-  tbody.innerHTML=enriched.map(e=>usdSumRowHtml(e,bonSelTicker===e.b.ticker,'bonSelect','bon')).join('');
-  bonChartRender();
-}
+function bonRenderSummaryRows(){usdFamRenderSummaryRows(USD_FAM.bon);}
 
-function bonRenderSummary(){
-  bonSelTicker=null;
-  const detView=document.getElementById('bon-view-detail');
-  const sumView=document.getElementById('bon-view-summary');
-  if(detView)detView.style.display='none';
-  if(sumView){sumView.style.flex='1';sumView.style.minWidth='';}
-  bonRenderSummaryRows();
-}
+function bonRenderSummary(){usdFamRenderSummary(USD_FAM.bon);}
 
 function bonBack(){bonRenderSummary();}
 
@@ -12118,31 +12168,9 @@ function bonDPreviewRow(i){
   if(flujoEl)flujoEl.textContent=(cupon+amort).toFixed(4);
 }
 
-function bonDToggleEdit(){
-  if(!bonDetailEditMode){
-    bonDetailEditMode=true;
-    const btn=document.getElementById('bon-d-edit-btn');
-    const cBtn=document.getElementById('bon-d-cancel-btn');
-    if(btn){btn.textContent='✓ Guardar FF';btn.classList.add('primary');}
-    if(cBtn)cBtn.style.display='inline-block';
-    const liq=document.getElementById('bon-d-liq').value;
-    const tir=parseFloat(document.getElementById('bon-d-tir').value);
-    bonDRenderFlows(liq||null,isNaN(tir)?null:tir);
-  }else{
-    bonDSaveEdits();
-  }
-}
+function bonDToggleEdit(){usdFamDToggleEdit(USD_FAM.bon);}
 
-function bonDCancelEdit(){
-  bonDetailEditMode=false;
-  const btn=document.getElementById('bon-d-edit-btn');
-  const cBtn=document.getElementById('bon-d-cancel-btn');
-  if(btn){btn.textContent='✎ Editar FF';btn.classList.remove('primary');}
-  if(cBtn)cBtn.style.display='none';
-  const liq=document.getElementById('bon-d-liq').value;
-  const tir=parseFloat(document.getElementById('bon-d-tir').value);
-  bonDRenderFlows(liq||null,isNaN(tir)?null:tir);
-}
+function bonDCancelEdit(){usdFamDCancelEdit(USD_FAM.bon);}
 
 function bonDSaveEdits(){
   const bond=BON_BONDS.find(b=>b.ticker===bonSelTicker);
@@ -12174,12 +12202,7 @@ function bonDSaveEdits(){
   bonDCalc();
 }
 
-function bonDeleteDirect(){
-  if(!bonSelTicker)return;
-  if(!confirm(`¿Eliminar ${bonSelTicker}?`))return;
-  BON_BONDS=BON_BONDS.filter(b=>b.ticker!==bonSelTicker);
-  bonSave();bonSelTicker=null;bonRenderSummary();
-}
+function bonDeleteDirect(){usdFamDeleteDirect(USD_FAM.bon);}
 
 function bonChartRender(){
   const canvas=document.getElementById('bon-yield-chart');
@@ -12297,36 +12320,11 @@ function gloSave(){try{localStorage.setItem(GLO_LS_KEY,JSON.stringify(GLO_BONDS)
 function gloInit(){gloLoad();gloRenderSummary();usdStartAutoRefresh();}
 
 let gloSortCol='vencimiento',gloSortAsc=true;
-function gloSortBy(col){if(gloSortCol===col)gloSortAsc=!gloSortAsc;else{gloSortCol=col;gloSortAsc=col!=='ticker';}gloRenderSummaryRows();}
+function gloSortBy(col){usdFamSortBy(USD_FAM.glo,col);}
 
-function gloRenderSummaryRows(){
-  const empty=document.getElementById('glo-empty');
-  const table=document.getElementById('glo-summary-table');
-  if(!GLO_BONDS.length){
-    if(empty)empty.style.display='flex';
-    if(table)table.style.display='none';
-    return;
-  }
-  if(empty)empty.style.display='none';
-  if(table)table.style.display='table';
-  const thead=document.getElementById('glo-thead');
-  const tbody=document.getElementById('glo-summary-tbody');
-  if(!tbody)return;
-  const liq=bopFmtDate(G_LIQ||addHabiles(TODAY,1));
-  if(thead)thead.innerHTML=usdSumTheadHtml('glo',gloSortCol,gloSortAsc);
-  const enriched=usdSumSort(usdSumEnrich(GLO_BONDS,liq),gloSortCol,gloSortAsc);
-  tbody.innerHTML=enriched.map(e=>usdSumRowHtml(e,gloSelTicker===e.b.ticker,'gloSelect','glo')).join('');
-  gloChartRender();
-}
+function gloRenderSummaryRows(){usdFamRenderSummaryRows(USD_FAM.glo);}
 
-function gloRenderSummary(){
-  gloSelTicker=null;
-  const detView=document.getElementById('glo-view-detail');
-  const sumView=document.getElementById('glo-view-summary');
-  if(detView)detView.style.display='none';
-  if(sumView){sumView.style.flex='1';sumView.style.minWidth='';}
-  gloRenderSummaryRows();
-}
+function gloRenderSummary(){usdFamRenderSummary(USD_FAM.glo);}
 
 function gloBack(){gloRenderSummary();}
 
@@ -12522,31 +12520,9 @@ function gloDPreviewRow(i){
   if(flujoEl)flujoEl.textContent=(cupon+amort).toFixed(4);
 }
 
-function gloDToggleEdit(){
-  if(!gloDetailEditMode){
-    gloDetailEditMode=true;
-    const btn=document.getElementById('glo-d-edit-btn');
-    const cBtn=document.getElementById('glo-d-cancel-btn');
-    if(btn){btn.textContent='✓ Guardar FF';btn.classList.add('primary');}
-    if(cBtn)cBtn.style.display='inline-block';
-    const liq=document.getElementById('glo-d-liq').value;
-    const tir=parseFloat(document.getElementById('glo-d-tir').value);
-    gloDRenderFlows(liq||null,isNaN(tir)?null:tir);
-  }else{
-    gloDSaveEdits();
-  }
-}
+function gloDToggleEdit(){usdFamDToggleEdit(USD_FAM.glo);}
 
-function gloDCancelEdit(){
-  gloDetailEditMode=false;
-  const btn=document.getElementById('glo-d-edit-btn');
-  const cBtn=document.getElementById('glo-d-cancel-btn');
-  if(btn){btn.textContent='✎ Editar FF';btn.classList.remove('primary');}
-  if(cBtn)cBtn.style.display='none';
-  const liq=document.getElementById('glo-d-liq').value;
-  const tir=parseFloat(document.getElementById('glo-d-tir').value);
-  gloDRenderFlows(liq||null,isNaN(tir)?null:tir);
-}
+function gloDCancelEdit(){usdFamDCancelEdit(USD_FAM.glo);}
 
 function gloDSaveEdits(){
   const bond=GLO_BONDS.find(b=>b.ticker===gloSelTicker);
