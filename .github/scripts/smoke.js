@@ -50,11 +50,31 @@ const check = (cond, label, detalle = '') => {
     }, null, { timeout: 90000 });
   } catch (e) {
     // Si no llegan, seguimos igual: los checks de abajo reportan qué faltó.
-    const d = await page.evaluate(() => ({
-      equiv: typeof EQUIV_DATA !== 'undefined' ? EQUIV_DATA.length : -1,
-      usdBonos: [BOP_BONDS, BON_BONDS, GLO_BONDS].flat().length,
-    }));
-    console.log(`  \x1b[33m(timeout esperando precios — EQUIV_DATA: ${d.equiv}, bonos USD: ${d.usdBonos})\x1b[0m`);
+    const d = await page.evaluate(async () => {
+      const out = {
+        equiv: typeof EQUIV_DATA !== 'undefined' ? EQUIV_DATA.length : -1,
+        usdBonos: [BOP_BONDS, BON_BONDS, GLO_BONDS].flat().length,
+        moneda: typeof usdCurrency !== 'undefined' ? usdCurrency : '?',
+        api: String(USD_PRICE_API),
+        mercado: typeof mercadoActivo === 'function' ? mercadoActivo() : '?',
+      };
+      // Reproducir el camino real y ver dónde se corta
+      try {
+        const r = await usdFetchPriceMap();
+        out.mapSize = Object.keys(r.map || {}).length;
+        out.gd30d = r.map ? r.map['GD30D'] : undefined;
+        const eq = (EQUIV_DATA || []).find(e => e.ticker === 'GD30');
+        out.equivGD30 = eq ? JSON.stringify(eq) : 'no está';
+      } catch (e) { out.errFetch = e.message; }
+      try {
+        await usdRefreshPrices();
+        out.trasRefresh = [BOP_BONDS, BON_BONDS, GLO_BONDS].flat()
+          .filter(b => b.lastPrecio != null).length;
+      } catch (e) { out.errRefresh = e.message; }
+      return out;
+    });
+    console.log('  \x1b[33m(timeout esperando precios)\x1b[0m');
+    for (const [k, v] of Object.entries(d)) console.log(`     ${k}: ${v}`);
   }
   await page.waitForTimeout(3000);
 
@@ -181,6 +201,40 @@ const check = (cond, label, detalle = '') => {
     check(/MD /.test(r.dur), `${id}DCalc escribe la duration`, r.dur);
     check(r.handler === `${id}DToggleEdit()`, `${id} genera su propio onclick`, String(r.handler));
   }
+
+  console.log('\nSpread de legislación (solapa SLEG)');
+  await page.evaluate(() => switchUsdTab('usd-curvas'));
+  await page.waitForTimeout(1500);
+  const sleg = await page.evaluate(async () => {
+    curvasUsdSetSector('SLEG');
+    await new Promise(r => setTimeout(r, 2500));
+    const chips = document.getElementById('curvas-usd-bonds');
+    const msg = document.getElementById('curvas-usd-msg');
+    const pares = _curvasSpreadCache.pares || [];
+    return {
+      chipSLEG: !!document.getElementById('curvas-usd-chip-SLEG'),
+      pares: pares.length,
+      conDato: pares.filter(p => p.s1 != null || p.s2 != null).length,
+      etiquetas: pares.slice(0, 3).map(p => p.label),
+      chips: chips ? chips.querySelectorAll('button').length : 0,
+      msg: msg ? msg.textContent : '',
+      chart: !!curvasUsdChart,
+      ejeY: curvasUsdChart ? curvasUsdChart.options.scales.y.title.text : '',
+    };
+  });
+  check(sleg.chipSLEG, 'existe el chip Spread Leg.');
+  check(sleg.pares > 0, 'arma pares Global/Bonar', `${sleg.pares}: ${sleg.etiquetas.join(', ')}`);
+  check(sleg.conDato > 0, 'calcula spreads', `${sleg.conDato}/${sleg.pares} con dato`);
+  check(sleg.chips === sleg.pares, 'un chip por par', `${sleg.chips} chips`);
+  check(sleg.chart, 'dibuja el gráfico');
+  check(/Spread/.test(sleg.ejeY), 'el eje Y es el spread', sleg.ejeY);
+
+  const volver = await page.evaluate(async () => {
+    curvasUsdSetSector('GLO');
+    await new Promise(r => setTimeout(r, 2500));
+    return curvasUsdChart ? curvasUsdChart.options.scales.y.title.text : '';
+  });
+  check(/TIR/.test(volver), 'volver a Globales restaura la curva de tasa', volver);
 
   console.log('\nPesos: tablas por tipo');
   await page.evaluate(() => switchSection('pesos'));
