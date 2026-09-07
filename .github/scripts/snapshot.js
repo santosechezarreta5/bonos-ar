@@ -1,45 +1,105 @@
+// Snapshot diario de precios + TIR + MD.
+//
+// Abre la app real en un navegador headless y ejecuta su propio código de
+// valuación, en vez de reimplementarlo acá. Así la TIR guardada es
+// exactamente la que ve el equipo en pantalla.
+//
+// Desde que RLS restringe la escritura (supabase/policies.sql), el script
+// tiene que autenticarse con la cuenta 'snapshot' antes de guardar.
+// Requiere los secrets SUPABASE_BOT_EMAIL y SUPABASE_BOT_PASSWORD.
+
 const { chromium } = require('playwright');
 
+const APP_URL = 'https://santosechezarreta5.github.io/bonos-ar/';
+const EMAIL = process.env.SUPABASE_BOT_EMAIL;
+const PASSWORD = process.env.SUPABASE_BOT_PASSWORD;
+
+function fatal(msg) {
+  console.error(`\n✗ ${msg}\n`);
+  process.exit(1);
+}
+
 (async () => {
+  if (!EMAIL || !PASSWORD)
+    fatal('Faltan los secrets SUPABASE_BOT_EMAIL / SUPABASE_BOT_PASSWORD.');
+
   const browser = await chromium.launch();
   const page = await browser.newPage();
   page.setDefaultTimeout(120000);
 
-  page.on('console', msg => {
-    if (['error', 'warn'].includes(msg.type()))
-      console.log(`[${msg.type()}] ${msg.text()}`);
+  page.on('console', m => {
+    if (['error', 'warning'].includes(m.type())) console.log(`  [${m.type()}] ${m.text()}`);
   });
-  page.on('pageerror', err => console.error('Page error:', err.message));
+  page.on('pageerror', e => console.error('  [pageerror]', e.message));
 
-  console.log('Loading app...');
-  await page.goto('https://santosechezarreta5.github.io/bonos-ar/');
+  try {
+    console.log('→ Abriendo la app...');
+    await page.goto(APP_URL, { waitUntil: 'domcontentloaded' });
 
-  // Esperamos 15s para que fetchPrices() cargue los precios ARS (data912 es rápido)
-  console.log('Waiting for initial price load (15s)...');
-  await page.waitForTimeout(15000);
+    // Esperar a que el cliente de Supabase exista antes de intentar el login
+    await page.waitForFunction(() => typeof supa !== 'undefined' && supa.auth, null, { timeout: 60000 });
 
-  // Limpiamos cooldown y corremos el snapshot completo.
-  // Internamente: awaita cerFetchIndex() si CER_INDEX está vacío (~20-30s)
-  // y llama usdRefreshPrices() si los bonos USD no tienen precio.
-  console.log('Running full snapshot...');
-  await page.evaluate(async () => {
-    localStorage.removeItem('bonosAR_curvas_snap_date_v1');
-    await curvasSnapshotToday();
-  });
+    console.log('→ Autenticando como bot...');
+    const login = await page.evaluate(async ([email, password]) => {
+      const { data, error } = await supa.auth.signInWithPassword({ email, password });
+      return error ? { ok: false, error: error.message } : { ok: true, uid: data.user.id };
+    }, [EMAIL, PASSWORD]);
 
-  // Pausa extra para que terminen los upserts por sector
-  await page.waitForTimeout(5000);
+    if (!login.ok) fatal(`Login rechazado: ${login.error}`);
+    console.log(`  autenticado (uid ${login.uid.slice(0, 8)}…)`);
 
-  const raw = await page.evaluate(() => localStorage.getItem('bonosAR_curvas_snap_date_v1'));
-  const sectors = raw ? Object.keys(JSON.parse(raw)) : [];
-  console.log('Sectors saved:', sectors.length ? sectors.join(', ') : 'NONE');
+    // El login dispara onAuthStateChange → carga de datos compartidos y precios.
+    console.log('→ Esperando la carga de precios (25 s)...');
+    await page.waitForTimeout(25000);
 
-  await browser.close();
+    console.log('→ Ejecutando el snapshot...');
+    const err = await page.evaluate(async () => {
+      try {
+        localStorage.removeItem('bonosAR_curvas_snap_date_v1');
+        await curvasSnapshotToday();
+        return null;
+      } catch (e) { return e.message; }
+    });
+    if (err) fatal(`El snapshot lanzó una excepción: ${err}`);
 
-  if (sectors.length === 0) {
-    console.error('Snapshot failed — no sectors were saved.');
-    process.exit(1);
+    await page.waitForTimeout(5000);
+
+    // Verificación real: contar lo que quedó en la tabla, no lo que dice
+    // localStorage. Es la diferencia entre "creo que guardó" y "guardó".
+    console.log('→ Verificando contra Supabase...');
+    const res = await page.evaluate(async () => {
+      const hoy = hoyAR();
+      const { data, error } = await supa
+        .from('bond_price_snapshots')
+        .select('sector,tir')
+        .eq('snapshot_date', hoy);
+      if (error) return { error: error.message };
+      const porSector = {};
+      let conTir = 0;
+      for (const r of data) {
+        porSector[r.sector] = (porSector[r.sector] || 0) + 1;
+        if (r.tir != null) conTir++;
+      }
+      return { fecha: hoy, total: data.length, conTir, porSector };
+    });
+
+    if (res.error) fatal(`No se pudo verificar: ${res.error}`);
+
+    console.log(`\n  fecha        ${res.fecha}`);
+    console.log(`  filas        ${res.total}`);
+    console.log(`  con TIR      ${res.conTir}`);
+    console.log('  por sector   ' + (Object.entries(res.porSector)
+      .map(([s, n]) => `${s}:${n}`).join('  ') || '(ninguno)'));
+
+    if (res.total === 0) fatal('No se guardó ninguna fila.');
+    if (res.conTir === 0) fatal('Se guardaron precios pero ninguna TIR — la valuación no corrió.');
+
+    const faltantes = ['TF', 'CER', 'TAMAR', 'DLK', 'BOP', 'BON', 'GLO']
+      .filter(s => !res.porSector[s]);
+    if (faltantes.length) console.log(`\n  ⚠ sectores sin datos: ${faltantes.join(', ')}`);
+
+    console.log('\n✓ Snapshot guardado.\n');
+  } finally {
+    await browser.close();
   }
-
-  console.log('Done.');
-})();
+})().catch(e => fatal(e.message));
