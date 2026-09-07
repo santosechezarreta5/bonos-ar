@@ -12722,7 +12722,7 @@ async function _curvasSnapshotTodayImpl(){
   for(const[sector,sRows]of bySector){
     const deduped=[...new Map(sRows.map(r=>[r.ticker,r])).values()];
     try{
-      const{error}=await supa.from('bond_price_snapshots').upsert(deduped,{onConflict:'snapshot_date,ticker'});
+      const{error}=await supa.from('bond_price_snapshots').upsert(deduped,{onConflict:'snapshot_date,ticker,sector'});
       if(error)fallos.push(`${sector}: ${error.message}`);
       else sectorTs[sector]=ts;
     }catch(e){fallos.push(`${sector}: ${e.message}`);}
