@@ -2461,6 +2461,10 @@ const USD_FAM={
     renderRows:()=>bopRenderSummaryRows(),
     dRenderFlows:(l,t)=>bopDRenderFlows(l,t),
     dSaveEdits:()=>bopDSaveEdits(),
+    showDetail:(b)=>bopShowDetail(b),
+    dCalc:()=>bopDCalc(),
+    genFlows:(b)=>bopGenFlows(b),
+    get flows(){return bopCurrentFlows;}, set flows(v){bopCurrentFlows=v;},
   },
   bon:{
     id:'bon', selectFn:'bonSelect',
@@ -2475,6 +2479,10 @@ const USD_FAM={
     renderRows:()=>bonRenderSummaryRows(),
     dRenderFlows:(l,t)=>bonDRenderFlows(l,t),
     dSaveEdits:()=>bonDSaveEdits(),
+    showDetail:(b)=>bonShowDetail(b),
+    dCalc:()=>bonDCalc(),
+    genFlows:(b)=>bopGenFlows(b),
+    get flows(){return bonCurrentFlows;}, set flows(v){bonCurrentFlows=v;},
   },
   glo:{
     id:'glo', selectFn:'gloSelect',
@@ -2489,6 +2497,10 @@ const USD_FAM={
     renderRows:()=>gloRenderSummaryRows(),
     dRenderFlows:(l,t)=>gloDRenderFlows(l,t),
     dSaveEdits:()=>gloDSaveEdits(),
+    showDetail:(b)=>gloShowDetail(b),
+    dCalc:()=>gloDCalc(),
+    genFlows:(b)=>bopGenFlows(b),
+    get flows(){return gloCurrentFlows;}, set flows(v){gloCurrentFlows=v;},
   },
 };
 
@@ -2563,6 +2575,55 @@ function usdFamDCancelEdit(f){
   const liq=document.getElementById(f.id+'-d-liq').value;
   const tir=parseFloat(document.getElementById(f.id+'-d-tir').value);
   f.dRenderFlows(liq||null,isNaN(tir)?null:tir);
+}
+
+function usdFamSelect(f,ticker){
+  const bond=f.bonds.find(b=>b.ticker===ticker);
+  if(!bond)return;
+  f.editMode=false;
+  f.sel=ticker;
+  f.flows=f.genFlows(bond);
+  // resaltar la selección en el resumen
+  f.renderRows();
+  // abrir el panel de detalle al lado del resumen
+  const sumView=document.getElementById(f.id+'-view-summary');
+  const detView=document.getElementById(f.id+'-view-detail');
+  if(sumView){sumView.style.flex='0 0 38%';sumView.style.minWidth='200px';}
+  if(detView){detView.style.display='flex';}
+  const nameEl=document.getElementById(f.id+'-detail-name');
+  if(nameEl)nameEl.textContent=bond.ticker;
+  f.showDetail(bond);
+}
+
+function usdFamDSaveEdits(f){
+  const bond=f.bonds.find(b=>b.ticker===f.sel);
+  if(!bond)return;
+  const flows=f.flows;if(!flows)return;
+  const rateOverrides=[],amortCustom=[],fechaOverrides=[];
+  flows.forEach((fl,i)=>{
+    const fEl=document.getElementById(`${f.id}-ff-fecha-${i}`);
+    const rEl=document.getElementById(`${f.id}-ff-rate-${i}`);
+    const aEl=document.getElementById(`${f.id}-ff-amort-${i}`);
+    // las filas pasadas no tienen inputs — se conservan sus valores originales
+    const rateVal=rEl?parseFloat(rEl.value):fl.rate;
+    const amortVal=aEl?parseFloat(aEl.value):fl.amortAmt;
+    if(!isNaN(rateVal))rateOverrides.push({fechaNominal:fl.fechaNominal,rate:rateVal});
+    if(!isNaN(amortVal))amortCustom.push({fecha:fl.fechaNominal,pct:amortVal});
+    const nominalFecha=fl.fechaNominal||null;
+    if(fEl&&fEl.value&&fEl.value!==nominalFecha)fechaOverrides.push({fechaNominal:fl.fechaNominal,fecha:fEl.value});
+  });
+  bond.rateOverrides=rateOverrides.length?rateOverrides:null;
+  bond.amortCustom=amortCustom.length?amortCustom:null;
+  bond.fechaOverrides=fechaOverrides.length?fechaOverrides:null;
+  f.flows=f.genFlows(bond);
+  f.editMode=false;
+  const btn=document.getElementById(f.id+'-d-edit-btn');
+  const cBtn=document.getElementById(f.id+'-d-cancel-btn');
+  if(btn){btn.textContent='✎ Editar FF';btn.classList.remove('primary');}
+  if(cBtn)cBtn.style.display='none';
+  f.save();
+  f.renderRows();
+  f.dCalc();
 }
 
 let fwdMode='tir';
@@ -10802,23 +10863,7 @@ function bopBack(){
   bopRenderSummary();
 }
 
-function bopSelect(ticker){
-  const bond=BOP_BONDS.find(b=>b.ticker===ticker);
-  if(!bond)return;
-  bopDetailEditMode=false;
-  bopSelTicker=ticker;
-  bopCurrentFlows=bopGenFlows(bond);
-  // update selection highlight in summary
-  bopRenderSummaryRows();
-  // open detail panel alongside summary
-  const sumView=document.getElementById('bop-view-summary');
-  const detView=document.getElementById('bop-view-detail');
-  if(sumView){sumView.style.flex='0 0 38%';sumView.style.minWidth='200px';}
-  if(detView){detView.style.display='flex';}
-  const nameEl=document.getElementById('bop-detail-name');
-  if(nameEl)nameEl.textContent=bond.ticker;
-  bopShowDetail(bond);
-}
+function bopSelect(ticker){usdFamSelect(USD_FAM.bop,ticker);}
 
 function bopShowDetail(bond){
   const flows=bopCurrentFlows;
@@ -11003,36 +11048,7 @@ function bopDToggleEdit(){usdFamDToggleEdit(USD_FAM.bop);}
 
 function bopDCancelEdit(){usdFamDCancelEdit(USD_FAM.bop);}
 
-function bopDSaveEdits(){
-  const bond=BOP_BONDS.find(b=>b.ticker===bopSelTicker);
-  if(!bond)return;
-  const flows=bopCurrentFlows;if(!flows)return;
-  const rateOverrides=[],amortCustom=[],fechaOverrides=[];
-  flows.forEach((f,i)=>{
-    const fEl=document.getElementById(`bop-ff-fecha-${i}`);
-    const rEl=document.getElementById(`bop-ff-rate-${i}`);
-    const aEl=document.getElementById(`bop-ff-amort-${i}`);
-    // past rows have no inputs — preserve their original values
-    const rateVal=rEl?parseFloat(rEl.value):f.rate;
-    const amortVal=aEl?parseFloat(aEl.value):f.amortAmt;
-    if(!isNaN(rateVal))rateOverrides.push({fechaNominal:f.fechaNominal,rate:rateVal});
-    if(!isNaN(amortVal))amortCustom.push({fecha:f.fechaNominal,pct:amortVal});
-    const nominalFecha=f.fechaNominal||null;
-    if(fEl&&fEl.value&&fEl.value!==nominalFecha)fechaOverrides.push({fechaNominal:f.fechaNominal,fecha:fEl.value});
-  });
-  bond.rateOverrides=rateOverrides.length?rateOverrides:null;
-  bond.amortCustom=amortCustom.length?amortCustom:null;
-  bond.fechaOverrides=fechaOverrides.length?fechaOverrides:null;
-  bopCurrentFlows=bopGenFlows(bond);
-  bopDetailEditMode=false;
-  const btn=document.getElementById('bop-d-edit-btn');
-  const cBtn=document.getElementById('bop-d-cancel-btn');
-  if(btn){btn.textContent='✎ Editar FF';btn.classList.remove('primary');}
-  if(cBtn)cBtn.style.display='none';
-  bopSave();
-  bopRenderSummaryRows();
-  bopDCalc();
-}
+function bopDSaveEdits(){usdFamDSaveEdits(USD_FAM.bop);}
 
 // ── MODAL ───────────────────────────────────────────────────────────────────
 function bopOpenModal(ticker){
@@ -11977,21 +11993,7 @@ function bonRenderSummary(){usdFamRenderSummary(USD_FAM.bon);}
 
 function bonBack(){bonRenderSummary();}
 
-function bonSelect(ticker){
-  const bond=BON_BONDS.find(b=>b.ticker===ticker);
-  if(!bond)return;
-  bonDetailEditMode=false;
-  bonSelTicker=ticker;
-  bonCurrentFlows=bopGenFlows(bond);
-  bonRenderSummaryRows();
-  const sumView=document.getElementById('bon-view-summary');
-  const detView=document.getElementById('bon-view-detail');
-  if(sumView){sumView.style.flex='0 0 38%';sumView.style.minWidth='200px';}
-  if(detView){detView.style.display='flex';}
-  const nameEl=document.getElementById('bon-detail-name');
-  if(nameEl)nameEl.textContent=bond.ticker;
-  bonShowDetail(bond);
-}
+function bonSelect(ticker){usdFamSelect(USD_FAM.bon,ticker);}
 
 function bonShowDetail(bond){
   const detEl=document.getElementById('bon-detail-content');
@@ -12172,35 +12174,7 @@ function bonDToggleEdit(){usdFamDToggleEdit(USD_FAM.bon);}
 
 function bonDCancelEdit(){usdFamDCancelEdit(USD_FAM.bon);}
 
-function bonDSaveEdits(){
-  const bond=BON_BONDS.find(b=>b.ticker===bonSelTicker);
-  if(!bond)return;
-  const flows=bonCurrentFlows;if(!flows)return;
-  const rateOverrides=[],amortCustom=[],fechaOverrides=[];
-  flows.forEach((f,i)=>{
-    const fEl=document.getElementById(`bon-ff-fecha-${i}`);
-    const rEl=document.getElementById(`bon-ff-rate-${i}`);
-    const aEl=document.getElementById(`bon-ff-amort-${i}`);
-    const rateVal=rEl?parseFloat(rEl.value):f.rate;
-    const amortVal=aEl?parseFloat(aEl.value):f.amortAmt;
-    if(!isNaN(rateVal))rateOverrides.push({fechaNominal:f.fechaNominal,rate:rateVal});
-    if(!isNaN(amortVal))amortCustom.push({fecha:f.fechaNominal,pct:amortVal});
-    const nominalFecha=f.fechaNominal||null;
-    if(fEl&&fEl.value&&fEl.value!==nominalFecha)fechaOverrides.push({fechaNominal:f.fechaNominal,fecha:fEl.value});
-  });
-  bond.rateOverrides=rateOverrides.length?rateOverrides:null;
-  bond.amortCustom=amortCustom.length?amortCustom:null;
-  bond.fechaOverrides=fechaOverrides.length?fechaOverrides:null;
-  bonCurrentFlows=bopGenFlows(bond);
-  bonDetailEditMode=false;
-  const btn=document.getElementById('bon-d-edit-btn');
-  const cBtn=document.getElementById('bon-d-cancel-btn');
-  if(btn){btn.textContent='✎ Editar FF';btn.classList.remove('primary');}
-  if(cBtn)cBtn.style.display='none';
-  bonSave();
-  bonRenderSummaryRows();
-  bonDCalc();
-}
+function bonDSaveEdits(){usdFamDSaveEdits(USD_FAM.bon);}
 
 function bonDeleteDirect(){usdFamDeleteDirect(USD_FAM.bon);}
 
@@ -12328,21 +12302,7 @@ function gloRenderSummary(){usdFamRenderSummary(USD_FAM.glo);}
 
 function gloBack(){gloRenderSummary();}
 
-function gloSelect(ticker){
-  const bond=GLO_BONDS.find(b=>b.ticker===ticker);
-  if(!bond)return;
-  gloDetailEditMode=false;
-  gloSelTicker=ticker;
-  gloCurrentFlows=bopGenFlows(bond);
-  gloRenderSummaryRows();
-  const sumView=document.getElementById('glo-view-summary');
-  const detView=document.getElementById('glo-view-detail');
-  if(sumView){sumView.style.flex='0 0 38%';sumView.style.minWidth='200px';}
-  if(detView){detView.style.display='flex';}
-  const nameEl=document.getElementById('glo-detail-name');
-  if(nameEl)nameEl.textContent=bond.ticker;
-  gloShowDetail(bond);
-}
+function gloSelect(ticker){usdFamSelect(USD_FAM.glo,ticker);}
 
 function gloShowDetail(bond){
   const flows=gloCurrentFlows;
@@ -12524,35 +12484,7 @@ function gloDToggleEdit(){usdFamDToggleEdit(USD_FAM.glo);}
 
 function gloDCancelEdit(){usdFamDCancelEdit(USD_FAM.glo);}
 
-function gloDSaveEdits(){
-  const bond=GLO_BONDS.find(b=>b.ticker===gloSelTicker);
-  if(!bond)return;
-  const flows=gloCurrentFlows;if(!flows)return;
-  const rateOverrides=[],amortCustom=[],fechaOverrides=[];
-  flows.forEach((f,i)=>{
-    const fEl=document.getElementById(`glo-ff-fecha-${i}`);
-    const rEl=document.getElementById(`glo-ff-rate-${i}`);
-    const aEl=document.getElementById(`glo-ff-amort-${i}`);
-    const rateVal=rEl?parseFloat(rEl.value):f.rate;
-    const amortVal=aEl?parseFloat(aEl.value):f.amortAmt;
-    if(!isNaN(rateVal))rateOverrides.push({fechaNominal:f.fechaNominal,rate:rateVal});
-    if(!isNaN(amortVal))amortCustom.push({fecha:f.fechaNominal,pct:amortVal});
-    const nominalFecha=f.fechaNominal||null;
-    if(fEl&&fEl.value&&fEl.value!==nominalFecha)fechaOverrides.push({fechaNominal:f.fechaNominal,fecha:fEl.value});
-  });
-  bond.rateOverrides=rateOverrides.length?rateOverrides:null;
-  bond.amortCustom=amortCustom.length?amortCustom:null;
-  bond.fechaOverrides=fechaOverrides.length?fechaOverrides:null;
-  gloCurrentFlows=bopGenFlows(bond);
-  gloDetailEditMode=false;
-  const btn=document.getElementById('glo-d-edit-btn');
-  const cBtn=document.getElementById('glo-d-cancel-btn');
-  if(btn){btn.textContent='✎ Editar FF';btn.classList.remove('primary');}
-  if(cBtn)cBtn.style.display='none';
-  gloSave();
-  gloRenderSummaryRows();
-  gloDCalc();
-}
+function gloDSaveEdits(){usdFamDSaveEdits(USD_FAM.glo);}
 
 function gloChartRender(){
   const canvas=document.getElementById('glo-yield-chart');

@@ -78,12 +78,9 @@ const check = (cond, label, detalle = '') => {
       };
     }
     // los nombres viejos siguen existiendo
-    r.wrappers = ['bopSortBy', 'bonSortBy', 'gloSortBy',
-                  'bopRenderSummaryRows', 'bonRenderSummaryRows', 'gloRenderSummaryRows',
-                  'bopRenderSummary', 'bonRenderSummary', 'gloRenderSummary',
-                  'bopDeleteDirect', 'bonDeleteDirect', 'gloDeleteDirect',
-                  'bopDToggleEdit', 'bonDToggleEdit', 'gloDToggleEdit',
-                  'bopDCancelEdit', 'bonDCancelEdit', 'gloDCancelEdit']
+    r.wrappers = ['SortBy', 'RenderSummaryRows', 'RenderSummary', 'DeleteDirect',
+                  'DToggleEdit', 'DCancelEdit', 'Select', 'DSaveEdits']
+      .flatMap(s => ['bop', 'bon', 'glo'].map(p => p + s))
       .filter(n => typeof window[n] !== 'function');
     return r;
   });
@@ -92,7 +89,7 @@ const check = (cond, label, detalle = '') => {
     check(fam[id].bonds > 0, `USD_FAM.${id}.bonds lee la lista real`, `${fam[id].bonds} bonos`);
     check(fam[id].tieneFns, `USD_FAM.${id} tiene todas las funciones`);
   }
-  check(fam.wrappers.length === 0, 'los 18 nombres originales siguen existiendo',
+  check(fam.wrappers.length === 0, 'los 24 nombres originales siguen existiendo',
         fam.wrappers.length ? 'faltan: ' + fam.wrappers.join(', ') : '');
 
   // ── Navegación por pestañas ────────────────────────────────────────────────
@@ -125,6 +122,34 @@ const check = (cond, label, detalle = '') => {
   check(sort.tras1.col === 'tir', 'bopSortBy cambia la columna', sort.tras1.col);
   check(sort.tras1.asc !== sort.tras2.asc, 'repetir la columna invierte el sentido');
   check(sort.filas > 0, 'la tabla sigue con filas tras ordenar', `${sort.filas}`);
+
+  // ── Selección y panel de detalle (usdFamSelect) ────────────────────────────
+  console.log('\nSelección de bono y panel de detalle');
+  for (const [tab, fam] of [['usd-bopreales', 'bop'], ['usd-bonares', 'bon'], ['usd-globales', 'glo']]) {
+    await page.evaluate(t => switchUsdTab(t), tab);
+    await page.waitForTimeout(800);
+    const r = await page.evaluate(id => {
+      const f = USD_FAM[id];
+      const t = f.bonds[0] && f.bonds[0].ticker;
+      if (!t) return { err: 'sin bonos' };
+      window[id + 'Select'](t);
+      const det = document.getElementById(id + '-view-detail');
+      const nombre = document.getElementById(id + '-detail-name');
+      const flujos = document.getElementById(id + '-d-flows') || document.getElementById(id + '-ff-body');
+      return {
+        ticker: t,
+        sel: f.sel,
+        flows: Array.isArray(f.flows) ? f.flows.length : -1,
+        visible: det ? det.style.display : null,
+        nombre: nombre ? nombre.textContent : null,
+      };
+    }, fam);
+    if (r.err) { check(false, `${fam}Select`, r.err); continue; }
+    check(r.sel === r.ticker, `${fam}Select fija la selección`, `${r.sel} vs ${r.ticker}`);
+    check(r.flows > 0, `${fam}Select genera los flujos`, `${r.flows} flujos`);
+    check(r.visible === 'flex', `${fam} abre el panel de detalle`, String(r.visible));
+    check(r.nombre === r.ticker, `${fam} muestra el ticker en el panel`, `${r.nombre}`);
+  }
 
   // ── Resto de pestañas ──────────────────────────────────────────────────────
   console.log('\nResto de pestañas (no deben lanzar)');
