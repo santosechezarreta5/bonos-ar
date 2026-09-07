@@ -50,11 +50,31 @@ const check = (cond, label, detalle = '') => {
     }, null, { timeout: 90000 });
   } catch (e) {
     // Si no llegan, seguimos igual: los checks de abajo reportan qué faltó.
-    const d = await page.evaluate(() => ({
-      equiv: typeof EQUIV_DATA !== 'undefined' ? EQUIV_DATA.length : -1,
-      usdBonos: [BOP_BONDS, BON_BONDS, GLO_BONDS].flat().length,
-    }));
-    console.log(`  \x1b[33m(timeout esperando precios — EQUIV_DATA: ${d.equiv}, bonos USD: ${d.usdBonos})\x1b[0m`);
+    const d = await page.evaluate(async () => {
+      const out = {
+        equiv: typeof EQUIV_DATA !== 'undefined' ? EQUIV_DATA.length : -1,
+        usdBonos: [BOP_BONDS, BON_BONDS, GLO_BONDS].flat().length,
+        moneda: typeof usdCurrency !== 'undefined' ? usdCurrency : '?',
+        api: String(USD_PRICE_API),
+        mercado: typeof mercadoActivo === 'function' ? mercadoActivo() : '?',
+      };
+      // Reproducir el camino real y ver dónde se corta
+      try {
+        const r = await usdFetchPriceMap();
+        out.mapSize = Object.keys(r.map || {}).length;
+        out.gd30d = r.map ? r.map['GD30D'] : undefined;
+        const eq = (EQUIV_DATA || []).find(e => e.ticker === 'GD30');
+        out.equivGD30 = eq ? JSON.stringify(eq) : 'no está';
+      } catch (e) { out.errFetch = e.message; }
+      try {
+        await usdRefreshPrices();
+        out.trasRefresh = [BOP_BONDS, BON_BONDS, GLO_BONDS].flat()
+          .filter(b => b.lastPrecio != null).length;
+      } catch (e) { out.errRefresh = e.message; }
+      return out;
+    });
+    console.log('  \x1b[33m(timeout esperando precios)\x1b[0m');
+    for (const [k, v] of Object.entries(d)) console.log(`     ${k}: ${v}`);
   }
   await page.waitForTimeout(3000);
 
