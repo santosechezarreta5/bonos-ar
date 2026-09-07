@@ -12357,7 +12357,13 @@ async function curvasFetchSnapshot(dateStr,sector){
 }
 
 function curvasSnapshotFromMemory(sector){
-  const liq=G_LIQ||addHabiles(TODAY,1);
+  // usdResCalcRow espera 'YYYY-MM-DD'. G_LIQ es un objeto Date, y pasarlo
+  // crudo hacia parseDate daba fecha invalida, TIR null y descarte de la
+  // fila: la ruta de memoria nunca devolvia bonos USD. Quedaba oculto
+  // porque al pedir un solo sector USD el resultado vacio caia al fallback
+  // de Supabase.
+  const _liqRaw=G_LIQ||addHabiles(TODAY,1);
+  const liq=_liqRaw instanceof Date?fmtDate(_liqRaw):String(_liqRaw);
   const rows=[];
   function addUsd(bonds,sec){
     if(sector&&sector!=='ALL'&&sector!==sec)return;
