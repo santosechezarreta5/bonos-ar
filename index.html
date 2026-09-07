@@ -320,6 +320,10 @@ tbody tr.selected .c-ticker{color:var(--accent);}
       <button class="mode-btn"        id="theme-btn-mid"   onclick="setTheme('mid')"  title="Medio">◑</button>
       <button class="mode-btn"        id="theme-btn-light" onclick="setTheme('light')" title="Claro">○</button>
     </div>
+    <span id="snap-estado" onclick="snapEstadoRefrescar()" title="Estado del snapshot diario"
+      style="display:none;align-items:center;gap:5px;font-family:var(--mono);font-size:10px;
+             padding:3px 8px;border-radius:3px;cursor:pointer;white-space:nowrap;
+             border:1px solid var(--border2);color:var(--text3)"></span>
     <button class="auth-btn" id="auth-btn" onclick="authAction()">
       <span id="auth-btn-label">Iniciar sesión</span>
     </button>
@@ -5575,9 +5579,8 @@ function cerToggleIndexTable(){
 }
 
 // ── CER UPDATE SETTLEMENT ─────────────────────────────────────────────────────
-// Hook into global updateSettlement to also refresh CER
-const _origUpdateSettlement=updateSettlement;
-// (called at end of file after updateSettlement is defined)
+// El recalculo de CER al cambiar la liquidacion se engancha mas abajo,
+// en el parche de window.updateSettlement.
 
 // ══════════════════════════════════════════════════════════════ FERIADOS UI
 const DIAS_SEMANA=['dom','lun','mar','mié','jue','vie','sáb'];
@@ -6962,8 +6965,6 @@ function tamarToggleIndexTable(){
   if(btn)btn.textContent=hidden?'ocultar ▴':'ver tabla ▾';
 }
 
-// hook: cuando TAMAR carga, renderizar strip
-const _origTamarFetch=tamarFetchIndex;
 // ── FIN TAMAR TAB ─────────────────────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════ BREAKEVEN
 const BE_LS_KEY='bonosAR_breakeven_v1';
@@ -7872,6 +7873,7 @@ EQUIV_LS_KEY='bonosAR_equiv_v1';
 switchTab('breakeven');
 authInit();
 equivInit();
+snapEstadoRefrescar();
 
 // ══════════════════════════════════════════════════════════════ THEME
 function setTheme(t){
@@ -12264,6 +12266,66 @@ async function _curvasSnapshotTodayImpl(){
   // notaba días después.
   if(fallos.length)console.error('[Snapshot] sectores que no se guardaron →',fallos.join(' · '));
   localStorage.setItem(CURVAS_SNAP_LS,JSON.stringify(sectorTs));
+}
+
+// ── Estado del snapshot diario ────────────────────────────────────────────
+// El pipeline era invisible: no había forma de saber si corrió, cuántos bonos
+// guardó ni si falló, salvo entrando a Supabase. Con la app abierta todo el
+// día, esa información tiene que estar a la vista.
+//
+// Completa BE-3: desde ese arreglo los errores se registran, pero seguían sin
+// verse sin abrir la consola.
+
+async function snapEstadoRefrescar(){
+  const el=document.getElementById('snap-estado');
+  if(!el)return;
+  const pintar=(txt,color,titulo)=>{
+    el.style.display='inline-flex';
+    el.textContent=txt;
+    el.style.color=color;
+    el.style.borderColor=color==='var(--text3)'?'var(--border2)':color;
+    el.title=titulo;
+  };
+  pintar('● snapshot','var(--text3)','Consultando...');
+  try{
+    // Última fecha con datos, y el detalle de ese día
+    const{data,error}=await supa
+      .from('bond_price_snapshots')
+      .select('snapshot_date,sector,tir')
+      .order('snapshot_date',{ascending:false})
+      .limit(600);
+    if(error)throw error;
+    if(!data||!data.length){pintar('sin snapshots','var(--danger)','La tabla está vacía');return;}
+
+    const ultima=data[0].snapshot_date;
+    const dia=data.filter(r=>r.snapshot_date===ultima);
+    const conTir=dia.filter(r=>r.tir!=null).length;
+    const sectores=new Set(dia.map(r=>r.sector)).size;
+
+    // ¿Está al día? Se compara contra el último día hábil, no contra hoy:
+    // un lunes a la mañana lo más reciente que puede haber es el viernes.
+    const hoy=hoyAR();
+    let esperado=parseDate(hoy);
+    if(!esHabil(esperado)||new Date().getHours()<17){
+      do{esperado.setDate(esperado.getDate()-1);}while(!esHabil(esperado));
+    }
+    const alDia=ultima>=fmtDate(esperado);
+    const dias=Math.round((parseDate(hoy)-parseDate(ultima))/86400000);
+
+    const fechaCorta=ultima.slice(8,10)+'/'+ultima.slice(5,7);
+    const detalle=`${dia.length} bonos · ${sectores} sectores · ${conTir} con TIR`;
+
+    if(!alDia)
+      pintar(`● snapshot ${fechaCorta}`,'var(--warn)',
+             `Atrasado ${dias} día${dias===1?'':'s'}. ${detalle}`);
+    else if(conTir<dia.length)
+      pintar(`● snapshot ${fechaCorta}`,'var(--warn)',
+             `${dia.length-conTir} bonos sin TIR — no se ven en Curvas. ${detalle}`);
+    else
+      pintar(`● snapshot ${fechaCorta}`,'var(--accent2)',`Al día. ${detalle}`);
+  }catch(e){
+    pintar('● snapshot ?','var(--danger)','No se pudo consultar: '+(e.message||e));
+  }
 }
 
 // ── Fetch snapshot desde Supabase ─────────────────────────────────────────

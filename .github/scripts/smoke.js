@@ -4,8 +4,12 @@
 //
 // No reemplaza a una suite de tests, pero cubre la clase de error que este
 // archivo produce con más frecuencia: identificadores usados antes de
-// declararse, y funciones que dejan de existir tras un refactor. Ambos son
-// invisibles hasta que alguien abre la pestaña afectada.
+// declararse, y funciones que dejan de existir o cambian de firma tras un
+// refactor. Ambos son invisibles hasta que alguien abre la pestaña afectada.
+//
+// Ya atajó dos: usdFamDRenderFlows con nombres de parámetro equivocados
+// (ReferenceError al abrir cualquier bono USD) y onclick generados que
+// apuntaban siempre a bop. Los dos pasaban node --check sin problema.
 
 const { chromium } = require('playwright');
 
@@ -24,18 +28,17 @@ const check = (cond, label, detalle = '') => {
   page.setDefaultTimeout(60000);
 
   const errores = [];
-  const req404 = [];
+  const req400 = [];
   page.on('pageerror', e => errores.push(e.message));
   page.on('console', m => { if (m.type() === 'error') errores.push(m.text()); });
-  page.on('response', r => { if (r.status() >= 400) req404.push(`${r.status()} ${r.url().slice(0, 120)}`); });
+  page.on('response', r => { if (r.status() >= 400) req400.push(`${r.status()} ${r.url().slice(0, 120)}`); });
 
   console.log(`\nSmoke test — ${APP}\n`);
 
   await page.goto(APP, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => typeof supa !== 'undefined', null, { timeout: 60000 });
-  await page.waitForTimeout(20000);   // carga de precios
+  await page.waitForTimeout(20000);
 
-  // ── Utilidades base ────────────────────────────────────────────────────────
   console.log('Fechas y días hábiles');
   const u = await page.evaluate(() => ({
     hoy: hoyAR(),
@@ -50,21 +53,17 @@ const check = (cond, label, detalle = '') => {
   check(u.lun === true, 'lunes sí es hábil');
   check(u.mercado, 'mercadoActivo() existe');
 
-  // ── Precios ────────────────────────────────────────────────────────────────
   console.log('\nCarga de precios');
   const px = await page.evaluate(() => ({
     ars: (typeof LECAPS !== 'undefined' ? LECAPS : []).filter(b => b.precio != null).length,
     arsTot: (typeof LECAPS !== 'undefined' ? LECAPS : []).length,
-    usd: ['BOP_BONDS', 'BON_BONDS', 'GLO_BONDS']
-      .flatMap(n => (typeof window[n] !== 'undefined' ? window[n] : eval(n)) || [])
-      .filter(b => b.lastPrecio != null).length,
-    api: typeof USD_PRICE_API === 'string' ? USD_PRICE_API : String(USD_PRICE_API),
+    usd: [BOP_BONDS, BON_BONDS, GLO_BONDS].flat().filter(b => b.lastPrecio != null).length,
+    api: String(USD_PRICE_API),
   }));
   check(px.api.startsWith('https://'), 'USD_PRICE_API definido al arrancar', px.api);
   check(px.ars > 0, `LECAPS con precio: ${px.ars}/${px.arsTot}`);
   check(px.usd > 0, `bonos USD con precio: ${px.usd}`);
 
-  // ── Familias USD (lo que toca el refactor FE-6) ─────────────────────────────
   console.log('\nFamilias USD: descriptor y envoltorios');
   const fam = await page.evaluate(() => {
     const r = {};
@@ -73,12 +72,11 @@ const check = (cond, label, detalle = '') => {
       r[id] = {
         bonds: Array.isArray(f.bonds) ? f.bonds.length : -1,
         id: f.id,
-        sortCol: f.sortCol,
-        tieneFns: ['save', 'chartRender', 'renderSummary', 'renderRows', 'dRenderFlows', 'dSaveEdits']
+        tieneFns: ['save', 'chartRender', 'renderSummary', 'renderRows',
+                   'dRenderFlows', 'dSaveEdits', 'showDetail', 'dCalc', 'dPreviewRow']
           .every(k => typeof f[k] === 'function'),
       };
     }
-    // los nombres viejos siguen existiendo
     r.wrappers = ['SortBy', 'RenderSummaryRows', 'RenderSummary', 'DeleteDirect',
                   'DToggleEdit', 'DCancelEdit', 'Select', 'DSaveEdits',
                   'ShowDetail', 'ChartRender', 'DRenderFlows', 'DCalc', 'DPreviewRow']
@@ -94,7 +92,6 @@ const check = (cond, label, detalle = '') => {
   check(fam.wrappers.length === 0, 'los 39 nombres originales siguen existiendo',
         fam.wrappers.length ? 'faltan: ' + fam.wrappers.join(', ') : '');
 
-  // ── Navegación por pestañas ────────────────────────────────────────────────
   console.log('\nPestañas USD: renderizado');
   await page.evaluate(() => switchSection('usd'));
   for (const [tab, tbody] of [
@@ -111,106 +108,124 @@ const check = (cond, label, detalle = '') => {
     check(filas > 0, `${tab} renderiza filas`, `${filas} filas`);
   }
 
-  // ── Ordenamiento (usdFamSortBy sobre el estado real) ───────────────────────
   console.log('\nOrdenamiento');
   const sort = await page.evaluate(() => {
-    const antes = { col: bopSortCol, asc: bopSortAsc };
     bopSortBy('tir');
-    const tras1 = { col: bopSortCol, asc: bopSortAsc };
+    const a = { col: bopSortCol, asc: bopSortAsc };
     bopSortBy('tir');
-    const tras2 = { col: bopSortCol, asc: bopSortAsc };
-    return { antes, tras1, tras2, filas: document.getElementById('bop-summary-tbody').querySelectorAll('tr').length };
+    const b = { col: bopSortCol, asc: bopSortAsc };
+    return { a, b, filas: document.getElementById('bop-summary-tbody').querySelectorAll('tr').length };
   });
-  check(sort.tras1.col === 'tir', 'bopSortBy cambia la columna', sort.tras1.col);
-  check(sort.tras1.asc !== sort.tras2.asc, 'repetir la columna invierte el sentido');
+  check(sort.a.col === 'tir', 'bopSortBy cambia la columna', sort.a.col);
+  check(sort.a.asc !== sort.b.asc, 'repetir la columna invierte el sentido');
   check(sort.filas > 0, 'la tabla sigue con filas tras ordenar', `${sort.filas}`);
 
-  // ── Selección y panel de detalle (usdFamSelect) ────────────────────────────
-  console.log('\nSelección de bono y panel de detalle');
-  for (const [tab, fam] of [['usd-bopreales', 'bop'], ['usd-bonares', 'bon'], ['usd-globales', 'glo']]) {
+  console.log('\nSelección, gráfico, flujos y cálculo');
+  for (const id of ['bop', 'bon', 'glo']) {
+    const tab = 'usd-' + ({ bop: 'bopreales', bon: 'bonares', glo: 'globales' })[id];
     await page.evaluate(t => switchUsdTab(t), tab);
-    await page.waitForTimeout(800);
-    const r = await page.evaluate(id => {
-      const f = USD_FAM[id];
-      const t = f.bonds[0] && f.bonds[0].ticker;
-      if (!t) return { err: 'sin bonos' };
-      window[id + 'Select'](t);
-      const det = document.getElementById(id + '-view-detail');
-      const nombre = document.getElementById(id + '-detail-name');
-      const flujos = document.getElementById(id + '-d-flows') || document.getElementById(id + '-ff-body');
-      return {
-        ticker: t,
-        sel: f.sel,
-        flows: Array.isArray(f.flows) ? f.flows.length : -1,
-        visible: det ? det.style.display : null,
-        nombre: nombre ? nombre.textContent : null,
-      };
-    }, fam);
-    if (r.err) { check(false, `${fam}Select`, r.err); continue; }
-    check(r.sel === r.ticker, `${fam}Select fija la selección`, `${r.sel} vs ${r.ticker}`);
-    check(r.flows > 0, `${fam}Select genera los flujos`, `${r.flows} flujos`);
-    check(r.visible === 'flex', `${fam} abre el panel de detalle`, String(r.visible));
-    check(r.nombre === r.ticker, `${fam} muestra el ticker en el panel`, `${r.nombre}`);
-  }
-
-  // ── Gráfico, flujos y cálculo ──────────────────────────────────────────────
-  console.log('\nGráfico de curva, flujos y cálculo');
-  for (const fam of ['bop', 'bon', 'glo']) {
-    await page.evaluate(t => switchUsdTab(t), 'usd-' + ({bop:'bopreales',bon:'bonares',glo:'globales'})[fam]);
     await page.waitForTimeout(900);
-    const r = await page.evaluate(id => {
-      const f = USD_FAM[id];
-      const t = f.bonds[0] && f.bonds[0].ticker;
+    const r = await page.evaluate(f => {
+      const fm = USD_FAM[f];
+      const t = fm.bonds[0] && fm.bonds[0].ticker;
       if (!t) return { err: 'sin bonos' };
-      window[id + 'Select'](t);
-      window[id + 'DCalc']();
-      const tb = document.getElementById(id + '-d-tbody');
-      const info = document.getElementById(id + '-d-flows-info');
-      const dur = document.getElementById(id + '-d-dur');
-      const btn = document.getElementById(id + '-d-edit-btn');
+      window[f + 'Select'](t);
+      window[f + 'DCalc']();
+      const tb = document.getElementById(f + '-d-tbody');
+      const info = document.getElementById(f + '-d-flows-info');
+      const dur = document.getElementById(f + '-d-dur');
+      const btn = document.getElementById(f + '-d-edit-btn');
+      const det = document.getElementById(f + '-view-detail');
+      const nom = document.getElementById(f + '-detail-name');
       return {
-        chart: !!f.chart,
-        etiqueta: f.chart && f.chart.data.datasets[0] ? f.chart.data.datasets[0].label : null,
+        ticker: t, sel: fm.sel,
+        flows: Array.isArray(fm.flows) ? fm.flows.length : -1,
+        visible: det ? det.style.display : null,
+        nombre: nom ? nom.textContent : null,
+        chart: !!fm.chart,
+        etiqueta: fm.chart && fm.chart.data.datasets[0] ? fm.chart.data.datasets[0].label : null,
         filas: tb ? tb.querySelectorAll('tr').length : -1,
         info: info ? info.textContent.slice(0, 40) : '',
         dur: dur ? dur.textContent : '',
         handler: btn ? btn.getAttribute('onclick') : null,
       };
-    }, fam);
-    if (r.err) { check(false, fam + ' gráfico/flujos', r.err); continue; }
-    check(r.chart, fam + ' crea la instancia del gráfico');
-    check(r.etiqueta === USD_LABEL[fam], fam + ' usa su propia etiqueta', String(r.etiqueta));
-    check(r.filas > 0, fam + ' renderiza el flujo de fondos', r.filas + ' filas');
-    check(/Precio:/.test(r.info), fam + 'DCalc escribe precio y paridad', r.info);
-    check(/MD /.test(r.dur), fam + 'DCalc escribe la duration', r.dur);
-    check(r.handler === fam + 'DToggleEdit()', fam + ' genera su propio onclick', String(r.handler));
+    }, id);
+    if (r.err) { check(false, `${id}Select`, r.err); continue; }
+    check(r.sel === r.ticker, `${id}Select fija la selección`, `${r.sel}`);
+    check(r.flows > 0, `${id}Select genera los flujos`, `${r.flows}`);
+    check(r.visible === 'flex', `${id} abre el panel de detalle`, String(r.visible));
+    check(r.nombre === r.ticker, `${id} muestra el ticker en el panel`, String(r.nombre));
+    check(r.chart, `${id} crea la instancia del gráfico`);
+    check(r.etiqueta === USD_LABEL[id], `${id} usa su propia etiqueta`, String(r.etiqueta));
+    check(r.filas > 0, `${id} renderiza el flujo de fondos`, `${r.filas} filas`);
+    check(/Precio:/.test(r.info), `${id}DCalc escribe precio y paridad`, r.info);
+    check(/MD /.test(r.dur), `${id}DCalc escribe la duration`, r.dur);
+    check(r.handler === `${id}DToggleEdit()`, `${id} genera su propio onclick`, String(r.handler));
   }
 
-  // ── Resto de pestañas ──────────────────────────────────────────────────────
+  console.log('\nPesos: tablas por tipo');
+  await page.evaluate(() => switchSection('pesos'));
+  for (const [tab, tbody, arr] of [
+    ['lecap', 'table-body',       'DATA'],
+    ['cer',   'cer-table-body',   'CER_DATA'],
+    ['tamar', 'tamar-table-body', 'TAMAR_DATA'],
+    ['dlk',   'dlk-table-body',   'DLK_DATA'],
+  ]) {
+    await page.evaluate(t => switchTab(t), tab);
+    await page.waitForTimeout(1000);
+    const r = await page.evaluate(([id, name]) => {
+      const el = document.getElementById(id);
+      const filas = el ? el.querySelectorAll('tr').length : -1;
+      let datos = -1, conTasa = -1;
+      try {
+        const a = eval(name);
+        if (Array.isArray(a)) {
+          datos = a.length;
+          conTasa = a.filter(x => [x.tna, x.tir, x.margenTNA]
+            .some(v => v != null && !isNaN(v))).length;
+        }
+      } catch (e) {}
+      return { filas, datos, conTasa };
+    }, [tbody, arr]);
+    check(r.filas > 0, `${tab} renderiza filas`, `${r.filas} filas`);
+    check(r.conTasa > 0, `${tab} calcula tasas`, `${r.conTasa}/${r.datos} con tasa`);
+  }
+
+  console.log('\nIndicador del snapshot');
+  const snap = await page.evaluate(async () => {
+    await snapEstadoRefrescar();
+    const el = document.getElementById('snap-estado');
+    return el ? { txt: el.textContent, title: el.title } : null;
+  });
+  check(!!snap, 'el indicador existe');
+  check(snap && /snapshot/.test(snap.txt), 'muestra la fecha del último snapshot', snap && snap.txt);
+  check(snap && /bonos/.test(snap.title), 'el tooltip trae el detalle', snap && snap.title);
+
   console.log('\nResto de pestañas (no deben lanzar)');
   const antes = errores.length;
+  await page.evaluate(() => switchSection('usd'));
   for (const t of ['usd-resumen', 'usd-forwards', 'usd-equiv', 'usd-curvas']) {
     await page.evaluate(x => switchUsdTab(x), t);
     await page.waitForTimeout(700);
   }
   await page.evaluate(() => switchSection('pesos'));
-  for (const t of ['lecap', 'cer', 'tamar', 'dlk', 'breakeven', 'calendario', 'curvas-ars']) {
+  for (const t of ['breakeven', 'forwards', 'sintetico', 'calendario', 'proyecciones', 'curvas-ars']) {
     await page.evaluate(x => switchTab(x), t);
     await page.waitForTimeout(700);
   }
   check(errores.length === antes, 'ninguna pestaña lanzó errores',
         errores.slice(antes).slice(0, 3).join(' | '));
 
-  // ── Higiene ────────────────────────────────────────────────────────────────
   console.log('\nHigiene');
-  const undef = req404.filter(r => r.includes('/undefined'));
+  const undef = req400.filter(r => r.includes('/undefined'));
   check(undef.length === 0, 'sin peticiones a /undefined', undef.join(', '));
-  const graves = errores.filter(e => /is not defined|is not a function|before initialization|Cannot read/.test(e));
+  const graves = errores.filter(e =>
+    /is not defined|is not a function|before initialization|Cannot read/.test(e));
   check(graves.length === 0, 'sin ReferenceError/TypeError', graves.slice(0, 3).join(' | '));
 
-  if (req404.length) {
+  if (req400.length) {
     console.log('\n  peticiones con status >= 400:');
-    for (const r of [...new Set(req404)].slice(0, 8)) console.log('    ' + r);
+    for (const r of [...new Set(req400)].slice(0, 8)) console.log('    ' + r);
   }
 
   console.log(`\n${ok} OK · ${bad} fallas\n`);
