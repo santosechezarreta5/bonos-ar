@@ -9,6 +9,7 @@
 
 const { chromium } = require('playwright');
 
+const USD_LABEL = { bop: 'Bopreales', bon: 'Bonares', glo: 'Globales' };
 const APP = process.env.APP_URL || 'https://santosechezarreta5.github.io/bonos-ar/';
 
 let ok = 0, bad = 0;
@@ -79,7 +80,8 @@ const check = (cond, label, detalle = '') => {
     }
     // los nombres viejos siguen existiendo
     r.wrappers = ['SortBy', 'RenderSummaryRows', 'RenderSummary', 'DeleteDirect',
-                  'DToggleEdit', 'DCancelEdit', 'Select', 'DSaveEdits']
+                  'DToggleEdit', 'DCancelEdit', 'Select', 'DSaveEdits',
+                  'ShowDetail', 'ChartRender', 'DRenderFlows', 'DCalc', 'DPreviewRow']
       .flatMap(s => ['bop', 'bon', 'glo'].map(p => p + s))
       .filter(n => typeof window[n] !== 'function');
     return r;
@@ -89,7 +91,7 @@ const check = (cond, label, detalle = '') => {
     check(fam[id].bonds > 0, `USD_FAM.${id}.bonds lee la lista real`, `${fam[id].bonds} bonos`);
     check(fam[id].tieneFns, `USD_FAM.${id} tiene todas las funciones`);
   }
-  check(fam.wrappers.length === 0, 'los 24 nombres originales siguen existiendo',
+  check(fam.wrappers.length === 0, 'los 39 nombres originales siguen existiendo',
         fam.wrappers.length ? 'faltan: ' + fam.wrappers.join(', ') : '');
 
   // ── Navegación por pestañas ────────────────────────────────────────────────
@@ -149,6 +151,39 @@ const check = (cond, label, detalle = '') => {
     check(r.flows > 0, `${fam}Select genera los flujos`, `${r.flows} flujos`);
     check(r.visible === 'flex', `${fam} abre el panel de detalle`, String(r.visible));
     check(r.nombre === r.ticker, `${fam} muestra el ticker en el panel`, `${r.nombre}`);
+  }
+
+  // ── Gráfico, flujos y cálculo ──────────────────────────────────────────────
+  console.log('\nGráfico de curva, flujos y cálculo');
+  for (const fam of ['bop', 'bon', 'glo']) {
+    await page.evaluate(t => switchUsdTab(t), 'usd-' + ({bop:'bopreales',bon:'bonares',glo:'globales'})[fam]);
+    await page.waitForTimeout(900);
+    const r = await page.evaluate(id => {
+      const f = USD_FAM[id];
+      const t = f.bonds[0] && f.bonds[0].ticker;
+      if (!t) return { err: 'sin bonos' };
+      window[id + 'Select'](t);
+      window[id + 'DCalc']();
+      const tb = document.getElementById(id + '-d-tbody');
+      const info = document.getElementById(id + '-d-flows-info');
+      const dur = document.getElementById(id + '-d-dur');
+      const btn = document.getElementById(id + '-d-edit-btn');
+      return {
+        chart: !!f.chart,
+        etiqueta: f.chart && f.chart.data.datasets[0] ? f.chart.data.datasets[0].label : null,
+        filas: tb ? tb.querySelectorAll('tr').length : -1,
+        info: info ? info.textContent.slice(0, 40) : '',
+        dur: dur ? dur.textContent : '',
+        handler: btn ? btn.getAttribute('onclick') : null,
+      };
+    }, fam);
+    if (r.err) { check(false, fam + ' gráfico/flujos', r.err); continue; }
+    check(r.chart, fam + ' crea la instancia del gráfico');
+    check(r.etiqueta === USD_LABEL[fam], fam + ' usa su propia etiqueta', String(r.etiqueta));
+    check(r.filas > 0, fam + ' renderiza el flujo de fondos', r.filas + ' filas');
+    check(/Precio:/.test(r.info), fam + 'DCalc escribe precio y paridad', r.info);
+    check(/MD /.test(r.dur), fam + 'DCalc escribe la duration', r.dur);
+    check(r.handler === fam + 'DToggleEdit()', fam + ' genera su propio onclick', String(r.handler));
   }
 
   // ── Resto de pestañas ──────────────────────────────────────────────────────
