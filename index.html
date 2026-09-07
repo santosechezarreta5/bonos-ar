@@ -2391,7 +2391,33 @@ const CP_COLORS={
 const LS_CHART_SEL='bonosAR_chart_sel_v1';
 
 // ── UTILIDADES BÁSICAS (necesarias antes de todo) ─────────────────────────────
-const fmtDate=d=>d.toISOString().split('T')[0];
+// Formatea usando los componentes LOCALES de la fecha.
+// Antes usaba toISOString(), que convierte a UTC: para un Date creado como
+// medianoche local (parseDate, new Date(y,m,d)) eso devuelve el día anterior
+// en cualquier zona con offset UTC positivo. Ej: en Madrid, el 4-sep local
+// se serializaba como '2026-09-03'.
+const fmtDate=d=>{
+  const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+  return`${y}-${m}-${day}`;
+};
+
+// Día calendario actual en Argentina, independiente de la zona del navegador.
+// Es la referencia única de "hoy" para snapshots y curvas.
+const hoyAR=()=>new Date().toLocaleDateString('en-CA',{timeZone:'America/Argentina/Buenos_Aires'});
+
+// ── VALIDACIÓN DE TICKER ──────────────────────────────────────────────────────
+// El ticker se interpola en handlers onclick generados como string
+// (ej: onclick="cerStartCell(event,'TX26','precio')"). Una comilla simple
+// cierra el literal y lo que sigue se ejecuta. Como los bonos se sincronizan
+// a todo el equipo vía shared_data, un ticker malformado correría en el
+// navegador de cada persona que abra la app.
+const TICKER_RX=/^[A-Z0-9._-]{1,12}$/;
+function tickerValido(t){
+  if(!t)return true; // vacío lo reportan las validaciones de campos obligatorios
+  if(TICKER_RX.test(t))return true;
+  alert(`Ticker inválido: "${t}"\n\nSolo se admiten letras, números, punto, guion y guion bajo, hasta 12 caracteres.`);
+  return false;
+}
 
 // ── FERIADOS AR ───────────────────────────────────────────────────────────────
 // Feriados fijos (aplican todos los años)
@@ -3198,6 +3224,7 @@ function previewModalVF(){
 ['m-tem-emision','m-emision','m-vcto'].forEach(id=>document.getElementById(id).addEventListener('input',previewModalVF));
 function saveModal(){
   const ticker=(document.getElementById('m-ticker').value||'').toUpperCase().trim();
+  if(!tickerValido(ticker))return;
   const tem_emision=parseFloat(document.getElementById('m-tem-emision').value);
   const emision=document.getElementById('m-emision').value;
   const vcto=document.getElementById('m-vcto').value;
@@ -4525,6 +4552,7 @@ function cerAmortGetSchedule(){
 function cerSaveModal(){
   try{
     const ticker=(document.getElementById('cer-m-ticker').value||'').toUpperCase().trim();
+    if(!tickerValido(ticker))return;
     const tipo=document.getElementById('cer-m-tipo').value;
     const emision=document.getElementById('cer-m-emision').value;
     const vcto=document.getElementById('cer-m-vcto').value;
@@ -6278,6 +6306,7 @@ function tamarOpenModal(){
 function tamarCloseModal(){document.getElementById('tamar-modal').classList.remove('open');}
 function tamarSaveModal(){
   const ticker=(document.getElementById('tamar-m-ticker').value||'').toUpperCase().trim();
+  if(!tickerValido(ticker))return;
   const emision=document.getElementById('tamar-m-emision').value;
   const vcto=document.getElementById('tamar-m-vcto').value;
   const precioRaw=document.getElementById('tamar-m-precio').value;
@@ -8738,6 +8767,7 @@ function dlkModalUpdateSum(){
 
 function dlkSaveModal(){
   const ticker=(document.getElementById('dlk-m-ticker').value||'').toUpperCase().trim();
+  if(!tickerValido(ticker))return;
   const cupon=parseFloat(document.getElementById('dlk-m-cupon').value)||0;
   const emision=document.getElementById('dlk-m-emision').value;
   const vcto=document.getElementById('dlk-m-vcto').value;
@@ -9552,7 +9582,7 @@ function exportTableCSV(type){
   const fD=d=>d?d.split('-').reverse().join('/'):'';
   const f=(v,d=2)=>v==null||isNaN(v)?'':v.toFixed(d);
   let headers,rows,filename;
-  const today=new Date().toISOString().slice(0,10);
+  const today=hoyAR();
 
   if(type==='lecap'){
     const data=DATA.filter(r=>r.dias>0);
@@ -10928,6 +10958,7 @@ function bopAddAmortRow(){bopAmortRows.push({fecha:'',pct:0});bopRenderAmortRows
 function bopRemoveAmortRow(i){bopAmortRows.splice(i,1);bopRenderAmortRows();}
 function bopSaveModal(){
   const ticker=document.getElementById('bop-f-ticker').value.trim().toUpperCase();
+  if(!tickerValido(ticker))return;
   const emision=document.getElementById('bop-f-emision').value;
   const venc=document.getElementById('bop-f-venc').value;
   if(!ticker||!emision||!venc){alert('Completá Ticker, Emisión y Vencimiento');return;}
@@ -12550,7 +12581,7 @@ async function curvasSnapshotToday(){
   try{await _curvasSnapshotTodayImpl();}finally{_curvasSnapRunning=false;}
 }
 async function _curvasSnapshotTodayImpl(){
-  const today=TODAY instanceof Date?TODAY.toISOString().split('T')[0]:String(TODAY);
+  const today=hoyAR();
   // Cooldown per-sector (1 hora): cada sector tiene su propio timer independiente.
   // Así fetchPrices (TF) y usdRefreshPrices (GLO/BON/BOP) no se bloquean mutuamente.
   let sectorTs={};
@@ -12568,7 +12599,7 @@ async function _curvasSnapshotTodayImpl(){
     return true;
   };
   const _liqRaw=G_LIQ||addHabiles(TODAY,1);
-  const liq=_liqRaw instanceof Date?_liqRaw.toISOString().split('T')[0]:String(_liqRaw);
+  const liq=_liqRaw instanceof Date?fmtDate(_liqRaw):String(_liqRaw);
   const rows=[];
 
   // USD: BOP/BON/GLO — reutiliza usdResCalcRow que ya calcula TIR+MD
@@ -12666,7 +12697,7 @@ async function _curvasSnapshotTodayImpl(){
 
 // ── Fetch snapshot desde Supabase ─────────────────────────────────────────
 async function curvasFetchSnapshot(dateStr,sector){
-  const todayStr=TODAY instanceof Date?TODAY.toISOString().split('T')[0]:String(TODAY);
+  const todayStr=hoyAR();
   // Si es hoy → intentar desde memoria primero (precios live)
   if(dateStr===todayStr){
     const memRows=curvasSnapshotFromMemory(sector);
@@ -12737,8 +12768,8 @@ function curvasTrendPts(reg,pts,npts=100){
 
 // ── Helpers UI ────────────────────────────────────────────────────────────
 function curvasFmtDate(d){return d?d.split('-').reverse().join('/'):''}
-function curvasTodayStr(){return TODAY instanceof Date?TODAY.toISOString().split('T')[0]:String(TODAY);}
-function curvasDateMinus7(d){const dt=new Date(d+'T00:00:00');dt.setDate(dt.getDate()-7);return dt.toISOString().split('T')[0];}
+function curvasTodayStr(){return hoyAR();}
+function curvasDateMinus7(d){const dt=new Date(d+'T00:00:00');dt.setDate(dt.getDate()-7);return fmtDate(dt);}
 
 // ══════════════════════════════════════════════════════════════ CURVAS ARS
 function curvasArsInit(){

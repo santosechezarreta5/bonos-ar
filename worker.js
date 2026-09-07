@@ -5,7 +5,16 @@
 //
 // Variables de entorno a agregar en Cloudflare Dashboard → Settings → Variables:
 //   SUPABASE_URL          https://xxx.supabase.co
-//   SUPABASE_SERVICE_KEY  service_role key (bypasa RLS)
+//   SUPABASE_SERVICE_KEY  service_role key (bypasa RLS)          [encrypted]
+//   SNAPSHOT_TOKEN        secreto para POST /test-snapshot        [encrypted]
+//                         Sin esta variable, /test-snapshot devuelve 503.
+//                         Generar con: openssl rand -hex 32
+//
+// Seguridad (ver ALLOWED_ORIGINS / IOL_ALLOWED_HOSTS más abajo):
+//   · CORS restringido a los orígenes de la app (antes era '*')
+//   · /iol sólo reenvía a api.invertironline.com por https (antes: cualquier URL)
+//   · /test-snapshot exige X-Snapshot-Token (antes: sin autenticación)
+//   · Los parámetros del proxy BCRA se validan antes de interpolarse
 //
 // Cron trigger: 15 20 * * 1-5
 //   Cloudflare Dashboard → Workers & Pages → royal-resonance-d470
@@ -118,48 +127,100 @@ async function takeDailySnapshot(env) {
     }
   }
 
-  // Deduplicar: si el mismo ticker aparece en más de una lista, queda el último
-  const deduped = [...new Map(rows.map(r => [r.ticker, r])).values()];
+  // Deduplicar por (sector, ticker): hay tickers que viven en dos sectores
+  // (TXMJ9/TXMJ8/TXMD8/TXMD9/TXMJ0 en CER y TAMAR; TMVE8 en TAMAR y DLK).
+  // Con clave sólo por ticker se perdía una de las dos filas en silencio.
+  const deduped = [...new Map(rows.map(r => [`${r.sector}|${r.ticker}`, r])).values()];
 
   if (deduped.length) await supaUpsert(env, 'bond_price_snapshots', deduped, 'snapshot_date,ticker');
   return deduped.length;
 }
 
+// ── Seguridad ──────────────────────────────────────────────────────────────────
+// Orígenes autorizados a llamar al Worker desde un navegador.
+// Si algún día servís la app desde otro dominio, agregalo acá.
+const ALLOWED_ORIGINS = [
+  'https://santosechezarreta5.github.io',
+  'http://localhost:8000',
+  'http://localhost:5500',
+  'http://127.0.0.1:8000',
+  'http://127.0.0.1:5500',
+];
+
+// Únicos hosts a los que el proxy /iol puede reenviar.
+const IOL_ALLOWED_HOSTS = ['api.invertironline.com'];
+
+function corsHeaders(request) {
+  const origin = request.headers.get('Origin') || '';
+  const h = {
+    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Snapshot-Token',
+    'Vary': 'Origin',
+  };
+  if (ALLOWED_ORIGINS.includes(origin)) h['Access-Control-Allow-Origin'] = origin;
+  return h;
+}
+
+function jsonError(msg, status, cors) {
+  return new Response(JSON.stringify({ ok: false, error: msg }),
+    { status, headers: { 'Content-Type': 'application/json', ...cors } });
+}
+
+// Comparación en tiempo constante para no filtrar el token por timing
+function safeEqual(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 export default {
   async fetch(request, env) {
-    const cors = {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-    };
+    const cors = corsHeaders(request);
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
 
     const url = new URL(request.url);
 
-    // Snapshot manual (para probar sin esperar el cron)
+    // ── Snapshot manual ────────────────────────────────────────────────────────
+    // Escribe con SERVICE_ROLE (saltea RLS) → exige token compartido.
+    // Configurar SNAPSHOT_TOKEN en Cloudflare → Settings → Variables (encrypted).
     if (url.pathname === '/test-snapshot') {
-      if (request.method !== 'POST') return new Response('POST required', { status: 405, headers: cors });
+      if (request.method !== 'POST') return jsonError('POST required', 405, cors);
+      if (!env.SNAPSHOT_TOKEN) return jsonError('SNAPSHOT_TOKEN no configurado en el Worker', 503, cors);
+      if (!safeEqual(request.headers.get('X-Snapshot-Token') || '', env.SNAPSHOT_TOKEN))
+        return jsonError('No autorizado', 401, cors);
       try {
         const n = await takeDailySnapshot(env);
         return new Response(JSON.stringify({ ok: true, rows: n, date: todayAR() }),
           { headers: { 'Content-Type': 'application/json', ...cors } });
       } catch (e) {
-        return new Response(JSON.stringify({ ok: false, error: e.message }),
-          { status: 500, headers: { 'Content-Type': 'application/json', ...cors } });
+        console.error('test-snapshot:', e.message);
+        return jsonError(e.message, 500, cors);
       }
     }
 
     if (url.pathname === '/rofex') return handleRofex(env, cors);
 
+    // ── Proxy IOL ──────────────────────────────────────────────────────────────
+    // Sólo reenvía a hosts de la allowlist y sólo por https.
     if (url.pathname === '/iol') {
       const target = url.searchParams.get('url');
-      if (!target) return new Response('Missing url param', { status: 400 });
-      const authHeader = request.headers.get('Authorization') || '';
-      const iolHeaders = { 'Authorization': authHeader };
+      if (!target) return jsonError('Falta el parámetro url', 400, cors);
+
+      let parsed;
+      try { parsed = new URL(target); }
+      catch { return jsonError('URL inválida', 400, cors); }
+
+      if (parsed.protocol !== 'https:') return jsonError('Sólo https', 400, cors);
+      if (!IOL_ALLOWED_HOSTS.includes(parsed.hostname))
+        return jsonError(`Host no permitido: ${parsed.hostname}`, 403, cors);
+
+      const iolHeaders = { 'Authorization': request.headers.get('Authorization') || '' };
       if (request.method === 'POST')
         iolHeaders['Content-Type'] = request.headers.get('Content-Type') || 'application/x-www-form-urlencoded';
-      const iolRes = await fetch(target, {
+
+      const iolRes = await fetch(parsed.toString(), {
         method: request.method,
         headers: iolHeaders,
         body: request.method === 'POST' ? request.body : undefined,
@@ -168,12 +229,21 @@ export default {
       return new Response(body, { status: iolRes.status, headers: { 'Content-Type': 'application/json', ...cors } });
     }
 
-    // BCRA proxy (default)
+    // ── Proxy BCRA (default) ───────────────────────────────────────────────────
+    // Todos los parámetros se validan antes de interpolarse en la URL.
+    const rxInt = /^\d{1,7}$/, rxDate = /^\d{4}-\d{2}-\d{2}$/;
     const id     = url.searchParams.get('id')     || '30';
     const desde  = url.searchParams.get('desde')  || '2002-01-01';
     const limit  = url.searchParams.get('limit')  || '15000';
     const offset = url.searchParams.get('offset') || '0';
-    const bcraTarget = `https://api.bcra.gob.ar/estadisticas/v4.0/Monetarias/${id}?desde=${desde}&limit=${limit}&offset=${offset}`;
+
+    if (!rxInt.test(id))      return jsonError('id inválido', 400, cors);
+    if (!rxDate.test(desde))  return jsonError('desde inválido (YYYY-MM-DD)', 400, cors);
+    if (!rxInt.test(limit))   return jsonError('limit inválido', 400, cors);
+    if (!rxInt.test(offset))  return jsonError('offset inválido', 400, cors);
+
+    const lim = Math.min(parseInt(limit, 10), 15000);
+    const bcraTarget = `https://api.bcra.gob.ar/estadisticas/v4.0/Monetarias/${id}?desde=${desde}&limit=${lim}&offset=${parseInt(offset, 10)}`;
     const resp = await fetch(bcraTarget, { headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' } });
     const body = await resp.text();
     return new Response(body, { status: resp.status, headers: { 'Content-Type': 'application/json', ...cors } });
