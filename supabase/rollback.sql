@@ -13,24 +13,25 @@
 
 
 -- ── PASO 1 · Ver qué quedó ─────────────────────────────────────────────────
--- Correr esto solo primero. Si las tres filas dan 'no existe', no hay nada
--- que limpiar y podés ignorar el paso 2.
+-- Correr esto solo primero. Si las tres columnas dan 'no existe', no hay
+-- nada que limpiar y podés ignorar el paso 2.
+--
+-- Nota: no se referencia public.app_roles directamente. Postgres planifica
+-- la consulta entera antes de ejecutarla, así que un "select ... from
+-- app_roles" dentro de un CASE falla aunque esa rama nunca se evalúe.
+-- Sólo se consultan los catálogos, que siempre existen.
 
-select 'tabla app_roles' as objeto,
-       case when to_regclass('public.app_roles') is null
-            then 'no existe' else 'EXISTE' end as estado,
-       case when to_regclass('public.app_roles') is null
-            then null else (select count(*)::text || ' filas' from public.app_roles) end as detalle
-union all
-select 'función es_admin()',
-       case when exists (select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
-                         where n.nspname='public' and p.proname='es_admin')
-            then 'EXISTE' else 'no existe' end, null
-union all
-select 'función puede_escribir_snapshots()',
-       case when exists (select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
-                         where n.nspname='public' and p.proname='puede_escribir_snapshots')
-            then 'EXISTE' else 'no existe' end, null;
+select
+  case when to_regclass('public.app_roles') is null
+       then 'no existe' else 'EXISTE' end                       as tabla_app_roles,
+  case when exists (select 1 from pg_proc p
+                    join pg_namespace n on n.oid = p.pronamespace
+                    where n.nspname = 'public' and p.proname = 'es_admin')
+       then 'EXISTE' else 'no existe' end                       as fn_es_admin,
+  case when exists (select 1 from pg_proc p
+                    join pg_namespace n on n.oid = p.pronamespace
+                    where n.nspname = 'public' and p.proname = 'puede_escribir_snapshots')
+       then 'EXISTE' else 'no existe' end                       as fn_puede_escribir_snapshots;
 
 
 -- ── PASO 2 · Limpiar ───────────────────────────────────────────────────────
@@ -44,11 +45,12 @@ select 'función puede_escribir_snapshots()',
 -- declare n integer;
 -- begin
 --   if to_regclass('public.app_roles') is not null then
---     select count(*) into n from public.app_roles;
+--     -- EXECUTE difiere el parseo: si la tabla no existiera, no rompe al planificar
+--     execute 'select count(*) from public.app_roles' into n;
 --     if n > 0 then
 --       raise exception 'app_roles tiene % filas: no la borro, puede ser tuya y anterior a esta migración.', n;
 --     end if;
---     drop table public.app_roles;
+--     execute 'drop table public.app_roles';
 --     raise notice 'app_roles borrada (estaba vacía).';
 --   else
 --     raise notice 'app_roles no existía.';
