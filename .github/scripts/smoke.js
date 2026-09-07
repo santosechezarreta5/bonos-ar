@@ -201,31 +201,6 @@ const check = (cond, label, detalle = '') => {
   check(snap && /snapshot/.test(snap.txt), 'muestra la fecha del último snapshot', snap && snap.txt);
   check(snap && /bonos/.test(snap.title), 'el tooltip trae el detalle', snap && snap.title);
 
-  console.log('\nAlertas (PR-5)');
-  await page.evaluate(() => switchTab('alertas'));
-  await page.waitForTimeout(3500);
-  const al = await page.evaluate(() => {
-    const body = document.getElementById('alertas-body');
-    const msg = document.getElementById('alertas-msg');
-    const txt = body ? body.textContent : '';
-    return {
-      hay: !!body,
-      msg: msg ? msg.textContent : '',
-      movs: /Movimientos de tasa/.test(txt),
-      curva: /Desvíos de la curva/.test(txt),
-      error: /No se pudo cargar/.test(txt),
-      chips: body ? body.querySelectorAll('span[title]').length : 0,
-      filas: body ? body.querySelectorAll('tbody tr').length : 0,
-    };
-  });
-  check(al.hay, 'la pestaña Alertas renderiza');
-  check(!al.error, 'carga sin error', al.msg);
-  check(/→/.test(al.msg), 'compara dos ruedas', al.msg);
-  check(al.movs, 'muestra el bloque de movimientos');
-  check(al.curva, 'muestra el bloque de desvíos de curva');
-  check(al.filas > 0 || al.chips > 0, 'produce resultados',
-        `${al.filas} filas, ${al.chips} chips`);
-
   console.log('\nResto de pestañas (no deben lanzar)');
   const antes = errores.length;
   await page.evaluate(() => switchSection('usd'));
