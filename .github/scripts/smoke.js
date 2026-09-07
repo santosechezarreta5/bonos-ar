@@ -182,6 +182,40 @@ const check = (cond, label, detalle = '') => {
     check(r.handler === `${id}DToggleEdit()`, `${id} genera su propio onclick`, String(r.handler));
   }
 
+  console.log('\nSpread de legislación (solapa SLEG)');
+  await page.evaluate(() => switchUsdTab('usd-curvas'));
+  await page.waitForTimeout(1500);
+  const sleg = await page.evaluate(async () => {
+    curvasUsdSetSector('SLEG');
+    await new Promise(r => setTimeout(r, 2500));
+    const chips = document.getElementById('curvas-usd-bonds');
+    const msg = document.getElementById('curvas-usd-msg');
+    const pares = _curvasSpreadCache.pares || [];
+    return {
+      chipSLEG: !!document.getElementById('curvas-usd-chip-SLEG'),
+      pares: pares.length,
+      conDato: pares.filter(p => p.s1 != null || p.s2 != null).length,
+      etiquetas: pares.slice(0, 3).map(p => p.label),
+      chips: chips ? chips.querySelectorAll('button').length : 0,
+      msg: msg ? msg.textContent : '',
+      chart: !!curvasUsdChart,
+      ejeY: curvasUsdChart ? curvasUsdChart.options.scales.y.title.text : '',
+    };
+  });
+  check(sleg.chipSLEG, 'existe el chip Spread Leg.');
+  check(sleg.pares > 0, 'arma pares Global/Bonar', `${sleg.pares}: ${sleg.etiquetas.join(', ')}`);
+  check(sleg.conDato > 0, 'calcula spreads', `${sleg.conDato}/${sleg.pares} con dato`);
+  check(sleg.chips === sleg.pares, 'un chip por par', `${sleg.chips} chips`);
+  check(sleg.chart, 'dibuja el gráfico');
+  check(/Spread/.test(sleg.ejeY), 'el eje Y es el spread', sleg.ejeY);
+
+  const volver = await page.evaluate(async () => {
+    curvasUsdSetSector('GLO');
+    await new Promise(r => setTimeout(r, 2500));
+    return curvasUsdChart ? curvasUsdChart.options.scales.y.title.text : '';
+  });
+  check(/TIR/.test(volver), 'volver a Globales restaura la curva de tasa', volver);
+
   console.log('\nPesos: tablas por tipo');
   await page.evaluate(() => switchSection('pesos'));
   for (const [tab, tbody, arr] of [
