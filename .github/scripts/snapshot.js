@@ -48,6 +48,19 @@ function fatal(msg) {
     if (!login.ok) fatal(`Login rechazado: ${login.error}`);
     console.log(`  autenticado (uid ${login.uid.slice(0, 8)}…)`);
 
+    // El cron corre de lunes a viernes, pero los feriados de Argentina caen en
+    // día de semana. Si el mercado no operó no hay cierre que guardar, y salir
+    // con éxito evita una falla diaria que después nadie mira.
+    const dia = await page.evaluate(() => ({
+      fecha: hoyAR(),
+      habil: esHabil(parseDate(hoyAR())),
+    }));
+    if (!dia.habil) {
+      console.log(`\n${dia.fecha} no es día hábil en Argentina — nada que guardar.\n`);
+      await browser.close();
+      process.exit(0);
+    }
+
     // El login dispara onAuthStateChange → carga de datos compartidos y precios.
     console.log('→ Esperando la carga de precios (25 s)...');
     await page.waitForTimeout(25000);

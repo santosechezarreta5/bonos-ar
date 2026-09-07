@@ -28,6 +28,15 @@ join (
   having count(tir) = 0          -- ninguna fila del día tiene TIR
 ) d on d.snapshot_date = s.snapshot_date
 
+union all
+
+-- c) Fines de semana: el mercado no opera. Estas filas las escribió el
+--    navegador con la app abierta un sábado o domingo, guardando los precios
+--    del viernes bajo una fecha en la que no hubo rueda.
+select 'fin de semana', snapshot_date, ticker, sector, price, tir, created_at
+from public.bond_price_snapshots
+where extract(dow from snapshot_date) in (0, 6)   -- 0 = domingo, 6 = sábado
+
 order by snapshot_date, ticker;
 
 
@@ -52,7 +61,14 @@ order by snapshot_date, ticker;
 --   having count(tir) = 0
 -- );
 --
+-- delete from public.bond_price_snapshots
+-- where extract(dow from snapshot_date) in (0, 6);
+--
 -- commit;
+--
+-- Si el editor no ejecuta el bloque begin/commit, corré cada delete suelto:
+-- el SQL Editor de Supabase a veces ignora el control de transacción y por
+-- eso una corrida puede parecer aplicada sin haber borrado nada.
 
 
 -- ── PASO 3 · Estado del histórico ──────────────────────────────────────────
