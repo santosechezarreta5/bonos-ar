@@ -12615,6 +12615,10 @@ async function _curvasSnapshotTodayImpl(){
   // navegador de quien sólo consulta.
   if(!SUPA_PUEDE_SNAPSHOT)return;
   const today=hoyAR();
+  // Fin de semana o feriado: el mercado no operó, no hay cierre que guardar.
+  // Sin esto, tener la app abierta un sábado guardaba los precios del viernes
+  // fechados el sábado, y esa fecha aparecía como un día de rueda más en Curvas.
+  if(!esHabil(parseDate(today)))return;
   // Cooldown per-sector (1 hora): cada sector tiene su propio timer independiente.
   // Así fetchPrices (TF) y usdRefreshPrices (GLO/BON/BOP) no se bloquean mutuamente.
   let sectorTs={};
