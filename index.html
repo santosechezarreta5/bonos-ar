@@ -12425,6 +12425,52 @@ function curvasTrendPts(reg,pts,npts=100){
 
 // ── Helpers UI ────────────────────────────────────────────────────────────
 function curvasFmtDate(d){return d?d.split('-').reverse().join('/'):''}
+
+// ── ORDEN DE LOS CHIPS ────────────────────────────────────────────────────
+// Siempre por vencimiento, del que vence primero al que vence último.
+// Antes cada vista ordenaba distinto: Series alfabéticamente y Curvas USD por
+// MD, que no coincide con el vencimiento cuando los bonos tienen estructuras
+// de cupón distintas y por eso se veía desordenado.
+//
+// Los bonos en pesos guardan la fecha en 'vcto' y los de dólares en
+// 'vencimiento'.
+function bonoVencimiento(ticker){
+  if(!ticker)return null;
+  // Los pares del spread vienen como "GD30/AL30": ordena el Global.
+  if(ticker.includes('/'))return bonoVencimiento(ticker.split('/')[0]);
+  const ars=[typeof LECAPS!=='undefined'&&LECAPS, typeof CER_BONDS!=='undefined'&&CER_BONDS,
+             typeof TAMAR_BONDS!=='undefined'&&TAMAR_BONDS, typeof DLK_BONDS!=='undefined'&&DLK_BONDS];
+  for(const arr of ars){
+    if(!arr)continue;
+    const b=arr.find(x=>x.ticker===ticker);
+    if(b&&b.vcto)return b.vcto;
+  }
+  const usd=[typeof BOP_BONDS!=='undefined'&&BOP_BONDS, typeof BON_BONDS!=='undefined'&&BON_BONDS,
+             typeof GLO_BONDS!=='undefined'&&GLO_BONDS];
+  for(const arr of usd){
+    if(!arr)continue;
+    const b=arr.find(x=>x.ticker===ticker);
+    if(b&&b.vencimiento)return b.vencimiento;
+  }
+  return null;
+}
+
+// Ordena por vencimiento. `respaldo` es un numérico por ticker (días o MD) que
+// se usa sólo para los que ya no están en la lista de bonos pero tienen
+// historia guardada; si tampoco hay, quedan al final por orden alfabético.
+function ordenarPorVencimiento(tickers,respaldo){
+  return tickers.slice().sort((a,b)=>{
+    const va=bonoVencimiento(a), vb=bonoVencimiento(b);
+    if(va&&vb)return va<vb?-1:va>vb?1:a.localeCompare(b);
+    if(va)return -1;
+    if(vb)return 1;
+    if(respaldo){
+      const ra=respaldo(a), rb=respaldo(b);
+      if(ra!=null&&rb!=null&&ra!==rb)return ra-rb;
+    }
+    return a.localeCompare(b);
+  });
+}
 function curvasTodayStr(){return hoyAR();}
 function curvasDateMinus7(d){const dt=new Date(d+'T00:00:00');dt.setDate(dt.getDate()-7);return fmtDate(dt);}
 
@@ -12514,7 +12560,7 @@ function _curvasArsDraw(){
   const toAll=rows=>rows.filter(r=>r.sector===sector&&r.dias>0&&r.tir!=null&&!isNaN(r.tir)).map(r=>({x:r.dias,y:r.tir,ticker:r.ticker})).sort((a,b)=>a.x-b.x);
   const allPts1=toAll(snap1), allPts2=toAll(snap2);
   const diasMap=new Map([...allPts1,...allPts2].map(p=>[p.ticker,p.x]));
-  const allTickers=[...new Set([...allPts1.map(p=>p.ticker),...allPts2.map(p=>p.ticker)])].sort((a,b)=>(diasMap.get(a)||0)-(diasMap.get(b)||0));
+  const allTickers=ordenarPorVencimiento([...new Set([...allPts1.map(p=>p.ticker),...allPts2.map(p=>p.ticker)])],t=>diasMap.get(t));
 
   // Chips de bonos
   if(bondsDiv){
@@ -12769,7 +12815,7 @@ function seriesDibujar(sec,error){
   // Los chips salen de los datos del rango: un bono que venció antes del
   // inicio no tiene filas y por lo tanto no aparece. Uno que venció en el
   // medio sí aparece, con la línea cortada donde dejó de operar.
-  const tickers=[...porBono.keys()].sort();
+  const tickers=ordenarPorVencimiento([...porBono.keys()]);
   if(chipsDiv){
     chipsDiv.innerHTML=tickers.length
       ? tickers.map((t,i)=>{
@@ -13056,13 +13102,13 @@ function _curvasUsdDraw(){
   const toAll=(rows,sec)=>rows.filter(r=>r.sector===sec&&r.md!=null&&r.md>0&&r.tir!=null&&!isNaN(r.tir)).map(r=>({x:r.md,y:r.tir,ticker:r.ticker})).sort((a,b)=>a.x-b.x);
   const allPtsFlat=USD_SECS.flatMap(sec=>[...toAll(snap1,sec),...toAll(snap2,sec)]);
   const mdMap=new Map(allPtsFlat.map(p=>[p.ticker,p.x]));
-  const allTickers=[...new Set(allPtsFlat.map(p=>p.ticker))].sort((a,b)=>(mdMap.get(a)||0)-(mdMap.get(b)||0));
+  const allTickers=ordenarPorVencimiento([...new Set(allPtsFlat.map(p=>p.ticker))],t=>mdMap.get(t));
 
   // Chips de bonos (agrupados por sector con mini-cabecera)
   if(bondsDiv){
     const secChips=USD_SECS.map(sec=>{
       const col=secColors[sec];
-      const secT=[...new Set([...toAll(snap1,sec),...toAll(snap2,sec)].map(p=>p.ticker))].sort();
+      const secT=ordenarPorVencimiento([...new Set([...toAll(snap1,sec),...toAll(snap2,sec)].map(p=>p.ticker))],t=>mdMap.get(t));
       if(!secT.length)return '';
       const chips=secT.map(t=>{
         const sel=!curvasUsdFilter||curvasUsdFilter.has(t);
