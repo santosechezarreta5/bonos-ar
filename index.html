@@ -349,6 +349,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
   <button class="nav-tab" id="nav-calendario" onclick="switchTab('calendario')">Calendario</button>
   <button class="nav-tab" id="nav-proyecciones" onclick="switchTab('proyecciones')">Proyecciones</button>
   <button class="nav-tab" id="nav-curvas-ars" onclick="switchTab('curvas-ars')">Curvas</button>
+  <button class="nav-tab" id="nav-series-ars" onclick="switchTab('series-ars')">Series</button>
   <button class="nav-tab" id="nav-feriados" onclick="switchTab('feriados')" style="margin-left:auto">Feriados</button>
 </nav>
 <nav class="nav" id="nav-usd" style="display:none">
@@ -360,6 +361,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
   <button class="nav-tab"        id="nav-usd-bopreales"   onclick="switchUsdTab('usd-bopreales')">Bopreales</button>
   <button class="nav-tab"        id="nav-usd-equiv"       onclick="switchUsdTab('usd-equiv')">Equivalencias</button>
   <button class="nav-tab"        id="nav-usd-curvas"      onclick="switchUsdTab('usd-curvas')">Curvas</button>
+  <button class="nav-tab"        id="nav-usd-series"      onclick="switchUsdTab('usd-series')">Series</button>
 </nav>
 <!-- USD sub-bar: currency selector + price status -->
 <div id="usd-subbar" style="display:none;align-items:center;height:36px;padding:0 1rem;gap:10px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0">
@@ -1678,6 +1680,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 
 <!-- ARS CURVAS PAGE -->
 <div id="page-curvas-ars" style="display:none;height:calc(100vh - 64px);flex-direction:column;overflow:hidden;"></div>
+<div id="page-series-ars" style="display:none;height:calc(100vh - 64px);flex-direction:column;overflow:hidden;"></div>
 
 <!-- USD PAGES -->
 <div id="page-usd-resumen"   class="pg"></div>
@@ -2158,6 +2161,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
 </div>
 
 <div id="page-usd-curvas" style="display:none;height:calc(100vh - 200px);overflow:hidden;flex-direction:column;"></div>
+<div id="page-usd-series" style="display:none;height:calc(100vh - 200px);overflow:hidden;flex-direction:column;"></div>
 
 <div style="height:30px;"></div>
 <div class="status-bar">
@@ -4006,12 +4010,12 @@ function renderChart(){
 let currentTab='lecap';
 let currentSection='pesos';
 let currentUsdTab='usd-resumen';
-const USD_TABS=['usd-resumen','usd-forwards','usd-spreadleg','usd-bonares','usd-globales','usd-bopreales','usd-equiv','usd-curvas'];
+const USD_TABS=['usd-resumen','usd-forwards','usd-spreadleg','usd-bonares','usd-globales','usd-bopreales','usd-equiv','usd-curvas','usd-series'];
 
 function hideAllPages(){
   const ids=['lecap-workspace','chart-area','page-cer','page-feriados',
     'page-proyecciones','page-breakeven','page-tamar','page-forwards',
-    'page-dlk','page-sintetico','page-calendario','page-curvas-ars'];
+    'page-dlk','page-sintetico','page-calendario','page-curvas-ars','page-series-ars'];
   ids.forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
   USD_TABS.forEach(t=>{const p=document.getElementById('page-'+t);if(p)p.style.display='none';});
 }
@@ -4047,6 +4051,7 @@ function switchUsdTab(tab){
   if(tab==='usd-spreadleg') spreadLegRender();
   if(tab==='usd-equiv') equivRender();
   if(tab==='usd-curvas'){document.getElementById('page-usd-curvas').style.display='flex';curvasUsdInit();}
+  if(tab==='usd-series'){document.getElementById('page-usd-series').style.display='flex';seriesInit('usd');}
 }
 
 function switchTab(tab){
@@ -4113,6 +4118,9 @@ function switchTab(tab){
   } else if(tab==='curvas-ars'){
     document.getElementById('page-curvas-ars').style.display='flex';
     curvasArsInit();
+  } else if(tab==='series-ars'){
+    document.getElementById('page-series-ars').style.display='flex';
+    seriesInit('ars');
   }
 }
 
@@ -12548,6 +12556,278 @@ function _curvasArsDraw(){
   const textColor=getComputedStyle(document.body).getPropertyValue('--text').trim()||'#e0e0e0';
   const gridColor=getComputedStyle(document.body).getPropertyValue('--border').trim()||'#2a302a';
   curvasArsChart=new Chart(canvas,{type:'scatter',data:{datasets},options:{responsive:true,maintainAspectRatio:false,animation:{duration:200},plugins:{legend:{display:true,labels:{color:textColor,font:{size:10},filter:i=>!i.text.startsWith('_'),boxWidth:12,padding:12}},datalabels:{display:false},tooltip:{filter:i=>!i.dataset.label.startsWith('_'),callbacks:{label:i=>`${i.dataset.label} — ${i.parsed.x}d, ${i.parsed.y.toFixed(2)}%`}}},scales:{x:{type:'linear',title:{display:true,text:'Días al vencimiento',color:textColor,font:{size:10}},grid:{color:gridColor},ticks:{color:textColor,font:{size:10}}},y:{title:{display:true,text:yLabel,color:textColor,font:{size:10}},grid:{color:gridColor},ticks:{color:textColor,font:{size:10},callback:v=>v.toFixed(1)+'%'}}}}});
+}
+
+// ══════════════════════════════════════════════════════════════ SERIES DE TIEMPO
+// Evolución de la tasa de cada bono a lo largo del tiempo. Es el corte
+// perpendicular al de Curvas: allá se compara un momento contra otro, acá se
+// sigue a cada bono rueda por rueda.
+//
+// Una sola implementación para pesos y dólares: lo único que cambia son los
+// sectores y la métrica del eje Y, y eso vive en SERIES_CFG.
+
+const SERIES_CFG={
+  ars:{
+    pagina:'page-series-ars', titulo:'Series · Pesos',
+    sectores:[
+      {v:'TF',    l:'Tasa Fija',     c:'#fbbf24', y:'TNA (%)'},
+      {v:'CER',   l:'CER',           c:'#4ade80', y:'TIR real (%)'},
+      {v:'TAMAR', l:'TAMAR',         c:'#38bdf8', y:'Margen TNA (%)'},
+      {v:'DLK',   l:'Dollar Linked', c:'#a855f7', y:'TNA (%)'},
+    ],
+  },
+  usd:{
+    pagina:'page-usd-series', titulo:'Series · USD',
+    sectores:[
+      {v:'BON',  l:'Bonares',     c:'#d4a843', y:'TIR (%)'},
+      {v:'GLO',  l:'Globales',    c:'#6baed6', y:'TIR (%)'},
+      {v:'BOP',  l:'Bopreales',   c:'#74c4a0', y:'TIR (%)'},
+      {v:'SLEG', l:'Spread Leg.', c:'#c9807a', y:'Spread de legislación (%)'},
+    ],
+  },
+};
+
+// Estado por sección. El filtro en null significa "todos".
+const seriesEstado={
+  ars:{sector:'TF',  filtro:null, chart:null, cache:{fechas:[],porBono:new Map()}},
+  usd:{sector:'BON', filtro:null, chart:null, cache:{fechas:[],porBono:new Map()}},
+};
+
+// Primera fecha con datos, para no ofrecer un rango vacío. Se pide una vez.
+let _seriesPrimeraFecha=null;
+async function seriesPrimeraFecha(){
+  if(_seriesPrimeraFecha)return _seriesPrimeraFecha;
+  try{
+    const{data,error}=await supa.from('bond_price_snapshots')
+      .select('snapshot_date').order('snapshot_date',{ascending:true}).limit(1);
+    if(!error&&data&&data.length)_seriesPrimeraFecha=data[0].snapshot_date;
+  }catch(e){}
+  return _seriesPrimeraFecha;
+}
+
+// Un mes hacia atrás, salvo que la serie arranque después.
+async function seriesRangoDefecto(){
+  const hasta=hoyAR();
+  const d=parseDate(hasta); d.setMonth(d.getMonth()-1);
+  let desde=fmtDate(d);
+  const primera=await seriesPrimeraFecha();
+  if(primera&&primera>desde)desde=primera;
+  return{desde,hasta};
+}
+
+// Colores estables por bono: mismo ticker, mismo color entre renders.
+function seriesColor(i,total){
+  const h=Math.round((i*360)/Math.max(total,1));
+  return `hsl(${h},62%,58%)`;
+}
+
+async function seriesInit(sec){
+  const cfg=SERIES_CFG[sec];
+  const pg=document.getElementById(cfg.pagina);
+  if(!pg)return;
+  if(pg.innerHTML.trim())return;
+  const{desde,hasta}=await seriesRangoDefecto();
+  const st=seriesEstado[sec];
+  const chips=cfg.sectores.map(o=>{
+    const act=o.v===st.sector;
+    return `<button id="series-${sec}-chip-${o.v}" onclick="seriesSetSector('${sec}','${o.v}')"
+      style="font-family:var(--mono);font-size:10px;padding:3px 10px;border-radius:3px;cursor:pointer;
+             border:1px solid ${act?o.c:'var(--border2)'};background:${act?o.c+'22':'var(--surface2)'};
+             color:${act?o.c:'var(--text3)'}">${o.l}</button>`;
+  }).join('');
+  const inp='font-family:var(--mono);font-size:11px;background:var(--surface);border:1px solid var(--border2);border-radius:3px;padding:2px 5px;color:var(--text)';
+  pg.innerHTML=`<div style="height:100%;display:flex;flex-direction:column">
+  <div style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;background:var(--surface)">
+    <span style="font-family:var(--serif);font-size:15px;font-weight:300;font-style:italic;color:var(--accent)">${cfg.titulo}</span>
+    <div style="display:flex;gap:4px">${chips}</div>
+    <div style="display:flex;align-items:center;gap:6px;margin-left:8px">
+      <span style="font-size:10px;color:var(--text3);font-family:var(--mono)">Desde</span>
+      <input type="date" id="series-${sec}-d1" value="${desde}" onchange="seriesCargar('${sec}')" style="${inp}">
+      <span style="font-size:10px;color:var(--text3);font-family:var(--mono)">Hasta</span>
+      <input type="date" id="series-${sec}-d2" value="${hasta}" onchange="seriesCargar('${sec}')" style="${inp}">
+      <button class="btn primary" style="padding:3px 10px;font-size:10px" onclick="seriesCargar('${sec}')">Ver</button>
+    </div>
+    <div style="display:flex;gap:4px;margin-left:4px">
+      <button class="btn" style="padding:3px 8px;font-size:10px" onclick="seriesTodos('${sec}',true)">Todos</button>
+      <button class="btn" style="padding:3px 8px;font-size:10px" onclick="seriesTodos('${sec}',false)">Ninguno</button>
+    </div>
+    <div id="series-${sec}-msg" style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-left:auto"></div>
+  </div>
+  <div id="series-${sec}-chips" style="padding:5px 14px;border-bottom:1px solid var(--border);flex-shrink:0;min-height:28px;background:var(--surface2);display:flex;flex-wrap:wrap;align-items:center;gap:3px"></div>
+  <div style="flex:1;min-height:0;position:relative;padding:8px">
+    <canvas id="series-${sec}-chart"></canvas>
+  </div>
+  </div>`;
+  seriesCargar(sec);
+}
+
+function seriesSetSector(sec,v){
+  const cfg=SERIES_CFG[sec], st=seriesEstado[sec];
+  st.sector=v;
+  cfg.sectores.forEach(o=>{
+    const el=document.getElementById(`series-${sec}-chip-${o.v}`);
+    if(!el)return;
+    const act=o.v===v;
+    el.style.border=`1px solid ${act?o.c:'var(--border2)'}`;
+    el.style.background=act?o.c+'22':'var(--surface2)';
+    el.style.color=act?o.c:'var(--text3)';
+  });
+  st.filtro=null;
+  seriesCargar(sec);
+}
+
+async function seriesCargar(sec){
+  const st=seriesEstado[sec];
+  const msg=document.getElementById(`series-${sec}-msg`);
+  const d1=document.getElementById(`series-${sec}-d1`);
+  const d2=document.getElementById(`series-${sec}-d2`);
+  if(!d1||!d2)return;
+  const desde=d1.value, hasta=d2.value;
+  if(desde>hasta){if(msg)msg.textContent='La fecha inicial es posterior a la final';return;}
+  if(msg)msg.textContent='Cargando...';
+  try{
+    st.cache=st.sector==='SLEG'
+      ? await seriesTraerSpread(desde,hasta)
+      : await seriesTraerSector(st.sector,desde,hasta);
+    st.filtro=null;   // al cambiar el rango, arrancan todos seleccionados
+    seriesDibujar(sec);
+  }catch(e){
+    if(msg)msg.textContent='';
+    st.cache={fechas:[],porBono:new Map()};
+    seriesDibujar(sec,(e&&e.message)||String(e));
+  }
+}
+
+// Serie normal: una línea por bono, con su tasa en cada rueda.
+async function seriesTraerSector(sector,desde,hasta){
+  const{data,error}=await supa.from('bond_price_snapshots')
+    .select('snapshot_date,ticker,tir')
+    .eq('sector',sector).gte('snapshot_date',desde).lte('snapshot_date',hasta)
+    .order('snapshot_date',{ascending:true});
+  if(error)throw error;
+  const fechas=[...new Set((data||[]).map(r=>r.snapshot_date))].sort();
+  const porBono=new Map();
+  for(const r of data||[]){
+    if(r.tir==null)continue;
+    if(!porBono.has(r.ticker))porBono.set(r.ticker,new Map());
+    porBono.get(r.ticker).set(r.snapshot_date,r.tir);
+  }
+  return{fechas,porBono};
+}
+
+// Spread de legislación: una línea por par Global/Bonar.
+async function seriesTraerSpread(desde,hasta){
+  const{data,error}=await supa.from('bond_price_snapshots')
+    .select('snapshot_date,ticker,sector,price')
+    .in('sector',['BON','GLO']).gte('snapshot_date',desde).lte('snapshot_date',hasta)
+    .order('snapshot_date',{ascending:true});
+  if(error)throw error;
+  const precios=new Map();   // fecha -> Map(ticker -> price)
+  for(const r of data||[]){
+    if(r.price==null)continue;
+    if(!precios.has(r.snapshot_date))precios.set(r.snapshot_date,new Map());
+    precios.get(r.snapshot_date).set(r.ticker,r.price);
+  }
+  const fechas=[...precios.keys()].sort();
+  const porBono=new Map();
+  for(const par of curvasSpreadPares()){
+    for(const f of fechas){
+      const m=precios.get(f);
+      const g=m.get(par.glo), b=m.get(par.bon);
+      if(g==null||b==null||!(b>0))continue;
+      if(!porBono.has(par.label))porBono.set(par.label,new Map());
+      porBono.get(par.label).set(f,(g/b-1)*100);
+    }
+  }
+  return{fechas,porBono};
+}
+
+function seriesToggle(sec,ticker){
+  const st=seriesEstado[sec];
+  const todos=[...st.cache.porBono.keys()];
+  if(!st.filtro)st.filtro=new Set(todos);
+  if(st.filtro.has(ticker))st.filtro.delete(ticker);
+  else st.filtro.add(ticker);
+  if(st.filtro.size===todos.length)st.filtro=null;
+  seriesDibujar(sec);
+}
+
+function seriesTodos(sec,activar){
+  const st=seriesEstado[sec];
+  st.filtro=activar?null:new Set();
+  seriesDibujar(sec);
+}
+
+function seriesDibujar(sec,error){
+  const st=seriesEstado[sec], cfg=SERIES_CFG[sec];
+  const opt=cfg.sectores.find(o=>o.v===st.sector)||cfg.sectores[0];
+  const msg=document.getElementById(`series-${sec}-msg`);
+  const canvas=document.getElementById(`series-${sec}-chart`);
+  const chipsDiv=document.getElementById(`series-${sec}-chips`);
+  const{fechas,porBono}=st.cache;
+
+  // Los chips salen de los datos del rango: un bono que venció antes del
+  // inicio no tiene filas y por lo tanto no aparece. Uno que venció en el
+  // medio sí aparece, con la línea cortada donde dejó de operar.
+  const tickers=[...porBono.keys()].sort();
+  if(chipsDiv){
+    chipsDiv.innerHTML=tickers.length
+      ? tickers.map((t,i)=>{
+          const sel=!st.filtro||st.filtro.has(t);
+          const col=seriesColor(i,tickers.length);
+          const s=`font-family:var(--mono);font-size:9px;padding:2px 8px;border-radius:2px;cursor:pointer;border:1px solid ${sel?col:'var(--border2)'};background:${sel?col.replace('hsl','hsla').replace(')',',.15)'):'transparent'};color:${sel?col:'var(--text3)'};transition:all .1s`;
+          return `<button style="${s}" onclick="seriesToggle('${sec}','${t}')">${t}</button>`;
+        }).join('')
+      : `<span style="font-family:var(--mono);font-size:10px;color:var(--text3)">Sin bonos con datos en el rango</span>`;
+  }
+
+  if(st.chart){st.chart.destroy();st.chart=null;}
+  if(error){if(msg)msg.textContent='';return;}
+  if(!fechas.length){if(msg)msg.textContent='Sin datos en el rango elegido';return;}
+
+  const vis=tickers.filter(t=>!st.filtro||st.filtro.has(t));
+  const puntos=vis.reduce((n,t)=>n+porBono.get(t).size,0);
+  if(msg)msg.textContent=`${fechas.length} rueda${fechas.length===1?'':'s'} · ${vis.length}/${tickers.length} bonos · ${puntos} puntos`;
+  if(!vis.length)return;
+
+  const datasets=vis.map(t=>{
+    const i=tickers.indexOf(t), col=seriesColor(i,tickers.length);
+    const serie=porBono.get(t);
+    return{
+      label:t,
+      data:fechas.map(f=>serie.has(f)?+serie.get(f).toFixed(4):null),
+      borderColor:col, backgroundColor:col,
+      pointBackgroundColor:col, pointBorderColor:col,
+      borderWidth:1.8, pointRadius:fechas.length>40?0:3, pointHoverRadius:5,
+      tension:0, fill:false, spanGaps:false,   // un hueco es un hueco, no se interpola
+      datalabels:{display:false},
+    };
+  });
+
+  if(window.ChartDataLabels)Chart.register(ChartDataLabels);
+  const textColor=getComputedStyle(document.body).getPropertyValue('--text').trim()||'#e0e0e0';
+  const gridColor=getComputedStyle(document.body).getPropertyValue('--border').trim()||'#2a302a';
+  st.chart=new Chart(canvas,{
+    type:'line',
+    data:{labels:fechas.map(curvasFmtDate),datasets},
+    options:{
+      responsive:true,maintainAspectRatio:false,animation:{duration:200},
+      interaction:{mode:'nearest',axis:'x',intersect:false},
+      plugins:{
+        legend:{display:vis.length<=12,labels:{color:textColor,font:{size:10},boxWidth:12,padding:10}},
+        datalabels:{display:false},
+        tooltip:{callbacks:{label:i=>`${i.dataset.label} — ${i.parsed.y!=null?i.parsed.y.toFixed(2):'—'}%`}},
+      },
+      scales:{
+        x:{title:{display:true,text:'Fecha',color:textColor,font:{size:10}},
+           grid:{color:gridColor},
+           ticks:{color:textColor,font:{size:10},maxRotation:0,autoSkip:true,maxTicksLimit:12}},
+        y:{title:{display:true,text:opt.y,color:textColor,font:{size:10}},
+           grid:{color:gridColor},
+           ticks:{color:textColor,font:{size:10},callback:v=>v.toFixed(1)+'%'}},
+      },
+    },
+  });
 }
 
 // ══════════════════════════════════════════════════════════════ CURVAS USD
