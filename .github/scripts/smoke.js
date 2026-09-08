@@ -348,6 +348,131 @@ const check = (cond, label, detalle = '') => {
   check(slegSerie.bonos > 0, 'usd: Spread Leg. como serie', `${slegSerie.bonos} pares: ${slegSerie.pares.join(', ')}`);
   check(/Spread/.test(slegSerie.ejeY), 'usd: eje Y del spread', slegSerie.ejeY);
 
+  console.log('\nForwards históricos');
+  for (const [sec, tab, ir] of [
+    ['ars', 'series-ars', 'switchTab'],
+    ['usd', 'usd-series', 'switchUsdTab'],
+  ]) {
+    await page.evaluate(([t, fn]) => {
+      if (fn === 'switchTab') { switchSection('pesos'); switchTab(t); }
+      else { switchSection('usd'); switchUsdTab(t); }
+    }, [tab, ir]);
+    await page.waitForTimeout(800);
+
+    // Entrar al modo forwards. La sección USD quedó en Spread Leg., que no
+    // tiene duración: el propio cambio de modo tiene que sacarla de ahí.
+    const ent = await page.evaluate(async s => {
+      seriesSetModo(s, 'fwd');
+      await new Promise(r => setTimeout(r, 3500));
+      const st = seriesEstado[s];
+      const bar = document.getElementById(`series-${s}-fwdbar`);
+      const selC = document.getElementById(`series-${s}-fwd-corto`);
+      const selL = document.getElementById(`series-${s}-fwd-largo`);
+      const sleg = document.getElementById(`series-${s}-chip-SLEG`);
+      const tod = document.getElementById(`series-${s}-todos`);
+      return {
+        modo: st.modo, sector: st.sector,
+        activo: document.getElementById(`series-${s}-modo-fwd`).classList.contains('active'),
+        barra: bar ? bar.style.display : '',
+        todos: tod ? tod.style.display : '',
+        opciones: selC ? selC.options.length : 0,
+        corto: selC ? selC.value : '', largo: selL ? selL.value : '',
+        bonos: st.cacheFwd.porBono.size,
+        conDur: [...st.cacheFwd.porBono.values()]
+          .every(m => [...m.values()].every(v => v.dur > 0 && isFinite(v.tasa))),
+        slegBloqueado: sleg ? sleg.disabled : null,
+        pares: st.cache.porBono.size,
+        lineas: st.chart ? st.chart.data.datasets.length : 0,
+      };
+    }, sec);
+    check(ent.modo === 'fwd' && ent.activo, `${sec}: entra en modo forwards`);
+    check(ent.barra === 'flex', `${sec}: aparece la barra de combinación`, ent.barra);
+    check(ent.todos === 'none', `${sec}: se esconde Todos/Ninguno`, ent.todos);
+    check(ent.sector !== 'SLEG', `${sec}: el spread no queda elegido`, ent.sector);
+    check(ent.bonos > 1, `${sec}: trae tasa y duración por bono`, `${ent.bonos} bonos`);
+    check(ent.conDur, `${sec}: toda fila tiene duración positiva y tasa finita`);
+    check(ent.opciones === ent.bonos, `${sec}: un ítem por bono con datos`, `${ent.opciones}`);
+    check(!!ent.corto && !!ent.largo && ent.corto !== ent.largo,
+          `${sec}: arranca con corto y largo distintos`, `${ent.corto} / ${ent.largo}`);
+    // El pedido explícito: no graficar todas las combinaciones por defecto.
+    check(ent.pares === 0 && ent.lineas === 0, `${sec}: no grafica nada hasta elegir`, `${ent.pares} pares`);
+
+    const add = await page.evaluate(s => {
+      const st = seriesEstado[s];
+      const c = document.getElementById(`series-${s}-fwd-corto`).value;
+      const l = document.getElementById(`series-${s}-fwd-largo`).value;
+      seriesFwdAgregar(s);
+      const ds = st.chart ? st.chart.data.datasets : [];
+      const serie = st.cache.porBono.get(c + '\u2192' + l);
+      const vals = serie ? [...serie.values()] : [];
+      // Recálculo del forward sobre la primera rueda con datos en ambos bonos:
+      // confirma que la línea salió de ESTE par y no de otro.
+      let esperado = null, obtenido = null;
+      for (const f of st.cacheFwd.fechas) {
+        const a = st.cacheFwd.porBono.get(c).get(f), b = st.cacheFwd.porBono.get(l).get(f);
+        if (a && b && b.dur !== a.dur) {
+          esperado = (b.tasa * b.dur - a.tasa * a.dur) / (b.dur - a.dur);
+          obtenido = serie ? serie.get(f) : null;
+          break;
+        }
+      }
+      const guardado = (JSON.parse(localStorage.getItem('bonosAR_series_fwd_v1') || '{}').pares || {})[s] || {};
+      return {
+        c, l, lineas: ds.length, label: ds.length ? ds[0].label : '',
+        puntos: vals.length, finitos: vals.length > 0 && vals.every(v => isFinite(v)),
+        esperado, obtenido,
+        ejeY: st.chart ? st.chart.options.scales.y.title.text : '',
+        chips: document.getElementById(`series-${s}-chips`).querySelectorAll('button').length,
+        guardadas: (guardado[st.sector] || []).length,
+      };
+    }, sec);
+    check(add.lineas === 1, `${sec}: agregar dibuja una línea`, `${add.lineas}`);
+    check(add.label === `${add.c}\u2192${add.l}`, `${sec}: la serie se llama por el par`, add.label);
+    check(add.finitos, `${sec}: la serie tiene puntos finitos`, `${add.puntos} puntos`);
+    check(add.esperado !== null && Math.abs(add.esperado - add.obtenido) < 1e-9,
+          `${sec}: el forward graficado es el del par elegido`, `${add.esperado} vs ${add.obtenido}`);
+    check(/Forward/.test(add.ejeY), `${sec}: eje Y de forwards`, add.ejeY);
+    check(add.chips === 1, `${sec}: un chip por combinación`, `${add.chips}`);
+    check(add.guardadas === 1, `${sec}: la combinación queda guardada`, `${add.guardadas}`);
+
+    const rech = await page.evaluate(s => {
+      const st = seriesEstado[s];
+      const n0 = st.cache.porBono.size;
+      seriesFwdAgregar(s);                                  // el mismo par de nuevo
+      const dup = st.cache.porBono.size;
+      const selC = document.getElementById(`series-${s}-fwd-corto`);
+      const selL = document.getElementById(`series-${s}-fwd-largo`);
+      selL.value = selC.value;
+      seriesFwdAgregar(s);                                  // un bono contra sí mismo
+      return { n0, dup, igual: st.cache.porBono.size,
+               msg: document.getElementById(`series-${s}-msg`).textContent };
+    }, sec);
+    check(rech.dup === rech.n0, `${sec}: no repite una combinación`, `${rech.dup}`);
+    check(rech.igual === rech.n0, `${sec}: rechaza un bono contra sí mismo`, rech.msg);
+
+    const quit = await page.evaluate(s => {
+      const st = seriesEstado[s];
+      const [c, l] = [...st.cache.porBono.keys()][0].split('\u2192');
+      seriesFwdQuitar(s, c, l);
+      return { pares: st.cache.porBono.size, lineas: st.chart ? st.chart.data.datasets.length : 0 };
+    }, sec);
+    check(quit.pares === 0 && quit.lineas === 0, `${sec}: quitar saca la línea`, `${quit.pares}`);
+
+    // Volver a tasas para no arrastrar el modo a las verificaciones siguientes
+    await page.evaluate(async s => {
+      seriesSetModo(s, 'tasas');
+      await new Promise(r => setTimeout(r, 2500));
+    }, sec);
+    const vuelta = await page.evaluate(s => {
+      const st = seriesEstado[s];
+      const bar = document.getElementById(`series-${s}-fwdbar`);
+      return { modo: st.modo, barra: bar ? bar.style.display : '', bonos: st.cache.porBono.size,
+               ejeY: st.chart ? st.chart.options.scales.y.title.text : '' };
+    }, sec);
+    check(vuelta.modo === 'tasas' && vuelta.barra === 'none', `${sec}: vuelve a modo tasas`);
+    check(vuelta.bonos > 0 && !/Forward/.test(vuelta.ejeY), `${sec}: recupera la serie de tasas`, vuelta.ejeY);
+  }
+
   console.log('\nResto de pestañas (no deben lanzar)');
   const antes = errores.length;
   await page.evaluate(() => switchSection('usd'));
