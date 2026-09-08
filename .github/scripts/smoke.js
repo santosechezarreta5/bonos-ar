@@ -274,6 +274,80 @@ const check = (cond, label, detalle = '') => {
   check(snap && /snapshot/.test(snap.txt), 'muestra la fecha del último snapshot', snap && snap.txt);
   check(snap && /bonos/.test(snap.title), 'el tooltip trae el detalle', snap && snap.title);
 
+  console.log('\nSeries de tiempo');
+  for (const [sec, tab, ir] of [
+    ['ars', 'series-ars', 'switchTab'],
+    ['usd', 'usd-series', 'switchUsdTab'],
+  ]) {
+    await page.evaluate(([t, fn]) => {
+      if (fn === 'switchTab') { switchSection('pesos'); switchTab(t); }
+      else { switchSection('usd'); switchUsdTab(t); }
+    }, [tab, ir]);
+    await page.waitForTimeout(3500);
+
+    const r = await page.evaluate(s => {
+      const st = seriesEstado[s], cfg = SERIES_CFG[s];
+      const chips = document.getElementById(`series-${s}-chips`);
+      const d1 = document.getElementById(`series-${s}-d1`);
+      const d2 = document.getElementById(`series-${s}-d2`);
+      return {
+        sector: st.sector,
+        sectores: cfg.sectores.map(o => o.v),
+        fechas: st.cache.fechas.length,
+        bonos: st.cache.porBono.size,
+        chips: chips ? chips.querySelectorAll('button').length : 0,
+        series: st.chart ? st.chart.data.datasets.length : -1,
+        ejeY: st.chart ? st.chart.options.scales.y.title.text : '',
+        d1: d1 ? d1.value : '', d2: d2 ? d2.value : '',
+      };
+    }, sec);
+
+    check(r.fechas > 0, `${sec}: trae ruedas`, `${r.fechas}`);
+    check(r.bonos > 0, `${sec}: arma series por bono`, `${r.bonos}`);
+    check(r.chips === r.bonos, `${sec}: un chip por bono con datos`, `${r.chips} chips`);
+    check(r.series === r.bonos, `${sec}: todos seleccionados al abrir`, `${r.series} líneas`);
+    check(r.d1 < r.d2, `${sec}: rango por defecto válido`, `${r.d1} a ${r.d2}`);
+    check(/%/.test(r.ejeY), `${sec}: eje Y con la métrica`, r.ejeY);
+
+    // Destildar uno saca su línea
+    const tog = await page.evaluate(s => {
+      const st = seriesEstado[s];
+      const t = [...st.cache.porBono.keys()].sort()[0];
+      const antes = st.chart.data.datasets.length;
+      seriesToggle(s, t);
+      return { t, antes, despues: st.chart ? st.chart.data.datasets.length : -1 };
+    }, sec);
+    check(tog.despues === tog.antes - 1, `${sec}: destildar quita la línea`,
+          `${tog.t}: ${tog.antes} → ${tog.despues}`);
+
+    // Cambiar de sector recarga
+    const otro = await page.evaluate(async s => {
+      const cfg = SERIES_CFG[s];
+      const dest = cfg.sectores[1].v;
+      seriesSetSector(s, dest);
+      await new Promise(r => setTimeout(r, 3000));
+      const st = seriesEstado[s];
+      return { dest, sector: st.sector, bonos: st.cache.porBono.size,
+               ejeY: st.chart ? st.chart.options.scales.y.title.text : '' };
+    }, sec);
+    check(otro.sector === otro.dest, `${sec}: cambia de sector`, otro.dest);
+    check(otro.bonos > 0, `${sec}: el sector nuevo trae datos`, `${otro.bonos} bonos`);
+  }
+
+  // Spread Leg. como serie temporal (solo USD)
+  const slegSerie = await page.evaluate(async () => {
+    seriesSetSector('usd', 'SLEG');
+    await new Promise(r => setTimeout(r, 3000));
+    const st = seriesEstado.usd;
+    return {
+      bonos: st.cache.porBono.size,
+      pares: [...st.cache.porBono.keys()].slice(0, 3),
+      ejeY: st.chart ? st.chart.options.scales.y.title.text : '',
+    };
+  });
+  check(slegSerie.bonos > 0, 'usd: Spread Leg. como serie', `${slegSerie.bonos} pares: ${slegSerie.pares.join(', ')}`);
+  check(/Spread/.test(slegSerie.ejeY), 'usd: eje Y del spread', slegSerie.ejeY);
+
   console.log('\nResto de pestañas (no deben lanzar)');
   const antes = errores.length;
   await page.evaluate(() => switchSection('usd'));
