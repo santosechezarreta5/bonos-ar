@@ -12638,28 +12638,215 @@ const SERIES_CFG={
   ars:{
     pagina:'page-series-ars', titulo:'Series · Pesos',
     sectores:[
-      {v:'TF',    l:'Tasa Fija',     c:'#fbbf24', y:'TNA (%)'},
-      {v:'CER',   l:'CER',           c:'#4ade80', y:'TIR real (%)'},
-      {v:'TAMAR', l:'TAMAR',         c:'#38bdf8', y:'Margen TNA (%)'},
-      {v:'DLK',   l:'Dollar Linked', c:'#a855f7', y:'TNA (%)'},
+      {v:'TF',    l:'Tasa Fija',     c:'#fbbf24', y:'TNA (%)',        yf:'Forward TIR (%)'},
+      {v:'CER',   l:'CER',           c:'#4ade80', y:'TIR real (%)',   yf:'Forward TIR real (%)'},
+      {v:'TAMAR', l:'TAMAR',         c:'#38bdf8', y:'Margen TNA (%)', yf:'Forward Margen TNA (%)'},
+      {v:'DLK',   l:'Dollar Linked', c:'#a855f7', y:'TNA (%)',        yf:'Forward TNA (%)'},
     ],
   },
   usd:{
     pagina:'page-usd-series', titulo:'Series · USD',
     sectores:[
-      {v:'BON',  l:'Bonares',     c:'#d4a843', y:'TIR (%)'},
-      {v:'GLO',  l:'Globales',    c:'#6baed6', y:'TIR (%)'},
-      {v:'BOP',  l:'Bopreales',   c:'#74c4a0', y:'TIR (%)'},
-      {v:'SLEG', l:'Spread Leg.', c:'#c9807a', y:'Spread de legislación (%)'},
+      {v:'BON',  l:'Bonares',     c:'#d4a843', y:'TIR (%)', yf:'Forward TIR (%)'},
+      {v:'GLO',  l:'Globales',    c:'#6baed6', y:'TIR (%)', yf:'Forward TIR (%)'},
+      {v:'BOP',  l:'Bopreales',   c:'#74c4a0', y:'TIR (%)', yf:'Forward TIR (%)'},
+      // El spread no es una tasa con duración: no admite forwards.
+      {v:'SLEG', l:'Spread Leg.', c:'#c9807a', y:'Spread de legislación (%)', fwd:false},
     ],
   },
 };
 
 // Estado por sección. El filtro en null significa "todos".
 const seriesEstado={
-  ars:{sector:'TF',  filtro:null, chart:null, cache:{fechas:[],porBono:new Map()}},
-  usd:{sector:'BON', filtro:null, chart:null, cache:{fechas:[],porBono:new Map()}},
+  ars:{sector:'TF',  modo:'tasas', filtro:null, chart:null, cache:{fechas:[],porBono:new Map()}, cacheFwd:{fechas:[],porBono:new Map()}},
+  usd:{sector:'BON', modo:'tasas', filtro:null, chart:null, cache:{fechas:[],porBono:new Map()}, cacheFwd:{fechas:[],porBono:new Map()}},
 };
+
+// ── Forwards históricos ─────────────────────────────────────────────────────
+// La tasa forward entre dos bonos usa la misma fórmula que la matriz de la
+// pestaña Forwards: (tasa_L·dur_L − tasa_C·dur_C) / (dur_L − dur_C). Es
+// simétrica, así que da igual en qué orden entren los dos bonos.
+const SERIES_FWD_LS='bonosAR_series_fwd_v1';
+
+// sección -> sector -> [[corto,largo], ...]. Se guardan: armar la combinación a
+// mano cuesta, y perderla en cada recarga haría la pestaña inusable.
+let seriesFwdPares={ars:{},usd:{}};
+let seriesFwdModo={ars:'tasas',usd:'tasas'};
+
+function seriesFwdLoad(){
+  try{
+    const o=JSON.parse(localStorage.getItem(SERIES_FWD_LS)||'{}');
+    seriesFwdPares={ars:(o.pares&&o.pares.ars)||{},usd:(o.pares&&o.pares.usd)||{}};
+    seriesFwdModo={ars:(o.modo&&o.modo.ars)||'tasas',usd:(o.modo&&o.modo.usd)||'tasas'};
+  }catch(e){seriesFwdPares={ars:{},usd:{}};seriesFwdModo={ars:'tasas',usd:'tasas'};}
+}
+function seriesFwdSave(){
+  try{localStorage.setItem(SERIES_FWD_LS,JSON.stringify({pares:seriesFwdPares,modo:seriesFwdModo}));}catch(e){}
+}
+function seriesFwdLista(sec,sector){
+  if(!seriesFwdPares[sec])seriesFwdPares[sec]={};
+  if(!seriesFwdPares[sec][sector])seriesFwdPares[sec][sector]=[];
+  return seriesFwdPares[sec][sector];
+}
+
+// Cupones por año, para reconstruir Macaulay desde la modified que guarda el
+// snapshot. Si el bono ya no está en la lista, semestral es lo habitual acá.
+function seriesFwdM(ticker){
+  const arrs=[typeof BOP_BONDS!=='undefined'&&BOP_BONDS,
+              typeof BON_BONDS!=='undefined'&&BON_BONDS,
+              typeof GLO_BONDS!=='undefined'&&GLO_BONDS];
+  for(const arr of arrs){
+    if(!arr)continue;
+    const b=arr.find(x=>x.ticker===ticker);
+    if(b)return{mensual:12,trimestral:4,semestral:2,anual:1}[b.periodicidad]||2;
+  }
+  return 2;
+}
+
+// Tasa y duración por bono y por rueda. La duración tiene que ser exactamente
+// la que usa la matriz de Forwards, o las dos vistas no cerrarían entre sí:
+//   ARS -> años al vencimiento (dias/365), que es lo que hace fwdDuration
+//   USD -> Macaulay, y el snapshot guarda la modified: mac = mod·(1 + TIR/m)
+// En TF el snapshot guarda TNA y la matriz trabaja en TIR; calcTIR la recupera
+// sin pérdida, porque ambas salen de la misma tasa directa.
+async function seriesTraerFwd(sector,desde,hasta){
+  const{data,error}=await supa.from('bond_price_snapshots')
+    .select('snapshot_date,ticker,tir,md,dias')
+    .eq('sector',sector).gte('snapshot_date',desde).lte('snapshot_date',hasta)
+    .order('snapshot_date',{ascending:true});
+  if(error)throw error;
+  const esUsd=sector==='BON'||sector==='GLO'||sector==='BOP';
+  const fechas=[...new Set((data||[]).map(r=>r.snapshot_date))].sort();
+  const porBono=new Map();
+  for(const r of data||[]){
+    if(r.tir==null)continue;
+    let tasa=r.tir,dur=null;
+    if(esUsd){
+      if(!(r.md>0))continue;
+      dur=r.md*(1+(r.tir/100)/seriesFwdM(r.ticker));
+    }else{
+      if(!(r.dias>0))continue;
+      dur=r.dias/365;
+      if(sector==='TF')tasa=calcTIR(r.tir,r.dias);
+    }
+    if(tasa==null||isNaN(tasa)||!(dur>0))continue;
+    if(!porBono.has(r.ticker))porBono.set(r.ticker,new Map());
+    porBono.get(r.ticker).set(r.snapshot_date,{tasa,dur});
+  }
+  return{fechas,porBono};
+}
+
+// Arma una serie por par, rueda a rueda, con las duraciones de esa rueda.
+function seriesFwdDerivar(sec){
+  const st=seriesEstado[sec];
+  const{fechas,porBono}=st.cacheFwd;
+  const out=new Map();
+  for(const[c,l]of seriesFwdLista(sec,st.sector)){
+    const sc=porBono.get(c),sl=porBono.get(l);
+    if(!sc||!sl)continue;
+    const serie=new Map();
+    for(const f of fechas){
+      const a=sc.get(f),b=sl.get(f);
+      if(!a||!b)continue;
+      const dd=b.dur-a.dur;
+      if(!dd)continue;   // misma duración: el forward no está definido
+      serie.set(f,(b.tasa*b.dur-a.tasa*a.dur)/dd);
+    }
+    if(serie.size)out.set(c+'\u2192'+l,serie);
+  }
+  return{fechas,porBono:out};
+}
+
+function seriesSetModo(sec,modo){
+  const st=seriesEstado[sec];
+  if(st.modo===modo)return;
+  st.modo=modo;
+  seriesFwdModo[sec]=modo;
+  seriesFwdSave();
+  ['tasas','fwd'].forEach(m=>{
+    const el=document.getElementById(`series-${sec}-modo-${m}`);
+    if(el)el.classList.toggle('active',m===modo);
+  });
+  const bar=document.getElementById(`series-${sec}-fwdbar`);
+  if(bar)bar.style.display=modo==='fwd'?'flex':'none';
+  const tod=document.getElementById(`series-${sec}-todos`);
+  if(tod)tod.style.display=modo==='fwd'?'none':'flex';
+  seriesFwdAjustarSector(sec);
+  seriesCargar(sec);
+}
+
+// El spread de legislación no tiene duración, así que no admite forwards: en
+// modo forward su chip queda deshabilitado y, si estaba elegido, se cae al
+// primer sector que sí sirva.
+function seriesFwdAjustarSector(sec){
+  const cfg=SERIES_CFG[sec],st=seriesEstado[sec];
+  cfg.sectores.forEach(o=>{
+    const el=document.getElementById(`series-${sec}-chip-${o.v}`);
+    if(!el)return;
+    const bloqueado=st.modo==='fwd'&&o.fwd===false;
+    el.disabled=bloqueado;
+    el.style.opacity=bloqueado?'.35':'1';
+    el.style.cursor=bloqueado?'not-allowed':'pointer';
+    el.title=bloqueado?'El spread no tiene duración: no se puede armar un forward':'';
+  });
+  const act=cfg.sectores.find(o=>o.v===st.sector);
+  if(st.modo==='fwd'&&act&&act.fwd===false){
+    const alt=cfg.sectores.find(o=>o.fwd!==false);
+    if(alt)seriesPintarSector(sec,alt.v);
+  }
+}
+
+// Los desplegables se arman con los bonos que tienen datos en el rango, así que
+// uno que venció antes del inicio no aparece — igual que los chips de tasas.
+function seriesFwdRenderControles(sec){
+  const st=seriesEstado[sec];
+  const selC=document.getElementById(`series-${sec}-fwd-corto`);
+  const selL=document.getElementById(`series-${sec}-fwd-largo`);
+  if(!selC||!selL)return;
+  const tickers=ordenarPorVencimiento([...st.cacheFwd.porBono.keys()]);
+  const prevC=selC.value,prevL=selL.value;
+  const opts=tickers.map(t=>`<option value="${t}">${t}</option>`).join('');
+  selC.innerHTML=opts;selL.innerHTML=opts;
+  if(tickers.includes(prevC))selC.value=prevC;
+  else if(tickers.length)selC.value=tickers[0];
+  if(tickers.includes(prevL))selL.value=prevL;
+  else if(tickers.length>1)selL.value=tickers[tickers.length-1];
+}
+
+function seriesFwdRefrescar(sec){
+  const st=seriesEstado[sec];
+  st.cache=seriesFwdDerivar(sec);
+  seriesDibujar(sec);
+}
+
+function seriesFwdAgregar(sec){
+  const st=seriesEstado[sec];
+  const msg=document.getElementById(`series-${sec}-msg`);
+  const selC=document.getElementById(`series-${sec}-fwd-corto`);
+  const selL=document.getElementById(`series-${sec}-fwd-largo`);
+  const c=selC&&selC.value,l=selL&&selL.value;
+  if(!c||!l){if(msg)msg.textContent='Sin bonos con datos en el rango';return;}
+  if(c===l){if(msg)msg.textContent='Elegí dos bonos distintos';return;}
+  const lista=seriesFwdLista(sec,st.sector);
+  if(lista.some(p=>p[0]===c&&p[1]===l)){if(msg)msg.textContent=c+'\u2192'+l+' ya está en el gráfico';return;}
+  lista.push([c,l]);
+  seriesFwdSave();
+  seriesFwdRefrescar(sec);
+}
+
+function seriesFwdQuitar(sec,c,l){
+  const lista=seriesFwdLista(sec,seriesEstado[sec].sector);
+  const i=lista.findIndex(p=>p[0]===c&&p[1]===l);
+  if(i>=0)lista.splice(i,1);
+  seriesFwdSave();
+  seriesFwdRefrescar(sec);
+}
+
+function seriesFwdLimpiar(sec){
+  seriesFwdLista(sec,seriesEstado[sec].sector).length=0;
+  seriesFwdSave();
+  seriesFwdRefrescar(sec);
+}
 
 // Primera fecha con datos, para no ofrecer un rango vacío. Se pide una vez.
 let _seriesPrimeraFecha=null;
@@ -12696,6 +12883,9 @@ async function seriesInit(sec){
   if(pg.innerHTML.trim())return;
   const{desde,hasta}=await seriesRangoDefecto();
   const st=seriesEstado[sec];
+  seriesFwdLoad();
+  const modo=seriesFwdModo[sec]||'tasas';
+  st.modo=modo;
   const chips=cfg.sectores.map(o=>{
     const act=o.v===st.sector;
     return `<button id="series-${sec}-chip-${o.v}" onclick="seriesSetSector('${sec}','${o.v}')"
@@ -12708,6 +12898,10 @@ async function seriesInit(sec){
   <div style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;background:var(--surface)">
     <span style="font-family:var(--serif);font-size:15px;font-weight:300;font-style:italic;color:var(--accent)">${cfg.titulo}</span>
     <div style="display:flex;gap:4px">${chips}</div>
+    <div style="display:flex;gap:2px;background:var(--surface2);border:1px solid var(--border2);border-radius:3px;padding:1px">
+      <button class="chart-mode-btn${modo==='tasas'?' active':''}" id="series-${sec}-modo-tasas" onclick="seriesSetModo('${sec}','tasas')">Tasas</button>
+      <button class="chart-mode-btn${modo==='fwd'?' active':''}" id="series-${sec}-modo-fwd" onclick="seriesSetModo('${sec}','fwd')">Forwards</button>
+    </div>
     <div style="display:flex;align-items:center;gap:6px;margin-left:8px">
       <span style="font-size:10px;color:var(--text3);font-family:var(--mono)">Desde</span>
       <input type="date" id="series-${sec}-d1" value="${desde}" onchange="seriesCargar('${sec}')" style="${inp}">
@@ -12715,21 +12909,31 @@ async function seriesInit(sec){
       <input type="date" id="series-${sec}-d2" value="${hasta}" onchange="seriesCargar('${sec}')" style="${inp}">
       <button class="btn primary" style="padding:3px 10px;font-size:10px" onclick="seriesCargar('${sec}')">Ver</button>
     </div>
-    <div style="display:flex;gap:4px;margin-left:4px">
+    <div id="series-${sec}-todos" style="display:${modo==='fwd'?'none':'flex'};gap:4px;margin-left:4px">
       <button class="btn" style="padding:3px 8px;font-size:10px" onclick="seriesTodos('${sec}',true)">Todos</button>
       <button class="btn" style="padding:3px 8px;font-size:10px" onclick="seriesTodos('${sec}',false)">Ninguno</button>
     </div>
     <div id="series-${sec}-msg" style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-left:auto"></div>
+  </div>
+  <div id="series-${sec}-fwdbar" style="display:${modo==='fwd'?'flex':'none'};align-items:center;gap:6px;padding:6px 14px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface)">
+    <span style="font-size:10px;color:var(--text3);font-family:var(--mono)">Corto</span>
+    <select id="series-${sec}-fwd-corto" style="${inp}"></select>
+    <span style="font-size:12px;color:var(--text3)">\u2192</span>
+    <span style="font-size:10px;color:var(--text3);font-family:var(--mono)">Largo</span>
+    <select id="series-${sec}-fwd-largo" style="${inp}"></select>
+    <button class="btn primary" style="padding:3px 10px;font-size:10px" onclick="seriesFwdAgregar('${sec}')">+ Agregar</button>
+    <button class="btn" style="padding:3px 8px;font-size:10px" onclick="seriesFwdLimpiar('${sec}')">Limpiar</button>
   </div>
   <div id="series-${sec}-chips" style="padding:5px 14px;border-bottom:1px solid var(--border);flex-shrink:0;min-height:28px;background:var(--surface2);display:flex;flex-wrap:wrap;align-items:center;gap:3px"></div>
   <div style="flex:1;min-height:0;position:relative;padding:8px">
     <canvas id="series-${sec}-chart"></canvas>
   </div>
   </div>`;
+  seriesFwdAjustarSector(sec);
   seriesCargar(sec);
 }
 
-function seriesSetSector(sec,v){
+function seriesPintarSector(sec,v){
   const cfg=SERIES_CFG[sec], st=seriesEstado[sec];
   st.sector=v;
   cfg.sectores.forEach(o=>{
@@ -12741,6 +12945,16 @@ function seriesSetSector(sec,v){
     el.style.color=act?o.c:'var(--text3)';
   });
   st.filtro=null;
+}
+
+function seriesSetSector(sec,v){
+  const st=seriesEstado[sec];
+  // En modo forwards, un sector sin duración (el spread) no es elegible.
+  if(st.modo==='fwd'){
+    const o=SERIES_CFG[sec].sectores.find(x=>x.v===v);
+    if(o&&o.fwd===false)return;
+  }
+  seriesPintarSector(sec,v);
   seriesCargar(sec);
 }
 
@@ -12754,14 +12968,21 @@ async function seriesCargar(sec){
   if(desde>hasta){if(msg)msg.textContent='La fecha inicial es posterior a la final';return;}
   if(msg)msg.textContent='Cargando...';
   try{
-    st.cache=st.sector==='SLEG'
-      ? await seriesTraerSpread(desde,hasta)
-      : await seriesTraerSector(st.sector,desde,hasta);
-    st.filtro=null;   // al cambiar el rango, arrancan todos seleccionados
+    if(st.modo==='fwd'){
+      st.cacheFwd=await seriesTraerFwd(st.sector,desde,hasta);
+      seriesFwdRenderControles(sec);
+      st.cache=seriesFwdDerivar(sec);
+    }else{
+      st.cache=st.sector==='SLEG'
+        ? await seriesTraerSpread(desde,hasta)
+        : await seriesTraerSector(st.sector,desde,hasta);
+      st.filtro=null;   // al cambiar el rango, arrancan todos seleccionados
+    }
     seriesDibujar(sec);
   }catch(e){
     if(msg)msg.textContent='';
     st.cache={fechas:[],porBono:new Map()};
+    st.cacheFwd={fechas:[],porBono:new Map()};
     seriesDibujar(sec,(e&&e.message)||String(e));
   }
 }
@@ -12834,28 +13055,49 @@ function seriesDibujar(sec,error){
   const chipsDiv=document.getElementById(`series-${sec}-chips`);
   const{fechas,porBono}=st.cache;
 
-  // Los chips salen de los datos del rango: un bono que venció antes del
-  // inicio no tiene filas y por lo tanto no aparece. Uno que venció en el
-  // medio sí aparece, con la línea cortada donde dejó de operar.
-  const tickers=ordenarPorVencimiento([...porBono.keys()]);
+  // En modo tasas los chips salen de los datos del rango: un bono que venció
+  // antes del inicio no tiene filas y por lo tanto no aparece. Uno que venció
+  // en el medio sí aparece, con la línea cortada donde dejó de operar.
+  // En modo forwards los chips son las combinaciones elegidas y sirven para
+  // sacarlas; se listan desde los pares guardados, no desde los datos, para
+  // que un par sin datos en el rango también se pueda quitar.
+  const esFwd=st.modo==='fwd';
+  const tickers=esFwd?[...porBono.keys()]:ordenarPorVencimiento([...porBono.keys()]);
   if(chipsDiv){
-    chipsDiv.innerHTML=tickers.length
-      ? tickers.map((t,i)=>{
-          const sel=!st.filtro||st.filtro.has(t);
-          const col=seriesColor(i,tickers.length);
-          const s=`font-family:var(--mono);font-size:9px;padding:2px 8px;border-radius:2px;cursor:pointer;border:1px solid ${sel?col:'var(--border2)'};background:${sel?col.replace('hsl','hsla').replace(')',',.15)'):'transparent'};color:${sel?col:'var(--text3)'};transition:all .1s`;
-          return `<button style="${s}" onclick="seriesToggle('${sec}','${t}')">${t}</button>`;
-        }).join('')
-      : `<span style="font-family:var(--mono);font-size:10px;color:var(--text3)">Sin bonos con datos en el rango</span>`;
+    if(esFwd){
+      const lista=seriesFwdLista(sec,st.sector);
+      chipsDiv.innerHTML=lista.length
+        ? lista.map(([c,l])=>{
+            const label=c+'\u2192'+l;
+            const i=tickers.indexOf(label), hay=i>=0;
+            const col=hay?seriesColor(i,tickers.length):null;
+            const s=`font-family:var(--mono);font-size:9px;padding:2px 6px 2px 8px;border-radius:2px;cursor:pointer;transition:all .1s;border:1px solid ${hay?col:'var(--border2)'};background:${hay?col.replace('hsl','hsla').replace(')',',.15)'):'transparent'};color:${hay?col:'var(--text3)'}`;
+            const ti=hay?'Sacar del gráfico':'Sin datos en el rango \u2014 click para sacarlo';
+            return `<button style="${s}" title="${ti}" onclick="seriesFwdQuitar('${sec}','${c}','${l}')">${label} <span style="opacity:.55">\u2715</span></button>`;
+          }).join('')
+        : `<span style="font-family:var(--mono);font-size:10px;color:var(--text3)">Elegí dos bonos arriba y apretá Agregar</span>`;
+    } else {
+      chipsDiv.innerHTML=tickers.length
+        ? tickers.map((t,i)=>{
+            const sel=!st.filtro||st.filtro.has(t);
+            const col=seriesColor(i,tickers.length);
+            const s=`font-family:var(--mono);font-size:9px;padding:2px 8px;border-radius:2px;cursor:pointer;border:1px solid ${sel?col:'var(--border2)'};background:${sel?col.replace('hsl','hsla').replace(')',',.15)'):'transparent'};color:${sel?col:'var(--text3)'};transition:all .1s`;
+            return `<button style="${s}" onclick="seriesToggle('${sec}','${t}')">${t}</button>`;
+          }).join('')
+        : `<span style="font-family:var(--mono);font-size:10px;color:var(--text3)">Sin bonos con datos en el rango</span>`;
+    }
   }
 
   if(st.chart){st.chart.destroy();st.chart=null;}
   if(error){if(msg)msg.textContent='';return;}
   if(!fechas.length){if(msg)msg.textContent='Sin datos en el rango elegido';return;}
+  if(esFwd&&!tickers.length){if(msg)msg.textContent='Agregá una combinación para ver su histórico';return;}
 
-  const vis=tickers.filter(t=>!st.filtro||st.filtro.has(t));
+  const vis=esFwd?tickers:tickers.filter(t=>!st.filtro||st.filtro.has(t));
   const puntos=vis.reduce((n,t)=>n+porBono.get(t).size,0);
-  if(msg)msg.textContent=`${fechas.length} rueda${fechas.length===1?'':'s'} · ${vis.length}/${tickers.length} bonos · ${puntos} puntos`;
+  if(msg)msg.textContent=esFwd
+    ? `${fechas.length} rueda${fechas.length===1?'':'s'} · ${vis.length} combinaci${vis.length===1?'ón':'ones'} · ${puntos} puntos`
+    : `${fechas.length} rueda${fechas.length===1?'':'s'} · ${vis.length}/${tickers.length} bonos · ${puntos} puntos`;
   if(!vis.length)return;
 
   const datasets=vis.map(t=>{
@@ -12890,7 +13132,7 @@ function seriesDibujar(sec,error){
         x:{title:{display:true,text:'Fecha',color:textColor,font:{size:10}},
            grid:{color:gridColor},
            ticks:{color:textColor,font:{size:10},maxRotation:0,autoSkip:true,maxTicksLimit:12}},
-        y:{title:{display:true,text:opt.y,color:textColor,font:{size:10}},
+        y:{title:{display:true,text:esFwd&&opt.yf?opt.yf:opt.y,color:textColor,font:{size:10}},
            grid:{color:gridColor},
            ticks:{color:textColor,font:{size:10},callback:v=>v.toFixed(1)+'%'}},
       },
