@@ -5204,6 +5204,7 @@ const MAE_PATH_FOR='/api/mercado/resumen/FOR';
 const MAE_PATH_DDF='/api/mercado/resumen/DDF';
 let A3500_LIVE=null;    // {valor, hora:'HH:MM'} — mayorista intradiario del MAE
 let MAE_FUTUROS=[];     // [{ticker,mes,anio,precio,hora}] curva DDF ascendente
+let _a3500Pintado=null; // último TC propagado, para no repintar de gusto
 
 // El MAE serializa los timestamps de la rueda en hora argentina pero con forma de
 // unix UTC. Leerlos con new Date(t*1000) y getHours() corre todo tres horas, así
@@ -10133,12 +10134,21 @@ function a3500Pintar(){
 }
 
 function a3500Repropagar(){
+  const val=dlkTCHoy();
   a3500Pintar();
+  // Sin cambio no hay nada que recalcular, y así el ciclo no redibuja dos
+  // gráficos de Chart.js cada cinco minutos para nada.
+  if(val===_a3500Pintado)return;
+  _a3500Pintado=val;
   if(currentTab==='dlk'){DLK_DATA=DLK_BONDS.map(dlkEnrich);dlkRenderTable();if(dlkSelectedTicker)dlkRecalcPanel();}
   else if(currentTab==='sintetico'){
     SINT_DATA=SINT_BONDS.map(sintEnrich);sintRenderTable();
     if(sintSelectedTicker){const r=SINT_DATA.find(x=>x.ticker===sintSelectedTicker);if(r)sintRenderPanelBody(r);}
   }
+  // El Resumen grafica los sintéticos, y su tasa sale de sintEnrich, que usa el
+  // tipo de cambio: si no se repinta, la solapa que se mira todo el día queda
+  // con la tasa vieja aunque el dato ya esté actualizado en memoria.
+  beRefreshIfVisible();
 }
 
 async function a3500LiveFetch(){
@@ -10184,6 +10194,9 @@ function maeAplicarFuturos(curva){
       sintRenderTable();
       if(sintSelectedTicker){const r=SINT_DATA.find(x=>x.ticker===sintSelectedTicker);if(r)sintRenderPanelBody(r);}
     }
+    // Los sintéticos también se grafican en el Resumen, que es la solapa que
+    // queda abierta todo el día.
+    beRefreshIfVisible();
   }
   return actualizados;
 }
