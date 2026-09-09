@@ -8076,7 +8076,7 @@ async function refrescoCiclo(){
   // pasada esa hora el último tick ya es el cierre y no hay nada nuevo que pedir.
   if(maeRuedaAbierta()){
     try{await maeFetchSpot();a3500Repropagar();}catch(e){}
-    try{await maeFetchFuturos();}catch(e){}
+    try{maeAplicarFuturos(await maeFetchFuturos());}catch(e){}
   }
 }
 
@@ -8090,7 +8090,7 @@ refrescoIniciar();
 // minutos para ver el mayorista y los futuros del día.
 if(maeRuedaAbierta()){
   maeFetchSpot().then(()=>a3500Repropagar()).catch(()=>{});
-  maeFetchFuturos().catch(()=>{});
+  maeFetchFuturos().then(c=>maeAplicarFuturos(c)).catch(()=>{});
 }
 
 // Al volver a la pestaña, si pasó más de un ciclo desde el último refresco,
@@ -10160,26 +10160,40 @@ async function a3500LiveFetch(){
 // ══════════════════════════════════════════════════════ FUTUROS DE DÓLAR (MAE)
 // Reemplaza a rofexFetch, que pedía los futuros a IOL con credenciales personales
 // y no funcionaba. El MAE los publica sin autenticación y trae la curva completa.
+// Vuelca la curva sobre los bonos sintéticos: a cada uno le corresponde el
+// contrato de su mes de vencimiento. Está separado del handler del botón para que
+// el ciclo automático aplique exactamente lo mismo — traer la curva sin volcarla
+// dejaba los sintéticos con el precio de futuro viejo.
+function maeAplicarFuturos(curva){
+  let actualizados=0;
+  for(const sb of SINT_BONDS){
+    const dlkBond=DLK_BONDS.find(b=>b.ticker===sb.ticker);
+    if(!dlkBond||!dlkBond.vcto)continue;
+    const c=curva.find(x=>x.ticker===maeTickerFromVcto(dlkBond.vcto));
+    if(!c)continue;
+    const idx=SINT_BONDS.findIndex(b=>b.ticker===sb.ticker);
+    if(idx>=0&&SINT_BONDS[idx].precioFuturo!==c.precio){
+      SINT_BONDS[idx]={...SINT_BONDS[idx],precioFuturo:c.precio};
+      actualizados++;
+    }
+  }
+  if(actualizados){
+    sintSaveBonds();
+    SINT_DATA=SINT_BONDS.map(sintEnrich);
+    if(currentTab==='sintetico'){
+      sintRenderTable();
+      if(sintSelectedTicker){const r=SINT_DATA.find(x=>x.ticker===sintSelectedTicker);if(r)sintRenderPanelBody(r);}
+    }
+  }
+  return actualizados;
+}
+
 async function maeRefreshFuturos(){
   const btn=document.getElementById('sint-rofex-btn');
   if(btn){btn.textContent='…';btn.disabled=true;}
   try{
     const curva=await maeFetchFuturos();
-    let actualizados=0;
-    for(const sb of SINT_BONDS){
-      const dlkBond=DLK_BONDS.find(b=>b.ticker===sb.ticker);
-      if(!dlkBond||!dlkBond.vcto)continue;
-      const c=curva.find(x=>x.ticker===maeTickerFromVcto(dlkBond.vcto));
-      if(!c)continue;
-      const idx=SINT_BONDS.findIndex(b=>b.ticker===sb.ticker);
-      if(idx>=0){SINT_BONDS[idx]={...SINT_BONDS[idx],precioFuturo:c.precio};actualizados++;}
-    }
-    if(actualizados){
-      sintSaveBonds();
-      SINT_DATA=SINT_BONDS.map(sintEnrich);
-      sintRenderTable();
-      if(sintSelectedTicker){const r=SINT_DATA.find(x=>x.ticker===sintSelectedTicker);if(r)sintRenderPanelBody(r);}
-    }
+    maeAplicarFuturos(curva);
     if(btn){
       const hora=curva.length?curva[0].hora:null;
       btn.textContent=hora?`↻ MAE · ${hora}`:'↻ MAE';
