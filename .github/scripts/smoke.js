@@ -561,6 +561,37 @@ const check = (cond, label, detalle = '') => {
     check(red.precios, 'todos los contratos traen precio');
   }
 
+  // El ciclo automático tiene que VOLCAR la curva sobre los sintéticos, no sólo
+  // traerla. Traerla sin volcarla dejaba el precio del futuro viejo y era la
+  // diferencia entre "se actualiza solo" y "hay que apretar el botón".
+  const auto = await page.evaluate(() => ({
+    existe: typeof maeAplicarFuturos === 'function',
+    enCiclo: /maeAplicarFuturos/.test(refrescoCiclo.toString()),
+    spotEnCiclo: /maeFetchSpot/.test(refrescoCiclo.toString()),
+  }));
+  check(auto.existe, 'existe el volcado de la curva a los sintéticos');
+  check(auto.enCiclo, 'el ciclo automático aplica la curva, no sólo la trae');
+  check(auto.spotEnCiclo, 'el ciclo automático trae el mayorista');
+
+  const volcado = await page.evaluate(() => {
+    const bkS = SINT_BONDS, bkD = DLK_BONDS, bkT = currentTab;
+    try {
+      currentTab = 'lecap';   // que no intente redibujar la tabla de sintéticos
+      DLK_BONDS = [{ ticker: 'TESTDLK', vcto: '2026-10-31' }];
+      SINT_BONDS = [{ ticker: 'TESTDLK', precioFuturo: 1 }];
+      const n = maeAplicarFuturos([
+        { ticker: 'DLR092026', mes: 9,  anio: 2026, precio: 1529.5, hora: '14:59' },
+        { ticker: 'DLR102026', mes: 10, anio: 2026, precio: 1553.5, hora: '14:59' },
+      ]);
+      return { n, precio: SINT_BONDS[0].precioFuturo };
+    } finally {
+      SINT_BONDS = bkS; DLK_BONDS = bkD; currentTab = bkT;
+      sintSaveBonds();   // deshacer lo que el volcado guardó con el fixture
+    }
+  });
+  check(volcado.n === 1 && volcado.precio === 1553.5,
+        'el volcado toma el contrato del mes del vencimiento', String(volcado.precio));
+
   // IOL se eliminó por completo: no debe quedar ni el modal ni las credenciales.
   const iol = await page.evaluate(() => ({
     modal: !!document.getElementById('iol-creds-modal'),
