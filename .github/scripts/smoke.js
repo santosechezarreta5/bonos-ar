@@ -473,6 +473,94 @@ const check = (cond, label, detalle = '') => {
     check(vuelta.bonos > 0 && !/Forward/.test(vuelta.ejeY), `${sec}: recupera la serie de tasas`, vuelta.ejeY);
   }
 
+  console.log('\nMAE — mayorista y futuros de dólar');
+
+  // Lo puro primero: no depende de la red ni del horario.
+  const puro = await page.evaluate(() => ({
+    // El MAE serializa la hora argentina con forma de unix UTC. 1788965197 es
+    // 14:59 leyéndolo en UTC, y eso es justo lo que hay que mostrar.
+    hora: maeHoraART(1788965197),
+    // DLR + MM + YYYY
+    tk: maeTickerFromVcto('2026-09-30'),
+    tkEnero: maeTickerFromVcto('2027-01-15'),
+    tkNulo: maeTickerFromVcto('no-es-fecha'),
+    tieneCierre: typeof MAE_CIERRE_H === 'number' && MAE_CIERRE_H === 15,
+  }));
+  check(puro.hora === '14:59', 'la hora del MAE no se corre 3 horas', puro.hora);
+  check(puro.tk === 'DLR092026', 'mapea vencimiento a contrato', puro.tk);
+  check(puro.tkEnero === 'DLR012027', 'rellena el mes con cero', puro.tkEnero);
+  check(puro.tkNulo === null, 'una fecha inválida no arma ticker', String(puro.tkNulo));
+  check(puro.tieneCierre, 'el cierre de la rueda mayorista es a las 15');
+
+  // Precedencia del A3500. Es la razón de ser del refactor: antes el refresco
+  // escribía en dlkTCOverride y te pisaba el valor que habías puesto a mano.
+  const prec = await page.evaluate(() => {
+    const overAntes = dlkTCOverride, liveAntes = A3500_LIVE;
+    const out = {};
+    dlkTCOverride = null; A3500_LIVE = { valor: 1111.11, hora: '12:34' };
+    out.live = dlkTCHoy(); out.fuenteLive = dlkTCFuente().tipo;
+    dlkTCOverride = 2222.22;
+    out.manual = dlkTCHoy(); out.fuenteManual = dlkTCFuente().tipo;
+    dlkTCOverride = null; A3500_LIVE = null;
+    out.sinNada = dlkTCHoy(); out.fuenteSinNada = dlkTCFuente().tipo;
+    out.dlkLen = DLK_INDEX.length;
+    dlkTCOverride = overAntes; A3500_LIVE = liveAntes;
+    return out;
+  });
+  check(prec.manual === 2222.22 && prec.fuenteManual === 'manual',
+        'el valor manual le gana al live', `${prec.manual} / ${prec.fuenteManual}`);
+  check(prec.live === 1111.11 && prec.fuenteLive === 'mae',
+        'sin manual, manda el mayorista del MAE', `${prec.live} / ${prec.fuenteLive}`);
+  if (prec.dlkLen > 0) {
+    check(prec.sinNada != null && ['oficial', 'cierre'].includes(prec.fuenteSinNada),
+          'sin manual ni live, cae al A3500 del BCRA', `${prec.sinNada} / ${prec.fuenteSinNada}`);
+  } else {
+    console.log('  \x1b[33m--\x1b[0m    el índice del BCRA no cargó: no se verifica el fallback');
+  }
+
+  // La red, solo si la rueda está abierta: fuera de 10-15 ART no hay nada nuevo
+  // que pedir y afirmar lo contrario haría fallar el build por horario.
+  const red = await page.evaluate(async () => {
+    if (!maeRuedaAbierta()) return { cerrada: true };
+    try {
+      const spot = await maeFetchSpot();
+      const curva = await maeFetchFuturos();
+      return {
+        cerrada: false,
+        spot: spot && spot.valor, hora: spot && spot.hora,
+        n: curva.length,
+        ordenada: curva.every((c, i) => i === 0 ||
+          (c.anio > curva[i - 1].anio || (c.anio === curva[i - 1].anio && c.mes > curva[i - 1].mes))),
+        precios: curva.every(c => c.precio > 0),
+      };
+    } catch (e) { return { cerrada: false, error: e.message }; }
+  });
+  if (red.cerrada) {
+    console.log('  \x1b[33m--\x1b[0m    rueda mayorista cerrada: no se verifica la red del MAE');
+  } else if (red.error) {
+    // Sin el Worker redeployado con la ruta /mae esto falla, y tiene que verse.
+    check(false, 'el MAE responde por el Worker', red.error);
+  } else {
+    check(red.spot > 0, 'llega el mayorista contado', `${red.spot} a las ${red.hora}`);
+    check(red.n >= 6, 'llega la curva de futuros', `${red.n} contratos`);
+    check(red.ordenada, 'la curva viene ordenada por vencimiento');
+    check(red.precios, 'todos los contratos traen precio');
+  }
+
+  // IOL se eliminó por completo: no debe quedar ni el modal ni las credenciales.
+  const iol = await page.evaluate(() => ({
+    modal: !!document.getElementById('iol-creds-modal'),
+    funcs: ['rofexFetch', 'iolGetToken', 'iolCredsOpen', 'iolAuth']
+      .filter(f => typeof window[f] === 'function'),
+    creds: !!localStorage.getItem('bonosAR_iol_creds_v1'),
+    token: !!localStorage.getItem('bonosAR_iol_token_v1'),
+    boton: (document.getElementById('sint-rofex-btn') || {}).textContent || '',
+  }));
+  check(!iol.modal, 'no queda el modal de credenciales de IOL');
+  check(iol.funcs.length === 0, 'no quedan funciones de IOL', iol.funcs.join(', '));
+  check(!iol.creds && !iol.token, 'las credenciales guardadas de IOL se borran');
+  check(/MAE/.test(iol.boton), 'el botón de futuros apunta al MAE', iol.boton);
+
   console.log('\nResto de pestañas (no deben lanzar)');
   const antes = errores.length;
   await page.evaluate(() => switchSection('usd'));
