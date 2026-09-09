@@ -592,6 +592,20 @@ const check = (cond, label, detalle = '') => {
   check(volcado.n === 1 && volcado.precio === 1553.5,
         'el volcado toma el contrato del mes del vencimiento', String(volcado.precio));
 
+  // El Resumen grafica los sintéticos y es la solapa que queda abierta todo el
+  // día. Actualizar el dato sin repintarla deja la tasa vieja en pantalla, que
+  // es peor que no actualizar: parece fresca y no lo es.
+  const resumen = await page.evaluate(() => ({
+    hook: typeof beRefreshIfVisible === 'function',
+    desdeTC: /beRefreshIfVisible/.test(a3500Repropagar.toString()),
+    desdeFuturos: /beRefreshIfVisible/.test(maeAplicarFuturos.toString()),
+    graficaSint: /SINT_BONDS/.test(beRenderChartTF.toString()),
+  }));
+  check(resumen.hook, 'existe el refresco del Resumen');
+  check(resumen.graficaSint, 'el Resumen grafica los sintéticos');
+  check(resumen.desdeTC, 'un cambio de tipo de cambio repinta el Resumen');
+  check(resumen.desdeFuturos, 'un cambio de futuros repinta el Resumen');
+
   // IOL se eliminó por completo: no debe quedar ni el modal ni las credenciales.
   const iol = await page.evaluate(() => ({
     modal: !!document.getElementById('iol-creds-modal'),
