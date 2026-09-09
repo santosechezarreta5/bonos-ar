@@ -477,16 +477,19 @@ const check = (cond, label, detalle = '') => {
 
   // Lo puro primero: no depende de la red ni del horario.
   const puro = await page.evaluate(() => ({
-    // El MAE serializa la hora argentina con forma de unix UTC. 1788965197 es
-    // 14:59 leyéndolo en UTC, y eso es justo lo que hay que mostrar.
-    hora: maeHoraART(1788965197),
+    // El MAE serializa la hora argentina con forma de unix UTC, así que hay que
+    // leer las partes en UTC a propósito. El runner de CI corre en UTC, con lo
+    // cual esto vigila el formato; la conversión en sí se ve en la app.
+    hora: maeHoraART(Date.UTC(2026, 8, 9, 14, 59) / 1000),
+    horaPad: maeHoraART(Date.UTC(2026, 8, 9, 9, 5) / 1000),
     // DLR + MM + YYYY
     tk: maeTickerFromVcto('2026-09-30'),
     tkEnero: maeTickerFromVcto('2027-01-15'),
     tkNulo: maeTickerFromVcto('no-es-fecha'),
     tieneCierre: typeof MAE_CIERRE_H === 'number' && MAE_CIERRE_H === 15,
   }));
-  check(puro.hora === '14:59', 'la hora del MAE no se corre 3 horas', puro.hora);
+  check(puro.hora === '14:59', 'lee la hora del tick del MAE', puro.hora);
+  check(puro.horaPad === '09:05', 'rellena hora y minuto con cero', puro.horaPad);
   check(puro.tk === 'DLR092026', 'mapea vencimiento a contrato', puro.tk);
   check(puro.tkEnero === 'DLR012027', 'rellena el mes con cero', puro.tkEnero);
   check(puro.tkNulo === null, 'una fecha inválida no arma ticker', String(puro.tkNulo));
@@ -494,29 +497,40 @@ const check = (cond, label, detalle = '') => {
 
   // Precedencia del A3500. Es la razón de ser del refactor: antes el refresco
   // escribía en dlkTCOverride y te pisaba el valor que habías puesto a mano.
+  // Se controlan las tres entradas para que el resultado no dependa de si el BCRA
+  // ya publicó el fix de hoy: con el índice real, el oficial tapa al intradiario
+  // y no se podría ver el orden completo.
   const prec = await page.evaluate(() => {
-    const overAntes = dlkTCOverride, liveAntes = A3500_LIVE;
+    const bkOver = dlkTCOverride, bkLive = A3500_LIVE, bkIdx = DLK_INDEX;
+    const viejo = { fecha: '2026-01-02', valor: 900 };
     const out = {};
-    dlkTCOverride = null; A3500_LIVE = { valor: 1111.11, hora: '12:34' };
-    out.live = dlkTCHoy(); out.fuenteLive = dlkTCFuente().tipo;
-    dlkTCOverride = 2222.22;
-    out.manual = dlkTCHoy(); out.fuenteManual = dlkTCFuente().tipo;
-    dlkTCOverride = null; A3500_LIVE = null;
-    out.sinNada = dlkTCHoy(); out.fuenteSinNada = dlkTCFuente().tipo;
-    out.dlkLen = DLK_INDEX.length;
-    dlkTCOverride = overAntes; A3500_LIVE = liveAntes;
+    try {
+      // Sin fix de hoy publicado: manda el intradiario del MAE.
+      DLK_INDEX = [viejo];
+      dlkTCOverride = null; A3500_LIVE = { valor: 1111.11, hora: '12:34' };
+      out.live = dlkTCHoy(); out.fLive = dlkTCFuente().tipo;
+      // Con el fix de hoy publicado: el oficial le gana al intradiario.
+      DLK_INDEX = [viejo, { fecha: hoyAR(), valor: 1500 }];
+      out.oficial = dlkTCHoy(); out.fOficial = dlkTCFuente().tipo;
+      // Lo escrito a mano le gana a todo.
+      dlkTCOverride = 2222.22;
+      out.manual = dlkTCHoy(); out.fManual = dlkTCFuente().tipo;
+      // Sin manual ni intradiario ni fix de hoy: último cierre disponible.
+      dlkTCOverride = null; A3500_LIVE = null; DLK_INDEX = [viejo];
+      out.cierre = dlkTCHoy(); out.fCierre = dlkTCFuente().tipo;
+    } finally {
+      dlkTCOverride = bkOver; A3500_LIVE = bkLive; DLK_INDEX = bkIdx;
+    }
     return out;
   });
-  check(prec.manual === 2222.22 && prec.fuenteManual === 'manual',
-        'el valor manual le gana al live', `${prec.manual} / ${prec.fuenteManual}`);
-  check(prec.live === 1111.11 && prec.fuenteLive === 'mae',
-        'sin manual, manda el mayorista del MAE', `${prec.live} / ${prec.fuenteLive}`);
-  if (prec.dlkLen > 0) {
-    check(prec.sinNada != null && ['oficial', 'cierre'].includes(prec.fuenteSinNada),
-          'sin manual ni live, cae al A3500 del BCRA', `${prec.sinNada} / ${prec.fuenteSinNada}`);
-  } else {
-    console.log('  \x1b[33m--\x1b[0m    el índice del BCRA no cargó: no se verifica el fallback');
-  }
+  check(prec.manual === 2222.22 && prec.fManual === 'manual',
+        'lo escrito a mano le gana a todo', `${prec.manual} / ${prec.fManual}`);
+  check(prec.oficial === 1500 && prec.fOficial === 'oficial',
+        'el fix del BCRA del día le gana al intradiario', `${prec.oficial} / ${prec.fOficial}`);
+  check(prec.live === 1111.11 && prec.fLive === 'mae',
+        'sin fix del día, manda el mayorista del MAE', `${prec.live} / ${prec.fLive}`);
+  check(prec.cierre === 900 && prec.fCierre === 'cierre',
+        'sin nada más, cae al último cierre oficial', `${prec.cierre} / ${prec.fCierre}`);
 
   // La red, solo si la rueda está abierta: fuera de 10-15 ART no hay nada nuevo
   // que pedir y afirmar lo contrario haría fallar el build por horario.
