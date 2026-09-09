@@ -473,6 +473,108 @@ const check = (cond, label, detalle = '') => {
     check(vuelta.bonos > 0 && !/Forward/.test(vuelta.ejeY), `${sec}: recupera la serie de tasas`, vuelta.ejeY);
   }
 
+  console.log('\nMAE — mayorista y futuros de dólar');
+
+  // Lo puro primero: no depende de la red ni del horario.
+  const puro = await page.evaluate(() => ({
+    // El MAE serializa la hora argentina con forma de unix UTC, así que hay que
+    // leer las partes en UTC a propósito. El runner de CI corre en UTC, con lo
+    // cual esto vigila el formato; la conversión en sí se ve en la app.
+    hora: maeHoraART(Date.UTC(2026, 8, 9, 14, 59) / 1000),
+    horaPad: maeHoraART(Date.UTC(2026, 8, 9, 9, 5) / 1000),
+    // DLR + MM + YYYY
+    tk: maeTickerFromVcto('2026-09-30'),
+    tkEnero: maeTickerFromVcto('2027-01-15'),
+    tkNulo: maeTickerFromVcto('no-es-fecha'),
+    tieneCierre: typeof MAE_CIERRE_H === 'number' && MAE_CIERRE_H === 15,
+  }));
+  check(puro.hora === '14:59', 'lee la hora del tick del MAE', puro.hora);
+  check(puro.horaPad === '09:05', 'rellena hora y minuto con cero', puro.horaPad);
+  check(puro.tk === 'DLR092026', 'mapea vencimiento a contrato', puro.tk);
+  check(puro.tkEnero === 'DLR012027', 'rellena el mes con cero', puro.tkEnero);
+  check(puro.tkNulo === null, 'una fecha inválida no arma ticker', String(puro.tkNulo));
+  check(puro.tieneCierre, 'el cierre de la rueda mayorista es a las 15');
+
+  // Precedencia del A3500. Es la razón de ser del refactor: antes el refresco
+  // escribía en dlkTCOverride y te pisaba el valor que habías puesto a mano.
+  // Se controlan las tres entradas para que el resultado no dependa de si el BCRA
+  // ya publicó el fix de hoy: con el índice real, el oficial tapa al intradiario
+  // y no se podría ver el orden completo.
+  const prec = await page.evaluate(() => {
+    const bkOver = dlkTCOverride, bkLive = A3500_LIVE, bkIdx = DLK_INDEX;
+    const viejo = { fecha: '2026-01-02', valor: 900 };
+    const out = {};
+    try {
+      // Sin fix de hoy publicado: manda el intradiario del MAE.
+      DLK_INDEX = [viejo];
+      dlkTCOverride = null; A3500_LIVE = { valor: 1111.11, hora: '12:34' };
+      out.live = dlkTCHoy(); out.fLive = dlkTCFuente().tipo;
+      // Con el fix de hoy publicado: el oficial le gana al intradiario.
+      DLK_INDEX = [viejo, { fecha: hoyAR(), valor: 1500 }];
+      out.oficial = dlkTCHoy(); out.fOficial = dlkTCFuente().tipo;
+      // Lo escrito a mano le gana a todo.
+      dlkTCOverride = 2222.22;
+      out.manual = dlkTCHoy(); out.fManual = dlkTCFuente().tipo;
+      // Sin manual ni intradiario ni fix de hoy: último cierre disponible.
+      dlkTCOverride = null; A3500_LIVE = null; DLK_INDEX = [viejo];
+      out.cierre = dlkTCHoy(); out.fCierre = dlkTCFuente().tipo;
+    } finally {
+      dlkTCOverride = bkOver; A3500_LIVE = bkLive; DLK_INDEX = bkIdx;
+    }
+    return out;
+  });
+  check(prec.manual === 2222.22 && prec.fManual === 'manual',
+        'lo escrito a mano le gana a todo', `${prec.manual} / ${prec.fManual}`);
+  check(prec.oficial === 1500 && prec.fOficial === 'oficial',
+        'el fix del BCRA del día le gana al intradiario', `${prec.oficial} / ${prec.fOficial}`);
+  check(prec.live === 1111.11 && prec.fLive === 'mae',
+        'sin fix del día, manda el mayorista del MAE', `${prec.live} / ${prec.fLive}`);
+  check(prec.cierre === 900 && prec.fCierre === 'cierre',
+        'sin nada más, cae al último cierre oficial', `${prec.cierre} / ${prec.fCierre}`);
+
+  // La red, solo si la rueda está abierta: fuera de 10-15 ART no hay nada nuevo
+  // que pedir y afirmar lo contrario haría fallar el build por horario.
+  const red = await page.evaluate(async () => {
+    if (!maeRuedaAbierta()) return { cerrada: true };
+    try {
+      const spot = await maeFetchSpot();
+      const curva = await maeFetchFuturos();
+      return {
+        cerrada: false,
+        spot: spot && spot.valor, hora: spot && spot.hora,
+        n: curva.length,
+        ordenada: curva.every((c, i) => i === 0 ||
+          (c.anio > curva[i - 1].anio || (c.anio === curva[i - 1].anio && c.mes > curva[i - 1].mes))),
+        precios: curva.every(c => c.precio > 0),
+      };
+    } catch (e) { return { cerrada: false, error: e.message }; }
+  });
+  if (red.cerrada) {
+    console.log('  \x1b[33m--\x1b[0m    rueda mayorista cerrada: no se verifica la red del MAE');
+  } else if (red.error) {
+    // Sin el Worker redeployado con la ruta /mae esto falla, y tiene que verse.
+    check(false, 'el MAE responde por el Worker', red.error);
+  } else {
+    check(red.spot > 0, 'llega el mayorista contado', `${red.spot} a las ${red.hora}`);
+    check(red.n >= 6, 'llega la curva de futuros', `${red.n} contratos`);
+    check(red.ordenada, 'la curva viene ordenada por vencimiento');
+    check(red.precios, 'todos los contratos traen precio');
+  }
+
+  // IOL se eliminó por completo: no debe quedar ni el modal ni las credenciales.
+  const iol = await page.evaluate(() => ({
+    modal: !!document.getElementById('iol-creds-modal'),
+    funcs: ['rofexFetch', 'iolGetToken', 'iolCredsOpen', 'iolAuth']
+      .filter(f => typeof window[f] === 'function'),
+    creds: !!localStorage.getItem('bonosAR_iol_creds_v1'),
+    token: !!localStorage.getItem('bonosAR_iol_token_v1'),
+    boton: (document.getElementById('sint-rofex-btn') || {}).textContent || '',
+  }));
+  check(!iol.modal, 'no queda el modal de credenciales de IOL');
+  check(iol.funcs.length === 0, 'no quedan funciones de IOL', iol.funcs.join(', '));
+  check(!iol.creds && !iol.token, 'las credenciales guardadas de IOL se borran');
+  check(/MAE/.test(iol.boton), 'el botón de futuros apunta al MAE', iol.boton);
+
   console.log('\nResto de pestañas (no deben lanzar)');
   const antes = errores.length;
   await page.evaluate(() => switchSection('usd'));

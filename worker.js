@@ -1,7 +1,12 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 // royal-resonance-d470  —  worker.js
-// Rutas existentes: /rofex · /iol · BCRA proxy (default)
-// Nuevo: /test-snapshot (POST) · scheduled cron (weekdays 20:15 UTC = 17:15 ART)
+// Rutas: /mae · /test-snapshot (POST) · BCRA proxy (default)
+//        scheduled cron (weekdays 20:15 UTC = 17:15 ART)
+//
+// /rofex y /iol se eliminaron: /rofex apuntaba al entorno demo de Primary
+// (api.remarkets.primary.com.ar) y /iol exigía credenciales personales de IOL que
+// nunca funcionaron para market data. Los futuros de dólar ahora salen del MAE,
+// que es público y no pide autenticación.
 //
 // Variables de entorno a agregar en Cloudflare Dashboard → Settings → Variables:
 //   SUPABASE_URL          https://xxx.supabase.co
@@ -10,9 +15,9 @@
 //                         Sin esta variable, /test-snapshot devuelve 503.
 //                         Generar con: openssl rand -hex 32
 //
-// Seguridad (ver ALLOWED_ORIGINS / IOL_ALLOWED_HOSTS más abajo):
+// Seguridad (ver ALLOWED_ORIGINS / MAE_ALLOWED_PATHS más abajo):
 //   · CORS restringido a los orígenes de la app (antes era '*')
-//   · /iol sólo reenvía a api.invertironline.com por https (antes: cualquier URL)
+//   · /mae sólo acepta paths de una allowlist, no una URL del llamador
 //   · /test-snapshot exige X-Snapshot-Token (antes: sin autenticación)
 //   · Los parámetros del proxy BCRA se validan antes de interpolarse
 //
@@ -147,8 +152,15 @@ const ALLOWED_ORIGINS = [
   'http://127.0.0.1:5500',
 ];
 
-// Únicos hosts a los que el proxy /iol puede reenviar.
-const IOL_ALLOWED_HOSTS = ['api.invertironline.com'];
+// Proxy MAE: el mercado mayorista no manda header CORS, así que el navegador no
+// puede pedirle directo. A diferencia del viejo proxy /iol, que aceptaba una URL
+// arbitraria por querystring y hubo que endurecer después, acá la allowlist es de
+// paths completos: no hay parámetro que el llamador pueda torcer.
+const MAE_BASE = 'https://api.marketdata.mae.com.ar';
+const MAE_ALLOWED_PATHS = [
+  '/api/mercado/resumen/FOR',   // FOREX mayorista — UST$T plazo 000 es el contado
+  '/api/mercado/resumen/DDF',   // Dólar Diferido a Fix — curva de futuros
+];
 
 function corsHeaders(request) {
   const origin = request.headers.get('Origin') || '';
@@ -200,33 +212,25 @@ export default {
       }
     }
 
-    if (url.pathname === '/rofex') return handleRofex(env, cors);
+    // ── Proxy MAE ──────────────────────────────────────────────────────────────
+    // GET /mae?path=/api/mercado/resumen/DDF
+    // El path tiene que estar en la allowlist tal cual: no se arma por
+    // concatenación ni se aceptan querystrings del llamador.
+    if (url.pathname === '/mae') {
+      if (request.method !== 'GET') return jsonError('GET required', 405, cors);
+      const path = url.searchParams.get('path') || '';
+      if (!MAE_ALLOWED_PATHS.includes(path))
+        return jsonError(`Path no permitido: ${path}`, 400, cors);
 
-    // ── Proxy IOL ──────────────────────────────────────────────────────────────
-    // Sólo reenvía a hosts de la allowlist y sólo por https.
-    if (url.pathname === '/iol') {
-      const target = url.searchParams.get('url');
-      if (!target) return jsonError('Falta el parámetro url', 400, cors);
-
-      let parsed;
-      try { parsed = new URL(target); }
-      catch { return jsonError('URL inválida', 400, cors); }
-
-      if (parsed.protocol !== 'https:') return jsonError('Sólo https', 400, cors);
-      if (!IOL_ALLOWED_HOSTS.includes(parsed.hostname))
-        return jsonError(`Host no permitido: ${parsed.hostname}`, 403, cors);
-
-      const iolHeaders = { 'Authorization': request.headers.get('Authorization') || '' };
-      if (request.method === 'POST')
-        iolHeaders['Content-Type'] = request.headers.get('Content-Type') || 'application/x-www-form-urlencoded';
-
-      const iolRes = await fetch(parsed.toString(), {
-        method: request.method,
-        headers: iolHeaders,
-        body: request.method === 'POST' ? request.body : undefined,
+      const maeRes = await fetch(MAE_BASE + path, {
+        headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' },
       });
-      const body = await iolRes.text();
-      return new Response(body, { status: iolRes.status, headers: { 'Content-Type': 'application/json', ...cors } });
+      const body = await maeRes.text();
+      return new Response(body, {
+        status: maeRes.status,
+        // El MAE es intradiario: cachear acá escondería el último tick.
+        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...cors },
+      });
     }
 
     // ── Proxy BCRA (default) ───────────────────────────────────────────────────
@@ -255,66 +259,3 @@ export default {
   },
 };
 
-// ── Rofex / Primary Markets ────────────────────────────────────────────────────
-async function handleRofex(env, cors) {
-  const BASE = env.PRIMARY_URL || 'https://api.remarkets.primary.com.ar';
-  const user = env.PRIMARY_USER;
-  const pass = env.PRIMARY_PASS;
-
-  if (!user || !pass) {
-    return new Response(JSON.stringify({ error: 'Faltan credenciales PRIMARY_USER / PRIMARY_PASS' }),
-      { status: 500, headers: { 'Content-Type': 'application/json', ...cors } });
-  }
-
-  const authResp = await fetch(`${BASE}/auth/getToken`, {
-    method: 'POST',
-    headers: { 'X-Username': user, 'X-Password': pass },
-  });
-  if (!authResp.ok)
-    return new Response(JSON.stringify({ error: `Auth fallida: ${authResp.status}` }),
-      { status: 502, headers: { 'Content-Type': 'application/json', ...cors } });
-
-  const token = authResp.headers.get('X-Auth-Token');
-  if (!token)
-    return new Response(JSON.stringify({ error: 'Sin token en respuesta de Primary' }),
-      { status: 502, headers: { 'Content-Type': 'application/json', ...cors } });
-
-  const MESES = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
-  const MESES_IDX = Object.fromEntries(MESES.map((m, i) => [m, i]));
-  const now = new Date();
-  const symbols = [];
-  for (let i = 0; i < 12; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
-    symbols.push(`DLR/${MESES[d.getMonth()]}${String(d.getFullYear()).slice(-2)}M`);
-  }
-
-  const results = await Promise.all(
-    symbols.map(sym =>
-      fetch(`${BASE}/rest/marketdata/get?marketId=ROFX&symbol=${encodeURIComponent(sym)}&entries=LA,OF,BI`, {
-        headers: { 'X-Auth-Token': token },
-      })
-      .then(r => r.ok ? r.json().then(j => ({ sym, j })) : null)
-      .catch(() => null)
-    )
-  );
-
-  const contratos = results
-    .filter(r => r?.j?.status === 'OK')
-    .map(({ sym, j }) => {
-      const md = j.marketData;
-      const precio = md?.LA?.price || md?.OF?.price || md?.BI?.price || null;
-      const abrev = sym.replace('DLR/', '').replace('M', '');
-      const mes = abrev.slice(0, 3);
-      const year = 2000 + parseInt(abrev.slice(3));
-      const month = MESES_IDX[mes];
-      const lastDay = new Date(year, month + 1, 0);
-      while (lastDay.getDay() === 0 || lastDay.getDay() === 6) lastDay.setDate(lastDay.getDate() - 1);
-      const vcto = lastDay.toISOString().split('T')[0];
-      return { simbolo: sym, precio, vcto };
-    })
-    .sort((a, b) => a.vcto.localeCompare(b.vcto));
-
-  return new Response(JSON.stringify(contratos), {
-    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=300', ...cors },
-  });
-}

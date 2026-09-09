@@ -1099,11 +1099,10 @@ tbody tr.selected .c-ticker{color:var(--accent);}
     <!-- LEFT: tabla -->
     <div class="left-pane" id="sint-left-pane">
       <div class="pane-toolbar">
-        <span class="pane-title">Sintético DLK + ROFEX</span>
+        <span class="pane-title">Sintético DLK + Futuros</span>
         <span style="font-size:10px;color:var(--text3);margin-left:auto;margin-right:4px">A3500</span>
         <span id="sint-a3500-display" style="font-family:var(--mono);font-size:12px;color:var(--accent)">—</span>
-        <button id="sint-rofex-btn" class="btn" style="margin-left:8px;font-size:10px;padding:2px 6px" onclick="rofexFetch()" title="Actualizar precios ROFEX desde IOL">↻ ROFEX</button>
-        <button onclick="iolCredsOpen()" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;margin-left:2px;padding:0 2px" title="Configurar cuenta IOL">⚙</button>
+        <button id="sint-rofex-btn" class="btn" style="margin-left:8px;font-size:10px;padding:2px 6px" onclick="maeRefreshFuturos()" title="Actualizar futuros de dólar desde el MAE (rueda 10:00-15:00)">↻ MAE</button>
         <button class="btn" onclick="exportTableCSV('sintetico')" title="Exportar tabla a CSV" style="font-size:11px;padding:2px 6px;margin-left:6px">⬇ CSV</button>
         <button id="sint-add-btn" class="btn primary" onclick="sintOpenModal()" style="margin-left:6px">+ Agregar</button>
       </div>
@@ -2139,25 +2138,6 @@ tbody tr.selected .c-ticker{color:var(--accent);}
     </div>
   </div>
 </div>
-</div>
-
-<!-- IOL Credentials Modal -->
-<div class="modal-backdrop" id="iol-creds-modal" onclick="if(event.target===this)iolCredsClose()" style="display:none">
-  <div class="modal-box" style="max-width:380px">
-    <div class="modal-title">Cuenta IOL · InvertirOnline</div>
-    <p style="font-size:11px;color:var(--text3);margin-bottom:1rem">Tus credenciales se guardan solo en este dispositivo (localStorage) y se usan para traer precios ROFEX en tiempo real.</p>
-    <div class="field-row cols1">
-      <div class="field"><label>Usuario IOL</label><input type="text" id="iol-user" placeholder="tu@email.com" autocomplete="username" style="font-family:var(--mono)"></div>
-    </div>
-    <div class="field-row cols1" style="margin-top:.5rem">
-      <div class="field"><label>Contraseña IOL</label><input type="password" id="iol-pass" placeholder="••••••••" autocomplete="current-password"></div>
-    </div>
-    <div id="iol-creds-status" style="font-size:11px;min-height:20px;margin:.75rem 0;font-family:var(--mono)"></div>
-    <div class="modal-actions">
-      <button class="btn" onclick="iolCredsClose()">Cerrar</button>
-      <button class="btn primary" onclick="iolCredsSave()">Guardar y conectar</button>
-    </div>
-  </div>
 </div>
 
 <div id="page-usd-curvas" style="display:none;height:calc(100vh - 200px);overflow:hidden;flex-direction:column;"></div>
@@ -5191,7 +5171,7 @@ function cerSaveModal(){
 // Sin token. Cache localStorage 23hs.
 
 const WORKER_URL='https://royal-resonance-d470.santosechezarreta5.workers.dev/cer';
-const WORKER_IOL='https://royal-resonance-d470.santosechezarreta5.workers.dev/iol';
+const WORKER_MAE='https://royal-resonance-d470.santosechezarreta5.workers.dev/mae';
 const CER_CACHE_KEY='bonosAR_cer_bcra_v2';
 const CER_CACHE_TTL=23*60*60*1000;
 let CER_INDEX=[];   // [{fecha:'YYYY-MM-DD', valor:number}] ordenado asc
@@ -5207,6 +5187,108 @@ const DLK_ID=5; // idVariable en la API del BCRA — Tipo de cambio mayorista
 const DLK_CACHE_KEY='bonosAR_dlk_v1';
 const DLK_CACHE_TTL=23*60*60*1000;
 let DLK_INDEX=[];  // [{fecha:'YYYY-MM-DD', valor:number}] — $/USD mayorista
+// Tipo de cambio escrito a mano por el usuario. Vive acá y no en el bloque de
+// bonos DLK porque dlkFetchIndex() se invoca como statement de nivel superior y,
+// con la caché caliente, lee este valor sincrónicamente antes de llegar allá.
+let dlkTCOverride=null;
+
+// ── MAE: mayorista y futuros de dólar en vivo ─────────────────────────────────
+// El A3500 no es un precio en vivo: es un fix que el BCRA publica una vez por día
+// (serie DLK_ID=5, que ya cargamos en DLK_INDEX). Lo que cotiza durante la rueda
+// es el mayorista, y eso lo sirve el MAE junto con la curva de futuros DDF.
+//
+// La rueda mayorista cierra a las 15:00, dos horas antes que la de bonos: pasada
+// esa hora el último tick es el cierre, no un dato que se quedó viejo.
+const MAE_CIERRE_H=15;
+const MAE_PATH_FOR='/api/mercado/resumen/FOR';
+const MAE_PATH_DDF='/api/mercado/resumen/DDF';
+let A3500_LIVE=null;    // {valor, hora:'HH:MM'} — mayorista intradiario del MAE
+let MAE_FUTUROS=[];     // [{ticker,mes,anio,precio,hora}] curva DDF ascendente
+
+// El MAE serializa los timestamps de la rueda en hora argentina pero con forma de
+// unix UTC. Leerlos con new Date(t*1000) y getHours() corre todo tres horas, así
+// que hay que sacarlos en UTC a propósito.
+function maeHoraART(t){
+  if(!t)return null;
+  const d=new Date(t*1000);
+  return `${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}`;
+}
+
+function maeUltimoTickTs(item){
+  const pr=item&&item.datosGrafico&&item.datosGrafico.precios;
+  if(!pr||!pr.length)return 0;
+  return pr.reduce((m,p)=>Math.max(m,p.time||0),0);
+}
+
+function maeRuedaAbierta(){
+  const ar=new Date(new Date().toLocaleString('en-US',{timeZone:'America/Argentina/Buenos_Aires'}));
+  if(!esHabil(ar))return false;
+  const h=ar.getHours()+ar.getMinutes()/60;
+  return h>=10 && h<MAE_CIERRE_H;
+}
+
+async function maeGet(path){
+  const res=await fetch(`${WORKER_MAE}?path=${encodeURIComponent(path)}`,
+    {cache:'no-store',signal:AbortSignal.timeout(12000)});
+  if(!res.ok)throw new Error('MAE HTTP '+res.status);
+  return res.json();
+}
+
+// Mayorista contado: ticker UST$T, plazo 000. La API puede devolver más de una
+// fila para el mismo plazo, así que nos queda la del tick más reciente.
+async function maeFetchSpot(){
+  const data=await maeGet(MAE_PATH_FOR);
+  const filas=(data||[]).filter(x=>x.ticker==='UST$T'&&x.plazo==='000'&&x.ultimo>0);
+  if(!filas.length)return null;
+  filas.sort((a,b)=>maeUltimoTickTs(b)-maeUltimoTickTs(a));
+  const f=filas[0];
+  A3500_LIVE={valor:+f.ultimo,hora:maeHoraART(maeUltimoTickTs(f))};
+  return A3500_LIVE;
+}
+
+// Curva DDF completa: los tickers son DLR + MM + YYYY.
+async function maeFetchFuturos(){
+  const data=await maeGet(MAE_PATH_DDF);
+  MAE_FUTUROS=(data||[])
+    .filter(x=>/^DLR\d{6}$/.test(x.ticker||'')&&x.ultimo>0)
+    .map(x=>({
+      ticker:x.ticker,
+      mes:+x.ticker.slice(3,5),
+      anio:+x.ticker.slice(5),
+      precio:+x.ultimo,
+      hora:maeHoraART(maeUltimoTickTs(x)),
+    }))
+    .sort((a,b)=>a.anio-b.anio||a.mes-b.mes);
+  return MAE_FUTUROS;
+}
+
+// El contrato que le corresponde a un vencimiento.
+function maeTickerFromVcto(vcto){
+  const d=parseDate(vcto);
+  if(!d||isNaN(d))return null;
+  return `DLR${String(d.getMonth()+1).padStart(2,'0')}${d.getFullYear()}`;
+}
+
+// El fix oficial del día, si el BCRA ya lo publicó. Es lo que manda sobre el
+// intradiario una vez que existe.
+function dlkOficialDeHoy(){
+  if(!DLK_INDEX.length)return null;
+  const hoy=hoyAR();
+  const r=DLK_INDEX.find(x=>x.fecha===hoy);
+  return r&&r.valor>0?r.valor:null;
+}
+
+// Qué fuente está alimentando el A3500 ahora mismo, para poder decirlo en pantalla.
+function dlkTCFuente(){
+  if(dlkTCOverride!=null&&dlkTCOverride>0)return{tipo:'manual',etiqueta:'manual'};
+  if(dlkOficialDeHoy()!=null)return{tipo:'oficial',etiqueta:`A3500 oficial ${hoyAR().split('-').reverse().join('/')}`};
+  if(A3500_LIVE&&A3500_LIVE.valor>0)return{tipo:'mae',etiqueta:`${A3500_LIVE.hora||''} MAE`.trim()};
+  if(DLK_INDEX.length){
+    const u=[...DLK_INDEX].sort((a,b)=>a.fecha.localeCompare(b.fecha)).pop();
+    return{tipo:'cierre',etiqueta:`A3500 ${u.fecha.split('-').reverse().join('/')}`};
+  }
+  return{tipo:'nada',etiqueta:''};
+}
 
 function tamarIndexGet(dateStr){
   // busca el valor exacto o el último anterior
@@ -5323,10 +5405,7 @@ async function dlkFetchIndex(force=false){
           DLK_INDEX=data;
           if(st){st.textContent=`DLK · ${DLK_INDEX.length} registros (cache)`;st.className='api-status ok';}
           dlkRenderIndexStrip();
-          if(dlkTCOverride==null){
-            const v=data[data.length-1]?.valor;
-            if(v){const inp=document.getElementById('usd-a3500-input');if(inp&&!inp.value)inp.value=v.toFixed(4);}
-          }
+          a3500Pintar();
           return true;
         }
       }
@@ -5386,13 +5465,9 @@ async function dlkFetchIndex(force=false){
     dlkRenderIndexStrip();
     updateIndexBanners();
     if(currentTab==='dlk') dlkRenderPage();
-    // poblar inputs A3500 si no hay override manual
-    if(dlkTCOverride==null){
-      const inp=document.getElementById('usd-a3500-input');
-      if(inp) inp.value=last.valor.toFixed(4);
-      const lbl=document.getElementById('usd-a3500-label');
-      if(lbl) lbl.textContent=last.fecha.split('-').reverse().join('/');
-    }
+    // a3500Pintar resuelve la precedencia: no pisa un override manual ni tapa el
+    // intradiario del MAE con el último cierre.
+    a3500Pintar();
     // al refrescar con force=true, también actualizar precios de bonos
     if(force&&DLK_BONDS.length) dlkFetchPrices();
     return true;
@@ -7997,6 +8072,12 @@ async function refrescoCiclo(){
   _ultimoRefresco=Date.now();
   try{await fetchAllPrices();}catch(e){}
   try{await usdFetch();}catch(e){}
+  // El mayorista y los futuros cierran a las 15:00, antes que la rueda de bonos:
+  // pasada esa hora el último tick ya es el cierre y no hay nada nuevo que pedir.
+  if(maeRuedaAbierta()){
+    try{await maeFetchSpot();a3500Repropagar();}catch(e){}
+    try{await maeFetchFuturos();}catch(e){}
+  }
 }
 
 function refrescoIniciar(){
@@ -8004,6 +8085,13 @@ function refrescoIniciar(){
   _refrescoTimer=setInterval(refrescoCiclo,REFRESCO_MS);
 }
 refrescoIniciar();
+
+// Primer tiro del MAE al abrir la app: sin esto habría que esperar hasta cinco
+// minutos para ver el mayorista y los futuros del día.
+if(maeRuedaAbierta()){
+  maeFetchSpot().then(()=>a3500Repropagar()).catch(()=>{});
+  maeFetchFuturos().catch(()=>{});
+}
 
 // Al volver a la pestaña, si pasó más de un ciclo desde el último refresco,
 // actualizar ya en vez de esperar hasta 5 minutos.
@@ -8810,7 +8898,8 @@ const DLK_BONDS_LS='bonosAR_dlk_bonds_v1';
 let DLK_BONDS=[];         // array de bonos definidos por el usuario
 let DLK_DATA=[];          // bonos enriquecidos con precio y tasas
 let dlkSelectedTicker=null;
-let dlkTCOverride=null;   // TC manual ingresado por el usuario
+// dlkTCOverride se declara arriba, en el bloque del A3500: dlkFetchIndex() corre
+// como statement de nivel superior mucho antes de esta línea y lo necesita.
 let dlkEditingCell=null;
 
 function dlkRowClick(e,ticker){
@@ -8868,10 +8957,19 @@ function dlkSaveBonds(){
 }
 
 // ── TC efectivo ───────────────────────────────────────────────────────────────
+// Precedencia del tipo de cambio, de más a menos autoritativo:
+//   1. lo que escribiste a mano
+//   2. el fix oficial del BCRA del día, si ya salió
+//   3. el mayorista del MAE, intradiario
+//   4. el último cierre oficial que tengamos
+// El paso 2 va antes del 3 a propósito: mientras no exista el fix, el intradiario
+// es lo mejor que hay; cuando existe, es el número que corresponde para valuar.
 function dlkTCHoy(){
   if(dlkTCOverride!=null&&dlkTCOverride>0) return dlkTCOverride;
+  const oficial=dlkOficialDeHoy();
+  if(oficial!=null) return oficial;
+  if(A3500_LIVE&&A3500_LIVE.valor>0) return A3500_LIVE.valor;
   if(!DLK_INDEX.length) return null;
-  // último cierre = penúltimo registro si hay datos de hoy, o último disponible
   const sorted=[...DLK_INDEX].sort((a,b)=>a.fecha.localeCompare(b.fecha));
   return sorted[sorted.length-1].valor;
 }
@@ -10018,171 +10116,91 @@ function sintConfirmAdd(){
   });
 }());
 
-// ══════════════════════════════════════════════════════════ A3500 LIVE (argentinadatos.com)
+// ══════════════════════════════════════════════════════════ A3500 EN VIVO (MAE)
+// Antes esto pegaba a argentinadatos.com y escribía directo en dlkTCOverride, que
+// es la misma variable que usás al editar el precio a mano: cada refresco te
+// pisaba el número. Ahora el valor va a A3500_LIVE y la precedencia la resuelve
+// dlkTCHoy(), así que un override manual sobrevive al refresco.
+function a3500Pintar(){
+  const val=dlkTCHoy();
+  const f=dlkTCFuente();
+  const inp=document.getElementById('usd-a3500-input');
+  if(inp&&f.tipo!=='manual'&&val!=null)inp.value=val.toFixed(4);
+  const lbl=document.getElementById('usd-a3500-label');
+  if(lbl)lbl.textContent=f.etiqueta;
+  const el=document.getElementById('sint-a3500-display');
+  if(el)el.textContent=val!=null?'$'+val.toFixed(4):'—';
+}
+
+function a3500Repropagar(){
+  a3500Pintar();
+  if(currentTab==='dlk'){DLK_DATA=DLK_BONDS.map(dlkEnrich);dlkRenderTable();if(dlkSelectedTicker)dlkRecalcPanel();}
+  else if(currentTab==='sintetico'){
+    SINT_DATA=SINT_BONDS.map(sintEnrich);sintRenderTable();
+    if(sintSelectedTicker){const r=SINT_DATA.find(x=>x.ticker===sintSelectedTicker);if(r)sintRenderPanelBody(r);}
+  }
+}
+
 async function a3500LiveFetch(){
   const btn=document.querySelector('button[onclick="a3500LiveFetch()"]');
   if(btn){btn.textContent='…';btn.disabled=true;}
   try{
-    const res=await fetch('https://api.argentinadatos.com/v1/cotizaciones/dolares/mayorista',
-      {cache:'no-store',signal:AbortSignal.timeout(8000)});
-    if(!res.ok)throw new Error(res.status);
-    const data=await res.json();
-    if(!data.length)throw new Error('Sin datos');
-    const last=data[data.length-1];
-    const v=last.venta||last.compra;
-    if(!v||isNaN(parseFloat(v)))throw new Error('Valor inválido');
-    const val=parseFloat(v);
-    // Actualizar input de la cinta (sin tocar dlkTCOverride)
-    const inp=document.getElementById('usd-a3500-input');
-    if(inp)inp.value=val.toFixed(4);
-    const lbl=document.getElementById('usd-a3500-label');
-    const liveDate=last.fecha?last.fecha.split('T')[0].split('-').reverse().join('/'):'';
-    if(lbl)lbl.textContent=liveDate?`${liveDate} live`:'live';
-    // Propagar a las calculadoras igual que un override manual
-    dlkTCOverride=val;
-    if(currentTab==='dlk'){DLK_DATA=DLK_BONDS.map(dlkEnrich);dlkRenderTable();if(dlkSelectedTicker)dlkRecalcPanel();}
-    else if(currentTab==='sintetico'){
-      SINT_DATA=SINT_BONDS.map(sintEnrich);sintRenderTable();
-      const el=document.getElementById('sint-a3500-display');
-      if(el)el.textContent='$'+val.toFixed(4);
-      if(sintSelectedTicker){const r=SINT_DATA.find(x=>x.ticker===sintSelectedTicker);if(r)sintRenderPanelBody(r);}
-    }
+    const spot=await maeFetchSpot();
+    if(!spot)throw new Error('el MAE no devolvió mayorista contado');
+    a3500Repropagar();
   }catch(e){
-    console.warn('A3500 live fetch error:',e);
+    console.warn('A3500 MAE:',e);
     const lbl=document.getElementById('usd-a3500-label');
-    if(lbl)lbl.textContent='(error live)';
+    if(lbl)lbl.textContent='(MAE sin datos)';
   }finally{
     if(btn){btn.textContent='↻ live';btn.disabled=false;}
   }
 }
 
-// ══════════════════════════════════════════════════════════ IOL — CREDENCIALES
-const IOL_CREDS_KEY='bonosAR_iol_creds_v1';
-const IOL_TOKEN_KEY='bonosAR_iol_token_v1';
-const IOL_TOKEN_ENDPOINT='https://api.invertironline.com/token';
-let iolTokenCache=null; // {access_token, expires_at}
-
-function iolGetCreds(){
-  try{const s=localStorage.getItem(IOL_CREDS_KEY);return s?JSON.parse(s):null;}catch(e){return null;}
-}
-function iolSaveCreds(user,pass){
-  try{localStorage.setItem(IOL_CREDS_KEY,JSON.stringify({user,pass}));}catch(e){}
-}
-function iolCredsOpen(){
-  const creds=iolGetCreds();
-  const userEl=document.getElementById('iol-user');
-  const passEl=document.getElementById('iol-pass');
-  if(userEl&&creds)userEl.value=creds.user||'';
-  if(passEl)passEl.value='';
-  const saved=iolTokenCache||(()=>{try{const s=localStorage.getItem(IOL_TOKEN_KEY);return s?JSON.parse(s):null;}catch(e){return null;}})();
-  const stEl=document.getElementById('iol-creds-status');
-  if(stEl){
-    if(saved&&Date.now()<saved.expires_at){
-      const mins=Math.round((saved.expires_at-Date.now())/60000);
-      stEl.style.color='var(--accent2)';
-      stEl.textContent=`Conectado · token válido por ${mins} min`;
-    } else if(creds){
-      stEl.style.color='var(--text3)';
-      stEl.textContent='Credenciales guardadas · no conectado';
-    } else {
-      stEl.style.color='var(--text3)';
-      stEl.textContent='Sin credenciales guardadas';
-    }
-  }
-  document.getElementById('iol-creds-modal').style.display='flex';
-}
-function iolCredsClose(){
-  document.getElementById('iol-creds-modal').style.display='none';
-}
-async function iolCredsSave(){
-  const user=document.getElementById('iol-user')?.value?.trim();
-  const pass=document.getElementById('iol-pass')?.value;
-  if(!user||!pass){alert('Completá usuario y contraseña.');return;}
-  iolSaveCreds(user,pass);
-  const stEl=document.getElementById('iol-creds-status');
-  if(stEl){stEl.style.color='var(--text3)';stEl.textContent='Conectando…';}
-  try{
-    const token=await iolAuth(user,pass);
-    if(token){
-      if(stEl){stEl.style.color='var(--accent2)';stEl.textContent='Conectado correctamente.';}
-    }
-  }catch(e){
-    if(stEl){stEl.style.color='var(--danger)';stEl.textContent='Error: '+e.message;}
-  }
-}
-
-// ══════════════════════════════════════════════════════════ IOL — AUTH
-async function iolAuth(user,pass){
-  const creds=(user&&pass)?{user,pass}:iolGetCreds();
-  if(!creds)throw new Error('Sin credenciales IOL');
-  const body=`grant_type=password&username=${encodeURIComponent(creds.user)}&password=${encodeURIComponent(creds.pass)}`;
-  const res=await fetch(
-    `${WORKER_IOL}?url=${encodeURIComponent(IOL_TOKEN_ENDPOINT)}`,
-    {method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body,signal:AbortSignal.timeout(15000)}
-  );
-  if(!res.ok)throw new Error(`IOL auth HTTP ${res.status}`);
-  const data=await res.json();
-  if(!data.access_token)throw new Error('IOL no devolvió token');
-  iolTokenCache={access_token:data.access_token,expires_at:Date.now()+(data.expires_in||1800)*1000};
-  try{localStorage.setItem(IOL_TOKEN_KEY,JSON.stringify(iolTokenCache));}catch(e){}
-  return iolTokenCache.access_token;
-}
-async function iolGetToken(){
-  if(iolTokenCache&&Date.now()<iolTokenCache.expires_at-60000)return iolTokenCache.access_token;
-  try{
-    const s=localStorage.getItem(IOL_TOKEN_KEY);
-    if(s){iolTokenCache=JSON.parse(s);if(Date.now()<iolTokenCache.expires_at-60000)return iolTokenCache.access_token;}
-  }catch(e){}
-  return iolAuth();
-}
-
-// ══════════════════════════════════════════════════════════ IOL — ROFEX FETCH
-function iolTickerFromSint(simboloFuturo){
-  // 'DLR/JUL25M' → 'DLRJUL25'
-  return simboloFuturo.replace('/','').replace(/M$/,'');
-}
-async function rofexFetch(){
+// ══════════════════════════════════════════════════════ FUTUROS DE DÓLAR (MAE)
+// Reemplaza a rofexFetch, que pedía los futuros a IOL con credenciales personales
+// y no funcionaba. El MAE los publica sin autenticación y trae la curva completa.
+async function maeRefreshFuturos(){
   const btn=document.getElementById('sint-rofex-btn');
   if(btn){btn.textContent='…';btn.disabled=true;}
   try{
-    const token=await iolGetToken();
-    if(!token){alert('Conectá tu cuenta IOL primero (⚙).');return;}
-    let updated=0;
+    const curva=await maeFetchFuturos();
+    let actualizados=0;
     for(const sb of SINT_BONDS){
       const dlkBond=DLK_BONDS.find(b=>b.ticker===sb.ticker);
-      if(!dlkBond?.vcto)continue;
-      const simbolo=sintSymbolFromVcto(dlkBond.vcto);
-      const iolTicker=iolTickerFromSint(simbolo);
-      const iolUrl=`https://api.invertironline.com/api/v2/bRofex/${iolTicker}/cotizacion`;
-      try{
-        const res=await fetch(`${WORKER_IOL}?url=${encodeURIComponent(iolUrl)}`,
-          {headers:{'Authorization':`Bearer ${token}`},signal:AbortSignal.timeout(10000)});
-        if(!res.ok)continue;
-        const d=await res.json();
-        const px=d.ultimoPrecio||(d.puntas?.precioVenta)||null;
-        if(px&&px>0){
-          const idx=SINT_BONDS.findIndex(b=>b.ticker===sb.ticker);
-          if(idx>=0){SINT_BONDS[idx]={...SINT_BONDS[idx],precioFuturo:parseFloat(px)};updated++;}
-        }
-      }catch(e){console.warn('ROFEX fetch error',iolTicker,e);}
+      if(!dlkBond||!dlkBond.vcto)continue;
+      const c=curva.find(x=>x.ticker===maeTickerFromVcto(dlkBond.vcto));
+      if(!c)continue;
+      const idx=SINT_BONDS.findIndex(b=>b.ticker===sb.ticker);
+      if(idx>=0){SINT_BONDS[idx]={...SINT_BONDS[idx],precioFuturo:c.precio};actualizados++;}
     }
-    if(updated){
+    if(actualizados){
       sintSaveBonds();
       SINT_DATA=SINT_BONDS.map(sintEnrich);
       sintRenderTable();
       if(sintSelectedTicker){const r=SINT_DATA.find(x=>x.ticker===sintSelectedTicker);if(r)sintRenderPanelBody(r);}
     }
     if(btn){
-      const now=new Date();
-      btn.textContent=`↻ ROFEX · ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+      const hora=curva.length?curva[0].hora:null;
+      btn.textContent=hora?`↻ MAE · ${hora}`:'↻ MAE';
     }
   }catch(e){
-    console.warn('rofexFetch error:',e);
-    if(e.message&&e.message.includes('token')){alert('Sesión IOL expirada. Reconectá en ⚙.');}
+    console.warn('maeRefreshFuturos:',e);
+    if(btn)btn.textContent='↻ MAE (error)';
   }finally{
     if(btn)btn.disabled=false;
   }
 }
+
+// Limpieza: la integración con IOL guardaba usuario y contraseña en texto plano
+// en localStorage. Ya no existe, así que hay que borrar lo que quedó en los
+// navegadores donde la app corrió antes.
+(function limpiarRestosIOL(){
+  try{
+    localStorage.removeItem('bonosAR_iol_creds_v1');
+    localStorage.removeItem('bonosAR_iol_token_v1');
+  }catch(e){}
+}());
 
 // ══════════════════════════════════════════════════════════ INDEX BANNERS
 function updateIndexBanners(){
