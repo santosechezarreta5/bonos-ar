@@ -1,0 +1,30 @@
+name: Verificar bonos contra BYMA
+
+# Compara las definiciones de bonos de la app contra la ficha técnica oficial de
+# BYMA: vencimiento, emisión, moneda, ley aplicable y capital residual.
+#
+# No corre en cada push a propósito. Son ~80 pedidos POST a una API pública que
+# pide no más de uno por segundo, así que la corrida entera tarda un par de
+# minutos. Una definición de bono cambia cuando alguien la edita a mano, no en
+# cada commit, y semanal alcanza para detectarlo.
+#
+# Se puede disparar a mano desde la pestaña Actions cuando se toca un bono.
+on:
+  schedule:
+    - cron: '0 12 * * 1'      # lunes 12:00 UTC = 09:00 ART
+  workflow_dispatch:
+
+jobs:
+  verificar:
+    name: Definiciones vs ficha oficial
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: npm install playwright && npx playwright install --with-deps chromium
+
+      # Corre contra la app publicada: las definiciones de bonos viven en
+      # Supabase, no en el repo, así que el commit local no cambia el resultado.
+      - run: node .github/scripts/verificar-byma.js
