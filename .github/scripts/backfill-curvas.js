@@ -158,6 +158,7 @@ async function serieByma(symbol) {
   // De a un mes: acota lo que viaja al navegador y da progreso visible.
   const meses = [...new Set(fechas.map(f => f.slice(0, 7)))].sort();
   let totalFilas = 0, totalGuardadas = 0;
+  const omitidosTotal = {};
 
   for (const mes of meses) {
     const delMes = fechas.filter(f => f.startsWith(mes));
@@ -167,6 +168,11 @@ async function serieByma(symbol) {
     const res = await page.evaluate(async ({ delMes, px, dry }) => {
       const bkLiq = G_LIQ, bkTC = dlkTCOverride;
       const filas = [];
+      const omitidos = {};
+      // Red de seguridad: una tasa de tres dígitos largos no es una cotización,
+      // es un cálculo que se fue de escala. Mejor no guardarla que ensuciar el
+      // eje de todos los gráficos con un solo punto.
+      const sano = t => t != null && isFinite(t) && Math.abs(t) < 500;
       try {
         for (const fecha of delMes) {
           const p = px[fecha] || {};
@@ -185,7 +191,7 @@ async function serieByma(symbol) {
               const v = p[b.ticker]; if (v == null) continue;
               try {
                 const r = usdResCalcRow({ ...b, lastPrecio: v }, liqStr);
-                if (r.tir == null || isNaN(r.tir) || r.md == null) continue;
+                if (r.tir == null || isNaN(r.tir) || r.md == null || !sano(r.tir)) continue;
                 filas.push({ snapshot_date: fecha, ticker: b.ticker, sector, price: +v.toFixed(4),
                              tir: +r.tir.toFixed(6), md: +r.md.toFixed(4), dias: null });
               } catch (e) {}
@@ -195,7 +201,7 @@ async function serieByma(symbol) {
             const v = p[b.ticker]; if (v == null) continue;
             try {
               const e = enrich({ ...b, precio: v });
-              if (!e || isNaN(e.tna) || !(e.dias > 0)) continue;
+              if (!e || isNaN(e.tna) || !(e.dias > 0) || !sano(e.tna)) continue;
               filas.push({ snapshot_date: fecha, ticker: b.ticker, sector: 'TF', price: +v.toFixed(4),
                            tir: +e.tna.toFixed(6),
                            md: (!isNaN(e.modDuration) && e.modDuration > 0) ? +e.modDuration.toFixed(4) : null,
@@ -205,9 +211,19 @@ async function serieByma(symbol) {
 
           for (const b of (typeof CER_BONDS !== 'undefined' ? CER_BONDS : [])) {
             const v = p[b.ticker]; if (v == null) continue;
+            // Los CER que ya empezaron a amortizar quedan afuera del histórico.
+            // El cierre de BYMA y el capital residual que calcula la app no
+            // reconcilian una vez pagada la primera cuota, y salen tasas
+            // imposibles: TX26 llegó a 1,3e13% y TX28 a 48% real sostenido.
+            // No está determinado cuál de los dos lados está en otra base, y
+            // guardar el número sin saberlo es peor que no tenerlo. Afecta a
+            // TX26, TX28 y DICP; los otros 27 CER no amortizaron todavía.
+            const cuotas = (b.amortSchedule || []).map(s => s.fecha)
+              .concat(b.amortAuto && b.amortAuto.first ? [b.amortAuto.first] : []);
+            if (cuotas.some(f => f && f <= liqStr)) { omitidos[b.ticker] = 'amortiza'; continue; }
             try {
               const e = cerEnrich({ ...b, precio: v });
-              if (!e || isNaN(e.tir) || !(e.dias > 0)) continue;
+              if (!e || isNaN(e.tir) || !(e.dias > 0) || !sano(e.tir)) continue;
               filas.push({ snapshot_date: fecha, ticker: b.ticker, sector: 'CER', price: +v.toFixed(4),
                            tir: +e.tir.toFixed(6),
                            md: (!isNaN(e.modDuration) && e.modDuration > 0) ? +e.modDuration.toFixed(4) : null,
@@ -219,7 +235,7 @@ async function serieByma(symbol) {
             const v = p[b.ticker]; if (v == null) continue;
             try {
               const e = tamarEnrich({ ...b, precio: v });
-              if (!e || isNaN(e.margenTNA) || !(e.dias > 0)) continue;
+              if (!e || isNaN(e.margenTNA) || !(e.dias > 0) || !sano(e.margenTNA)) continue;
               filas.push({ snapshot_date: fecha, ticker: b.ticker, sector: 'TAMAR', price: +v.toFixed(4),
                            tir: +e.margenTNA.toFixed(6),
                            md: (!isNaN(e.modDuration) && e.modDuration > 0) ? +e.modDuration.toFixed(4) : null,
@@ -231,7 +247,7 @@ async function serieByma(symbol) {
             const v = p[b.ticker]; if (v == null) continue;
             try {
               const e = dlkEnrich({ ...b, precio: v });
-              if (!e || e.tna == null || isNaN(e.tna) || !(e.dias > 0)) continue;
+              if (!e || e.tna == null || isNaN(e.tna) || !(e.dias > 0) || !sano(e.tna)) continue;
               filas.push({ snapshot_date: fecha, ticker: b.ticker, sector: 'DLK', price: +v.toFixed(4),
                            tir: +e.tna.toFixed(6),
                            md: (e.dias > 0) ? +(e.dias / 365 / (1 + e.tna / 100)).toFixed(4) : null,
@@ -241,7 +257,7 @@ async function serieByma(symbol) {
         }
       } finally { G_LIQ = bkLiq; dlkTCOverride = bkTC; }
 
-      if (dry) return { filas: filas.length, guardadas: 0, error: null };
+      if (dry) return { filas: filas.length, guardadas: 0, error: null, omitidos };
 
       // Un ticker puede vivir en dos sectores; la clave única incluye sector,
       // así que se deduplica por (fecha, ticker, sector) antes de mandar.
@@ -252,17 +268,25 @@ async function serieByma(symbol) {
         const lote = unicas.slice(i, i + 500);
         const { error } = await supa.from('bond_price_snapshots')
           .upsert(lote, { onConflict: 'snapshot_date,ticker,sector' });
-        if (error) return { filas: filas.length, guardadas, error: error.message };
+        if (error) return { filas: filas.length, guardadas, error: error.message, omitidos };
         guardadas += lote.length;
       }
-      return { filas: filas.length, guardadas, error: null };
+      return { filas: filas.length, guardadas, error: null, omitidos };
     }, { delMes, px, dry: DRY });
 
     totalFilas += res.filas;
     totalGuardadas += res.guardadas;
+    Object.assign(omitidosTotal, res.omitidos || {});
     const estado = res.error ? `\x1b[31mERROR ${res.error}\x1b[0m` : `${res.guardadas} guardadas`;
     console.log(`  ${mes}  ${delMes.length} ruedas · ${res.filas} filas · ${DRY ? 'dry run' : estado}`);
     if (res.error) { await browser.close(); fatal(`Falló el upsert en ${mes}`); }
+  }
+
+  const om = Object.keys(omitidosTotal);
+  if (om.length) {
+    console.log(`\nBonos omitidos del histórico (${om.length}): ${om.sort().join(', ')}`);
+    console.log('  CER que ya empezaron a amortizar: el cierre de BYMA y el capital');
+    console.log('  residual de la app no reconcilian y salen tasas imposibles.');
   }
 
   console.log(`\n${totalFilas} filas calculadas · ${DRY ? '0 guardadas (dry run)' : totalGuardadas + ' guardadas'}\n`);
