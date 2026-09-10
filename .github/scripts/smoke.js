@@ -536,9 +536,16 @@ const check = (cond, label, detalle = '') => {
   // que pedir y afirmar lo contrario haría fallar el build por horario.
   const red = await page.evaluate(async () => {
     if (!maeRuedaAbierta()) return { cerrada: true };
+    // Un timeout suelto contra una API pública no es una regresión del código.
+    // Se reintenta una vez: si el Worker o el MAE están realmente caídos, el
+    // segundo intento también falla y el build se pone en rojo igual.
+    const conReintento = async fn => {
+      try { return await fn(); }
+      catch (e) { await new Promise(r => setTimeout(r, 3000)); return fn(); }
+    };
     try {
-      const spot = await maeFetchSpot();
-      const curva = await maeFetchFuturos();
+      const spot = await conReintento(() => maeFetchSpot());
+      const curva = await conReintento(() => maeFetchFuturos());
       return {
         cerrada: false,
         spot: spot && spot.valor, hora: spot && spot.hora,
