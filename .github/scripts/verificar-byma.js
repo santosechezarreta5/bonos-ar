@@ -82,19 +82,19 @@ async function fichaByma(ticker) {
         try { residual = bopGetOutstanding(bopGenFlows(b), liqD); }
         catch (e) { err = e.message; }
         out.push({ ticker: b.ticker, sector, emision: b.emision,
-                   vencimiento: b.vencimiento, residual, err, moneda: 'Dólares' });
+                   vencimiento: b.vencimiento, residual, base: 100, err, moneda: 'Dólares' });
       }
     }
 
     // ── TF: LECAP y BONCAP son bullet, el residual es 100 por construcción ────
     for (const b of (typeof LECAPS !== 'undefined' ? LECAPS : [])) {
       out.push({ ticker: b.ticker, sector: 'TF', emision: b.emision,
-                 vencimiento: b.vcto, residual: 100, moneda: 'Pesos' });
+                 vencimiento: b.vcto, residual: 100, base: 100, moneda: 'Pesos' });
     }
 
     // ── CER: se repite el paso 1 de cerBuildFlujos con sus mismas funciones ───
     for (const b of (typeof CER_BONDS !== 'undefined' ? CER_BONDS : [])) {
-      let residual = null, err = null;
+      let residual = null, base = 100, err = null;
       try {
         if (b.tipo === 'lecer') {
           residual = 100;
@@ -102,6 +102,11 @@ async function fichaByma(ticker) {
           const freq = b.freq || 6;
           const dates = cerCouponDates(b.emision, b.vcto, freq, b.primerCupon || null);
           const tabla = cerBuildAmortTable(b, dates, freq);
+          // La base es el capital total a amortizar. Para un bono con PIK crece
+          // por encima de 100 (DICP llega a ~127), y BYMA expresa su residual
+          // como porcentaje de ese nominal capitalizado, no de la lámina de 100.
+          const suma = tabla.reduce((s, a) => s + a.pct, 0);
+          if (suma > 0) base = suma;
           if (b.cuponSchedule && b.cuponSchedule.length) {
             // Con PIK el capital crece antes de amortizar (caso DICP)
             const mapa = new Map(tabla.map(a => [a.fecha, a.pct]));
@@ -122,31 +127,38 @@ async function fichaByma(ticker) {
         }
       } catch (e) { err = e.message; }
       out.push({ ticker: b.ticker, sector: 'CER', emision: b.emision,
-                 vencimiento: b.vcto, residual, err, moneda: 'Pesos' });
+                 vencimiento: b.vcto, residual, base, err, moneda: 'Pesos' });
     }
 
     // ── TAMAR: la definición no contempla amortización, así que 100 ───────────
+    // Sin moneda esperada: la lista tiene tickers dollar linked (TMVE8) que
+    // también viven en DLK, así que la familia no determina la denominación.
     for (const b of (typeof TAMAR_BONDS !== 'undefined' ? TAMAR_BONDS : [])) {
       out.push({ ticker: b.ticker, sector: 'TAMAR', emision: b.emision,
-                 vencimiento: b.vcto, residual: 100, moneda: 'Pesos' });
+                 vencimiento: b.vcto, residual: 100, base: 100, moneda: null });
     }
 
-    // ── DLK: residual sin verificar a propósito, ver el comentario del informe ─
+    // ── DLK: dollar linked, el nominal está en dólares aunque liquide en pesos.
+    // El residual no se verifica: dlkEnrich tiene su propia amortización y no la
+    // expone, así que reconstruirla acá sería reimplementarla.
     for (const b of (typeof DLK_BONDS !== 'undefined' ? DLK_BONDS : [])) {
       out.push({ ticker: b.ticker, sector: 'DLK', emision: b.emision,
-                 vencimiento: b.vcto, residual: null, moneda: 'Pesos' });
+                 vencimiento: b.vcto, residual: null, base: 100, moneda: 'Dólares' });
     }
 
-    return out;
+    // Un bono ya vencido no tiene ficha viva en BYMA: no es un hallazgo.
+    const hoy = hoyAR();
+    return out.filter(b => !b.vencimiento || b.vencimiento >= hoy);
   });
 
   await browser.close();
 
   console.log(`${bonos.length} bonos definidos en la app. Consultando BYMA…\n`);
 
-  const duras = [];    // definición contra la fuente oficial: hay que mirarlo
-  const avisos = [];   // puede tener explicación legítima
-  const sinFicha = [];
+  const duras = [];       // la definición contradice a la fuente oficial
+  const avisos = [];      // puede tener explicación legítima
+  const sinFicha = [];    // BYMA no lo lista
+  const sinResidual = []; // la app no expone el residual para ese sector
   let okCount = 0;
 
   for (const b of bonos) {
@@ -163,7 +175,21 @@ async function fichaByma(ticker) {
     let limpio = true;
 
     if (bVc && b.vencimiento && bVc !== b.vencimiento) {
-      duras.push(`${id} vencimiento: app ${b.vencimiento} · BYMA ${bVc}`);
+      // El nombre oficial suele llevar la fecha escrita. Cuando el campo
+      // estructurado de BYMA contradice a su propia denominación, el que está
+      // mal es BYMA, no la app: se informa como aviso con la frase textual.
+      const nombre = f.denominacion || '';
+      const [aa, mm, dd] = b.vencimiento.split('-');
+      const MES = ['enero','febrero','marzo','abril','mayo','junio',
+                   'julio','agosto','septiembre','octubre','noviembre','diciembre'];
+      const escrita = new RegExp(`${+dd}\\s+DE\\s+${MES[+mm - 1]}\\s+DE\\s+${aa}`, 'i');
+      if (escrita.test(nombre)) {
+        avisos.push(`${id} vencimiento: BYMA se contradice — campo ${bVc}, `
+                  + `pero su denominación dice "${nombre.slice(-40).trim()}". La app usa ${b.vencimiento}`);
+      } else {
+        duras.push(`${id} vencimiento: app ${b.vencimiento} · BYMA ${bVc}`
+                 + (nombre ? `  ["${nombre.slice(-46).trim()}"]` : ''));
+      }
       limpio = false;
     }
     // La fecha de emisión de un reestructurado puede diferir de la del canje, así
@@ -193,18 +219,23 @@ async function fichaByma(ticker) {
       avisos.push(`${id} la app no pudo calcular el residual: ${b.err}`);
       limpio = false;
     } else if (b.residual != null && f.montoNominal > 0 && f.montoResidual != null) {
-      const bRes = 100 * f.montoResidual / f.montoNominal;
-      const d = Math.abs(bRes - b.residual);
+      // Las dos partes miden sobre bases distintas y hay que igualarlas. La app
+      // lleva el residual sobre la lámina original de 100; BYMA lo expresa como
+      // porcentaje del nominal, que en un bono con PIK ya incluye lo
+      // capitalizado. En DICP la app dice 95,25 sobre una base de 127,03, y eso
+      // es exactamente el 75% que informa BYMA.
+      const appPct = 100 * b.residual / (b.base || 100);
+      const bymaPct = 100 * f.montoResidual / f.montoNominal;
+      const d = Math.abs(bymaPct - appPct);
       if (d > TOL_RESIDUAL) {
         // Puede ser recompra del Tesoro, que baja el residual sin que el
         // cronograma de la app esté mal. Por eso es aviso y no error.
-        avisos.push(`${id} residual: app ${b.residual.toFixed(2)}% · BYMA ${bRes.toFixed(2)}%`
+        avisos.push(`${id} residual: app ${appPct.toFixed(2)}% · BYMA ${bymaPct.toFixed(2)}%`
                   + `  (dif ${d.toFixed(2)} pp)`);
         limpio = false;
       }
     } else if (b.residual == null) {
-      avisos.push(`${id} residual sin verificar (la app no lo expone para este sector)`);
-      limpio = false;
+      sinResidual.push(id);
     }
 
     if (limpio) { okCount++; console.log(`  \x1b[32mOK\x1b[0m    ${id}`); }
@@ -218,6 +249,10 @@ async function fichaByma(ticker) {
   bloque('Discrepancias con la fuente oficial', duras, '31');
   bloque('Avisos', avisos, '33');
   bloque('Sin ficha en BYMA', sinFicha, '90');
+  if (sinResidual.length) {
+    console.log(`\nResidual no verificado, la app no lo expone (${sinResidual.length})`);
+    console.log('  ' + sinResidual.join(', '));
+  }
 
   console.log(`\n${okCount} sin observaciones · ${duras.length} discrepancias · `
             + `${avisos.length} avisos · ${sinFicha.length} sin ficha\n`);
