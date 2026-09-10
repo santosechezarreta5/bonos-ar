@@ -3417,7 +3417,10 @@ async function fetchAllPrices(){
         if(px){total++;updatedDlk.add(b.ticker);return{...b,precio:px,pct_change:api.pct_change??null,manualOverride:false};}
         return b;
       });
-      dlkSaveBonds();dlkResetA3500();
+      // Acá se restauraba el último cierre en cada refresco: borraba el tipo de
+      // cambio escrito a mano y dejaba la fecha de ayer en la etiqueta, al lado
+      // de un valor que era el del MAE de hoy. Sólo hay que repintar.
+      dlkSaveBonds();a3500Pintar();
       DLK_DATA=DLK_BONDS.map(dlkEnrich);dlkRenderTable();
       if(dlkSelectedTicker)dlkRecalcPanel();
       // limpiar overrides manuales en sintéticos para los tickers actualizados
@@ -9318,16 +9321,13 @@ function dlkOnA3500Change(val){
     if(sintSelectedTicker){const r=SINT_DATA.find(x=>x.ticker===sintSelectedTicker);if(r)sintRenderPanelBody(r);}
   }
 }
+// El ↺ suelta el valor escrito a mano y vuelve al automático. Qué queda después
+// lo decide la precedencia de dlkTCHoy(), que durante la rueda es el mayorista
+// del MAE: por eso el pintado va por a3500Pintar y no escribe la etiqueta acá.
 function dlkResetA3500(){
   dlkTCOverride=null;
+  a3500Pintar();
   const tc=dlkTCHoy();
-  const inp=document.getElementById('usd-a3500-input');
-  if(inp) inp.value=tc!=null?tc.toFixed(4):'';
-  const lbl=document.getElementById('usd-a3500-label');
-  if(lbl){
-    if(DLK_INDEX.length){const s=[...DLK_INDEX].sort((a,b)=>a.fecha.localeCompare(b.fecha));lbl.textContent=s[s.length-1].fecha.split('-').reverse().join('/');}
-    else lbl.textContent='';
-  }
   if(currentTab==='dlk'){
     DLK_DATA=DLK_BONDS.map(dlkEnrich);
     dlkRenderTable();
@@ -9428,7 +9428,10 @@ async function dlkFetchPrices(){
       return b;
     });
     dlkSaveBonds();
-    dlkResetA3500();
+    // Acá se restauraba el último cierre, que además de repintar borraba el tipo
+    // de cambio escrito a mano y estampaba la fecha de ayer en la etiqueta. Con
+    // el mayorista en vivo eso mostraba una fecha vieja al lado del valor de hoy.
+    a3500Pintar();
     DLK_DATA=DLK_BONDS.map(dlkEnrich);
     dlkRenderTable();
     if(dlkSelectedTicker) dlkRecalcPanel();
@@ -9802,6 +9805,11 @@ function sintSetTasaDesc(val){
 function sintInit(){
   sintLoadBonds();
   sintLoadTasaDesc();
+  // El primer pedido al MAE sale al abrir la app, cuando las definiciones de
+  // bonos DLK todavía pueden no haber llegado de Supabase: en ese momento no hay
+  // con qué aparear los contratos y el volcado no hace nada. Al entrar acá las
+  // definiciones ya están, así que se vuelca la última curva que tengamos.
+  if(MAE_FUTUROS.length)maeAplicarFuturos(MAE_FUTUROS);
   SINT_DATA=SINT_BONDS.map(sintEnrich);
   sintRenderTable();
   const el=document.getElementById('sint-a3500-display');
@@ -10175,6 +10183,13 @@ async function a3500LiveFetch(){
 // el ciclo automático aplique exactamente lo mismo — traer la curva sin volcarla
 // dejaba los sintéticos con el precio de futuro viejo.
 function maeAplicarFuturos(curva){
+  // SINT_BONDS sólo se carga al abrir la solapa Sintéticos, pero el refresco
+  // automático corre desde el arranque: sin esto el array está vacío y la curva
+  // no se volcaba nunca hasta que alguien entraba a la pestaña.
+  if(!SINT_BONDS.length)sintLoadBonds();
+  // Sin definiciones DLK no hay vencimiento con el cual elegir el contrato. Pasa
+  // en el arranque, antes de que Supabase conteste; sintInit() reintenta después.
+  if(!DLK_BONDS.length)return 0;
   let actualizados=0;
   for(const sb of SINT_BONDS){
     const dlkBond=DLK_BONDS.find(b=>b.ticker===sb.ticker);

@@ -536,9 +536,16 @@ const check = (cond, label, detalle = '') => {
   // que pedir y afirmar lo contrario haría fallar el build por horario.
   const red = await page.evaluate(async () => {
     if (!maeRuedaAbierta()) return { cerrada: true };
+    // Un timeout suelto contra una API pública no es una regresión del código.
+    // Se reintenta una vez: si el Worker o el MAE están realmente caídos, el
+    // segundo intento también falla y el build se pone en rojo igual.
+    const conReintento = async fn => {
+      try { return await fn(); }
+      catch (e) { await new Promise(r => setTimeout(r, 3000)); return fn(); }
+    };
     try {
-      const spot = await maeFetchSpot();
-      const curva = await maeFetchFuturos();
+      const spot = await conReintento(() => maeFetchSpot());
+      const curva = await conReintento(() => maeFetchFuturos());
       return {
         cerrada: false,
         spot: spot && spot.valor, hora: spot && spot.hora,
@@ -608,6 +615,37 @@ const check = (cond, label, detalle = '') => {
   check(resumen.graficaSint, 'el Resumen grafica los sintéticos');
   check(resumen.desdeTC, 'un cambio de tipo de cambio repinta el Resumen');
   check(resumen.desdeFuturos, 'un cambio de futuros repinta el Resumen');
+
+  // Dos regresiones que aparecieron usando la app, no en el test:
+  //  · dlkFetchPrices llamaba a dlkResetA3500, que estampaba la fecha del último
+  //    cierre en la etiqueta. El valor mostrado era el del MAE, pero al lado
+  //    decía "09/09/2026", y eso se lee como dato viejo.
+  //  · SINT_BONDS sólo se cargaba al abrir la solapa, así que el volcado de la
+  //    curva no encontraba nada que actualizar.
+  const etiq = await page.evaluate(() => {
+    const bkLive = A3500_LIVE, bkOver = dlkTCOverride;
+    try {
+      dlkTCOverride = null;
+      A3500_LIVE = { valor: 1234.5, hora: '11:22' };
+      const esperada = dlkTCFuente().etiqueta;
+      dlkResetA3500();
+      return {
+        esperada,
+        trasReset: (document.getElementById('usd-a3500-label') || {}).textContent,
+        // Los dos caminos de refresco: el de la solapa DLK y el global, que es
+        // el que se usa todo el día.
+        refrescoNoResetea: !/dlkResetA3500/.test(dlkFetchPrices.toString())
+                        && !/dlkResetA3500/.test(fetchAllPrices.toString()),
+        sintVuelca: /maeAplicarFuturos/.test(sintInit.toString()),
+        volcadoCargaBonos: /sintLoadBonds/.test(maeAplicarFuturos.toString()),
+      };
+    } finally { A3500_LIVE = bkLive; dlkTCOverride = bkOver; a3500Pintar(); }
+  });
+  check(etiq.trasReset === etiq.esperada, 'el ↺ deja la etiqueta de la fuente vigente',
+        `"${etiq.trasReset}" vs "${etiq.esperada}"`);
+  check(etiq.refrescoNoResetea, 'refrescar precios no pisa el A3500 con el último cierre');
+  check(etiq.sintVuelca, 'abrir Sintéticos vuelca la curva de futuros');
+  check(etiq.volcadoCargaBonos, 'el volcado carga los sintéticos si no están en memoria');
 
   // IOL se eliminó por completo: no debe quedar ni el modal ni las credenciales.
   const iol = await page.evaluate(() => ({
