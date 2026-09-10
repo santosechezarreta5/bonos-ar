@@ -201,7 +201,19 @@ async function fichaByma(ticker) {
 
     const bMon = (f.moneda || '').toLowerCase();
     if (bMon && b.moneda && !bMon.startsWith(b.moneda.slice(0, 4).toLowerCase())) {
-      duras.push(`${id} moneda: app ${b.moneda} · BYMA ${f.moneda}`);
+      // Mismo criterio que con el vencimiento: si el campo estructurado
+      // contradice a la denominación oficial, el que falla es BYMA. D31M7 y
+      // D15E7 dicen los dos "VINCULADA AL DÓLAR ESTADOUNIDENSE" y BYMA les pone
+      // monedas distintas.
+      const nombre = f.denominacion || '';
+      const dice = /d[oó]lar/i.test(nombre);
+      if (b.moneda === 'Dólares' && dice) {
+        avisos.push(`${id} moneda: BYMA se contradice — campo "${f.moneda}", `
+                  + `pero su denominación dice "${nombre.slice(0, 62).trim()}…"`);
+      } else {
+        duras.push(`${id} moneda: app ${b.moneda} · BYMA ${f.moneda}`
+                 + (nombre ? `  ["${nombre.slice(0, 54).trim()}"]` : ''));
+      }
       limpio = false;
     }
 
