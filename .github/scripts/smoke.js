@@ -556,7 +556,10 @@ const check = (cond, label, detalle = '') => {
     check(false, 'el MAE responde por el Worker', red.error);
   } else {
     check(red.spot > 0, 'llega el mayorista contado', `${red.spot} a las ${red.hora}`);
-    check(red.n >= 6, 'llega la curva de futuros', `${red.n} contratos`);
+    // El MAE devuelve sólo los contratos que ya operaron ese día, así que la
+    // curva se va llenando durante la rueda: a las 10:20 había 3 contratos y al
+    // cierre 12. Exigir un número fijo haría fallar el build por la hora.
+    check(red.n >= 1, 'llega la curva de futuros', `${red.n} contratos`);
     check(red.ordenada, 'la curva viene ordenada por vencimiento');
     check(red.precios, 'todos los contratos traen precio');
   }
