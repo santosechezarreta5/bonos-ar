@@ -1,0 +1,46 @@
+name: Backfill de curvas
+
+# Reconstruye bond_price_snapshots para fechas pasadas con los cierres de BYMA.
+# Solo a mano: es una operación puntual, no algo que deba correr solo.
+#
+# Conviene una primera pasada con "solo simular" en true para ver cuántas filas
+# saldrían antes de escribir nada.
+on:
+  workflow_dispatch:
+    inputs:
+      desde:
+        description: 'Fecha inicial (YYYY-MM-DD)'
+        required: true
+        default: '2025-01-01'
+      hasta:
+        description: 'Fecha final (YYYY-MM-DD, vacío = hoy)'
+        required: false
+        default: ''
+      dry_run:
+        description: 'Solo simular, sin escribir'
+        type: boolean
+        default: true
+      sobrescribir:
+        description: 'Pisar ruedas que ya tienen snapshot'
+        type: boolean
+        default: false
+
+jobs:
+  backfill:
+    name: Reconstruir histórico
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: npm install playwright && npx playwright install --with-deps chromium
+
+      - run: node .github/scripts/backfill-curvas.js
+        env:
+          SUPABASE_BOT_EMAIL: ${{ secrets.SUPABASE_BOT_EMAIL }}
+          SUPABASE_BOT_PASSWORD: ${{ secrets.SUPABASE_BOT_PASSWORD }}
+          DESDE: ${{ inputs.desde }}
+          HASTA: ${{ inputs.hasta }}
+          DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
+          SOBRESCRIBIR: ${{ inputs.sobrescribir && '1' || '0' }}
