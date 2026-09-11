@@ -309,16 +309,20 @@ const check = (cond, label, detalle = '') => {
     check(r.d1 < r.d2, `${sec}: rango por defecto válido`, `${r.d1} a ${r.d2}`);
     check(/%/.test(r.ejeY), `${sec}: eje Y con la métrica`, r.ejeY);
 
-    // Destildar uno saca su línea
+    // Destildar uno saca su línea.
+    // Si Supabase no devolvió ruedas no hay gráfico, y sin esta guarda el
+    // evaluate tira un TypeError que aborta el smoke entero: el resto de las
+    // secciones queda sin correr y el log no dice por qué.
     const tog = await page.evaluate(s => {
       const st = seriesEstado[s];
+      if (!st.chart || !st.cache.porBono.size) return { sinDatos: true };
       const t = [...st.cache.porBono.keys()].sort()[0];
       const antes = st.chart.data.datasets.length;
       seriesToggle(s, t);
       return { t, antes, despues: st.chart ? st.chart.data.datasets.length : -1 };
     }, sec);
-    check(tog.despues === tog.antes - 1, `${sec}: destildar quita la línea`,
-          `${tog.t}: ${tog.antes} → ${tog.despues}`);
+    check(!tog.sinDatos && tog.despues === tog.antes - 1, `${sec}: destildar quita la línea`,
+          tog.sinDatos ? 'sin ruedas: no se armó el gráfico' : `${tog.t}: ${tog.antes} → ${tog.despues}`);
 
     // Cambiar de sector recarga
     const otro = await page.evaluate(async s => {
