@@ -1,0 +1,44 @@
+name: Actualizar REM
+
+on:
+  schedule:
+    - cron: '0 13 * * *'   # 10:00 ART todos los dias
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  rem:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Instalar openpyxl
+        run: pip install --quiet openpyxl
+
+      - name: Bajar y parsear el REM
+        run: python .github/scripts/rem.py
+
+      # El REM sale una vez por mes, asi que la enorme mayoria de las corridas
+      # no cambia nada. El script no reescribe el archivo cuando solo cambiaria
+      # el sello de tiempo, de modo que "sin cambios" aca significa de verdad
+      # que no hubo relevamiento nuevo.
+      - name: Commitear si cambio
+        run: |
+          if git diff --quiet -- rem.json; then
+            echo "Sin relevamiento nuevo."
+            exit 0
+          fi
+          fecha=$(python -c "import json;print(json.load(open('rem.json'))['relevamiento'])")
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add rem.json
+          git commit -m "data(rem): relevamiento del $fecha"
+          git push

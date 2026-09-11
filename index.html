@@ -42,6 +42,9 @@ body.theme-light{
 body.theme-light .nav-tab{color:#3a5e3a;}
 body.theme-light .nav-tab.active{color:#145e10;border-bottom-color:#145e10;}
 body.theme-light .nav-tab:hover{color:#1e3a1e;}
+body.theme-light .proy-subtab{color:#3a5e3a;}
+body.theme-light .proy-subtab.active{color:#145e10;border-bottom-color:#145e10;}
+body.theme-light .proy-subtab:hover{color:#1e3a1e;}
 body.theme-light .sbar{background:#e4ebe4;border-color:#9ab09a;}
 body.theme-light .sbar-label{color:#3a5e3a;}
 body.theme-light .sbar-result{color:#0a140a;font-weight:500;}
@@ -104,6 +107,9 @@ body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13
 .nav-tab:hover{color:var(--text2);}
 .nav-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
 .nav-tab.disabled{opacity:.3;cursor:not-allowed;}
+.proy-subtab{padding:5px 2px;font-size:11px;font-family:var(--mono);color:var(--text3);cursor:pointer;border:none;border-bottom:2px solid transparent;background:none;transition:all .12s;text-transform:uppercase;letter-spacing:.08em;white-space:nowrap;}
+.proy-subtab:hover{color:var(--text2);}
+.proy-subtab.active{color:var(--accent);border-bottom-color:var(--accent);}
 .soon{font-size:9px;background:var(--surface2);color:var(--text3);padding:1px 4px;border-radius:3px;margin-left:4px;vertical-align:middle;}
 .auth-btn{display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:4px;border:1px solid var(--border2);background:var(--surface);color:var(--text2);font-family:var(--mono);font-size:11px;cursor:pointer;transition:all .15s;}
 .auth-btn:hover{border-color:var(--accent);color:var(--accent);}
@@ -921,6 +927,7 @@ tbody tr.selected .c-ticker{color:var(--accent);}
           <input type="checkbox" id="tamar-show-vencidas" onchange="tamarRenderTable()"> vencidas
         </label>
         <div style="margin-left:auto;display:flex;gap:6px;align-items:center;">
+          <span data-proy-sel="tamar"></span>
           <span class="api-status" id="tamar-api-status">sin datos</span>
           <button class="btn" id="tamar-fetch-btn" onclick="fetchAllPrices()">↻ Precios</button>
           <button class="btn" onclick="exportTableCSV('tamar')" title="Exportar tabla a CSV" style="font-size:11px;padding:3px 7px">⬇ CSV</button>
@@ -1038,7 +1045,9 @@ tbody tr.selected .c-ticker{color:var(--accent);}
     <div class="left-pane" id="dlk-left-pane">
       <div class="pane-toolbar">
         <span class="pane-title">Dollar Linked</span>
-        <button class="btn" onclick="exportTableCSV('dlk')" title="Exportar tabla a CSV" style="font-size:11px;padding:3px 7px;margin-left:auto">⬇ CSV</button>
+        <span data-dlk-modo style="margin-left:auto"></span>
+        <span data-proy-sel="tcn"></span>
+        <button class="btn" onclick="exportTableCSV('dlk')" title="Exportar tabla a CSV" style="font-size:11px;padding:3px 7px">⬇ CSV</button>
         <button class="btn primary" onclick="dlkOpenModal()" id="dlk-new-btn" style="display:none">+ Nueva</button>
       </div>
       <div class="table-scroll">
@@ -1050,8 +1059,8 @@ tbody tr.selected .c-ticker{color:var(--accent);}
             <th>Precio $</th>
             <th>Var%</th>
             <th>Paridad</th>
-            <th>TIR</th>
-            <th>TNA</th>
+            <th id="dlk-th-tir">TIR</th>
+            <th id="dlk-th-tna">TNA</th>
             <th style="cursor:default;width:40px;"></th>
           </tr></thead>
           <tbody id="dlk-table-body"></tbody>
@@ -1346,7 +1355,9 @@ tbody tr.selected .c-ticker{color:var(--accent);}
     <div id="be-col2" style="width:580px;min-width:200px;overflow-y:auto;overflow-x:auto;padding:1.25rem 1rem;border-right:1px solid var(--border);flex-shrink:0;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem;">
         <div style="font-family:var(--serif);font-size:16px;font-weight:300;font-style:italic;color:var(--accent)">Resumen</div>
-        <div style="display:flex;gap:4px;">
+        <div style="display:flex;gap:6px;align-items:center;">
+          <span data-proy-sel="tamar"></span>
+          <span data-proy-sel="tcn"></span>
           <button class="btn primary" style="margin:0;padding:3px 7px;font-size:10px" onclick="beCPRecalc()">↻</button>
           <button class="btn" style="margin:0;padding:3px 7px;font-size:10px" onclick="beCPOpenModal()">+</button>
         </div>
@@ -1481,10 +1492,10 @@ tbody tr.selected .c-ticker{color:var(--accent);}
   <div style="max-width:900px;margin:0 auto;">
 
     <!-- HEADER -->
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1.5rem;gap:1rem;flex-wrap:wrap;">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1rem;gap:1rem;flex-wrap:wrap;">
       <div>
-        <div style="font-family:var(--serif);font-size:20px;font-weight:300;font-style:italic;color:var(--accent)">Proyecciones · Inflación & CER</div>
-        <div style="font-size:11px;color:var(--text3);margin-top:3px">Sendero de inflación mensual · coeficiente diario CER proyectado</div>
+        <div style="font-family:var(--serif);font-size:20px;font-weight:300;font-style:italic;color:var(--accent)" id="proy-titulo">Proyecciones · Inflación &amp; CER</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:3px" id="proy-subtitulo">Sendero de inflación mensual · coeficiente diario CER proyectado</div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <span class="api-status" id="proj-status"></span>
@@ -1492,6 +1503,20 @@ tbody tr.selected .c-ticker{color:var(--accent);}
         <button id="proj-export-btn" class="btn" style="margin:0;padding:6px 14px;font-size:12px" onclick="projExportarExcel()">↓ Exportar Excel</button>
       </div>
     </div>
+
+    <!-- SUB-SOLAPAS -->
+    <div style="display:flex;align-items:center;gap:1.25rem;border-bottom:1px solid var(--border);margin-bottom:1.25rem;flex-wrap:wrap;">
+      <button class="proy-subtab" id="proy-sub-infla" onclick="proySubtabGo('infla')">Inflación</button>
+      <button class="proy-subtab" id="proy-sub-tamar" onclick="proySubtabGo('tamar')">TAMAR</button>
+      <button class="proy-subtab" id="proy-sub-tcn" onclick="proySubtabGo('tcn')">Dólar</button>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:10px;padding-bottom:5px;">
+        <span style="font-size:10px;color:var(--text3)" id="proy-rem-sello">REM —</span>
+        <button class="btn" style="margin:0;padding:3px 9px;font-size:11px" onclick="remRefrescar()">↻ REM</button>
+      </div>
+    </div>
+
+    <!-- PANEL INFLACIÓN -->
+    <div id="proy-pane-infla">
 
     <!-- RESUMEN CER -->
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:7px;overflow:hidden;margin-bottom:1.5rem;" id="proj-summary">
@@ -1550,6 +1575,8 @@ tbody tr.selected .c-ticker{color:var(--accent);}
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;">
         <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">Sendero de inflación mensual</div>
         <div style="display:flex;align-items:center;gap:8px;">
+          <span data-proy-sel="infla"></span>
+          <button class="btn" style="margin:0;padding:3px 9px;font-size:11px" onclick="proyAplicarREM('infla')" title="Copia las medianas del REM a los meses no publicados">← REM</button>
           <select id="proj-tabla-desde" class="sbar-input" style="width:80px" onchange="projRenderTabla()"></select>
           <div style="font-size:11px;color:var(--text3)" id="proj-last-pub"></div>
         </div>
@@ -1568,6 +1595,96 @@ tbody tr.selected .c-ticker{color:var(--accent);}
         <tbody id="proj-tbody"></tbody>
       </table>
       <button class="btn" style="width:100%;margin-top:8px;padding:6px;font-size:12px" onclick="projAddMes()">+ Agregar mes</button>
+    </div>
+
+    </div><!-- /proy-pane-infla -->
+
+    <!-- PANEL TAMAR -->
+    <div id="proy-pane-tamar" style="display:none;">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:7px;overflow:hidden;margin-bottom:1.5rem;">
+        <div style="background:var(--surface);padding:.8rem 1rem;">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:4px">Último TAMAR real</div>
+          <div style="font-size:18px;color:var(--accent);font-family:var(--mono)" id="proy-tamar-ult">—</div>
+          <div style="font-size:11px;color:var(--text3)" id="proy-tamar-ult-fecha">—</div>
+        </div>
+        <div style="background:var(--surface);padding:.8rem 1rem;">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:4px">Promedio 5 días</div>
+          <div style="font-size:18px;color:var(--warn);font-family:var(--mono)" id="proy-tamar-prom5">—</div>
+          <div style="font-size:11px;color:var(--text3)">base del sendero plano</div>
+        </div>
+        <div style="background:var(--surface);padding:.8rem 1rem;">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:4px">Fuente activa</div>
+          <div style="font-size:18px;color:var(--text2);font-family:var(--mono)" id="proy-tamar-fuente">—</div>
+          <div style="font-size:11px;color:var(--text3)" id="proy-tamar-fuente-det">—</div>
+        </div>
+      </div>
+      <div style="position:relative;height:280px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px;margin-bottom:1.5rem;">
+        <canvas id="proy-tamar-chart"></canvas>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">Sendero de TAMAR · TNA % por mes</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span data-proy-sel="tamar"></span>
+          <button class="btn" style="margin:0;padding:3px 9px;font-size:11px" onclick="proyAplicarREM('tamar')" title="Copia las medianas del REM como overrides manuales">← REM</button>
+          <button class="btn" style="margin:0;padding:3px 9px;font-size:11px" onclick="proyLimpiar('tamar')">Limpiar</button>
+        </div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr class="bb2">
+            <th style="text-align:left;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Mes</th>
+            <th style="text-align:left;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Origen</th>
+            <th style="text-align:right;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">TNA %</th>
+            <th style="text-align:right;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">TEM %</th>
+            <th style="width:32px"></th>
+          </tr>
+        </thead>
+        <tbody id="proy-tamar-tbody"></tbody>
+      </table>
+    </div>
+
+    <!-- PANEL DÓLAR -->
+    <div id="proy-pane-tcn" style="display:none;">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:7px;overflow:hidden;margin-bottom:1.5rem;">
+        <div style="background:var(--surface);padding:.8rem 1rem;">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:4px">Spot mayorista</div>
+          <div style="font-size:18px;color:var(--accent);font-family:var(--mono)" id="proy-tcn-spot">—</div>
+          <div style="font-size:11px;color:var(--text3)" id="proy-tcn-spot-det">—</div>
+        </div>
+        <div style="background:var(--surface);padding:.8rem 1rem;">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:4px">Devaluación implícita 12m</div>
+          <div style="font-size:18px;color:var(--warn);font-family:var(--mono)" id="proy-tcn-dev12">—</div>
+          <div style="font-size:11px;color:var(--text3)" id="proy-tcn-dev12-det">—</div>
+        </div>
+        <div style="background:var(--surface);padding:.8rem 1rem;">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:4px">Fuente activa</div>
+          <div style="font-size:18px;color:var(--text2);font-family:var(--mono)" id="proy-tcn-fuente">—</div>
+          <div style="font-size:11px;color:var(--text3)" id="proy-tcn-fuente-det">—</div>
+        </div>
+      </div>
+      <div style="position:relative;height:280px;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px;margin-bottom:1.5rem;">
+        <canvas id="proy-tcn-chart"></canvas>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">Sendero del dólar · $/USD a fin de mes</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span data-proy-sel="tcn"></span>
+          <button class="btn" style="margin:0;padding:3px 9px;font-size:11px" onclick="proyAplicarREM('tcn')" title="Copia las medianas del REM como overrides manuales">← REM</button>
+          <button class="btn" style="margin:0;padding:3px 9px;font-size:11px" onclick="proyLimpiar('tcn')">Limpiar</button>
+        </div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr class="bb2">
+            <th style="text-align:left;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Mes</th>
+            <th style="text-align:left;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Origen</th>
+            <th style="text-align:right;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">$/USD</th>
+            <th style="text-align:right;padding:5px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:400">Dev. mensual</th>
+            <th style="width:32px"></th>
+          </tr>
+        </thead>
+        <tbody id="proy-tcn-tbody"></tbody>
+      </table>
     </div>
 
   </div>
@@ -2289,7 +2406,7 @@ async function authAction(){
 // Keys que van a Supabase por usuario
 const SUPA_USER_KEYS=['bonosAR_fwd_v1','bonosAR_cp_v1','bonosAR_breakeven_v1','bonosAR_chart_sel_v1','bonosAR_usd_fwd_v1'];
 // Keys que van a Supabase compartidas
-const SUPA_SHARED_KEYS=['bonosAR_lecaps_v1','bonosAR_cer_bonds_v1','bonosAR_tamar_bonds_v1','bonosAR_dlk_bonds_v1','bonosAR_feriados_extra_v1','bonosAR_proyecciones_v1','bonosAR_calendario_v1','bonosAR_glo_v1','bonosAR_bon_v1','bonosAR_bop_v1','bonosAR_equiv_v1'];
+const SUPA_SHARED_KEYS=['bonosAR_lecaps_v1','bonosAR_cer_bonds_v1','bonosAR_tamar_bonds_v1','bonosAR_dlk_bonds_v1','bonosAR_feriados_extra_v1','bonosAR_proyecciones_v1','bonosAR_proy_tamar_v1','bonosAR_proy_tcn_v1','bonosAR_calendario_v1','bonosAR_glo_v1','bonosAR_bon_v1','bonosAR_bop_v1','bonosAR_equiv_v1'];
 
 async function supaLoadUserData(){
   if(!SUPA_USER)return;
@@ -2314,6 +2431,7 @@ async function supaLoadSharedData(){
     tamarLoadBonds();
     dlkLoadBonds();
     projLoadLs();
+    proyLoadLs();
     // USD bonds
     if(typeof bopLoad==='function') bopLoad();
     if(typeof gloLoad==='function') gloLoad();
@@ -4089,6 +4207,7 @@ function switchTab(tab){
   } else if(tab==='proyecciones'){
     document.getElementById('page-proyecciones').style.display='block';
     projInit();
+    proySubtabGo(projSubtab);
   } else if(tab==='forwards'){
     document.getElementById('page-forwards').style.display='block';
     fwdRecalc();
@@ -5361,6 +5480,7 @@ async function tamarFetchIndex(force=false){
       .sort((a,b)=>a.fecha.localeCompare(b.fecha));
 
     try{localStorage.setItem(TAMAR_CACHE_KEY,JSON.stringify({ts:Date.now(),data:TAMAR_INDEX}));}catch(e){}
+    proyInvalidar(); // cambió el promedio de 5 días, base del sendero plano
 
     const last=TAMAR_INDEX[TAMAR_INDEX.length-1];
     const now=new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
@@ -5875,6 +5995,421 @@ let CER_PROJ=new Map();
 
 const MESES_ES=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
+// ── Senderos proyectados de TAMAR y dólar ───────────────────────────────────
+// Mismo molde que el sendero de inflación: un valor por mes, una fuente que lo
+// llena sola, y overrides manuales por celda que ganan siempre.
+//
+//   TAMAR → TNA % del mes         fuentes: 5dias · rem · manual
+//   Dólar → $/USD a fin de mes    fuentes: futuros · rem · manual
+//
+// El método de 5 días no es un camino aparte: es el sendero plano en el
+// promedio de las últimas 5 observaciones. Por eso elegir '5dias' devuelve
+// exactamente los números de siempre, hasta el último decimal.
+const PROY_TAMAR_LS='bonosAR_proy_tamar_v1';
+const PROY_TCN_LS='bonosAR_proy_tcn_v1';
+const PROY_FUENTE_LS='bonosAR_proy_fuente_v1';
+const REM_LS='bonosAR_rem_v1';
+const REM_URL='rem.json';
+const REM_TTL_MS=24*60*60*1000;
+const PROY_MESES=72; // 6 años: cubre con margen el TAMAR/DLK más largo
+
+// Overrides manuales: [{mes:'YYYY-MM', v:number}]. Vacío = sin override.
+let PROJ_TAMAR=[];
+let PROJ_TCN=[];
+let PROJ_FUENTE={infla:'manual',tamar:'5dias',tcn:'futuros',dlkModo:'usd'};
+let REM_DATA=null;
+let projTamarChart=null,projTcnChart=null;
+let projSubtab='infla';
+
+// Los senderos se arman una vez y se guardan acá.
+let _proySendero={tamar:null,tcn:null};
+function proyInvalidar(){_proySendero={tamar:null,tcn:null};}
+
+function proyMesAdd(mesStr,n){
+  const[y,m]=mesStr.split('-').map(Number);
+  const d=new Date(y,m-1+n,1);
+  return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+function proyMesDelta(a,b){
+  const[ya,ma]=a.split('-').map(Number),[yb,mb]=b.split('-').map(Number);
+  return(yb-ya)*12+(mb-ma);
+}
+function proyMesHoy(){return fmtDate(TODAY).substring(0,7);}
+function proyUltDiaMes(mesStr){
+  const[y,m]=mesStr.split('-').map(Number);
+  return fmtDate(new Date(y,m,0));
+}
+function proyMesLabel(mesStr){
+  const[y,m]=mesStr.split('-').map(Number);
+  return`${MESES_ES[m-1]} ${String(y).slice(-2)}`;
+}
+
+// Extiende el tramo mensual del REM con sus anclas anuales de diciembre y
+// después mantiene el ritmo. Las anclas que caen dentro del tramo mensual se
+// ignoran: ya están representadas por los meses que el REM publicó.
+function proyExtender(mensuales,anclas,tipo,hastaMes){
+  const out=(mensuales||[]).filter(p=>p&&p.mes&&p.v!=null)
+    .map(p=>({mes:p.mes,v:+p.v,origen:'rem'}))
+    .sort((a,b)=>a.mes.localeCompare(b.mes));
+  if(!out.length)return out;
+
+  const anclasOrd=Object.keys(anclas||{}).sort()
+    .filter(a=>a>out[out.length-1].mes&&a<=hastaMes)
+    .map(a=>({mes:a,v:+anclas[a]}));
+
+  let ritmo=null; // factor mensual, para el tramo posterior a la última ancla
+
+  for(const anc of anclasOrd){
+    const desde=out[out.length-1];
+    const n=proyMesDelta(desde.mes,anc.mes);
+    if(n<=0||!isFinite(anc.v))continue;
+    if(tipo==='tcn'){
+      // niveles: devaluación mensual constante hasta el ancla
+      const r=Math.pow(anc.v/desde.v,1/n);
+      for(let k=1;k<=n;k++)out.push({mes:proyMesAdd(desde.mes,k),v:desde.v*Math.pow(r,k),origen:'ancla'});
+      ritmo=r;
+    }else if(tipo==='tamar'){
+      // TNA: interpolación lineal hasta el ancla
+      for(let k=1;k<=n;k++)out.push({mes:proyMesAdd(desde.mes,k),v:desde.v+(anc.v-desde.v)*k/n,origen:'ancla'});
+    }else{
+      // ipc: el ancla es la variación interanual a diciembre, o sea el
+      // acumulado de los 12 meses de ese año. Se despeja la mensual constante
+      // que le falta a los meses que el REM no cubrió.
+      const anio=anc.mes.substring(0,4);
+      const delAnio=out.filter(p=>p.mes.substring(0,4)===anio);
+      let cubierto=1;delAnio.forEach(p=>{cubierto*=1+p.v/100;});
+      const faltan=Math.max(1,12-delAnio.length);
+      const m=(Math.pow((1+anc.v/100)/cubierto,1/faltan)-1)*100;
+      for(let k=1;k<=n;k++)out.push({mes:proyMesAdd(desde.mes,k),v:m,origen:'ancla'});
+    }
+  }
+
+  const fin=out[out.length-1];
+  const faltan=proyMesDelta(fin.mes,hastaMes);
+  if(faltan>0){
+    if(tipo==='tcn'){
+      let r=ritmo;
+      if(r==null){
+        const prev=out.length>1?out[out.length-2]:null;
+        r=prev&&prev.v>0?fin.v/prev.v:1;
+      }
+      for(let k=1;k<=faltan;k++)out.push({mes:proyMesAdd(fin.mes,k),v:fin.v*Math.pow(r,k),origen:'extrap'});
+    }else{
+      for(let k=1;k<=faltan;k++)out.push({mes:proyMesAdd(fin.mes,k),v:fin.v,origen:'extrap'});
+    }
+  }
+  return out;
+}
+
+// ── REM: se sirve como archivo estático al lado de index.html, mismo origen ──
+async function remFetch(force=false){
+  if(!force){
+    try{
+      const raw=localStorage.getItem(REM_LS);
+      if(raw){
+        const c=JSON.parse(raw);
+        if(c&&c.ts&&Date.now()-c.ts<REM_TTL_MS&&c.data){REM_DATA=c.data;return REM_DATA;}
+      }
+    }catch(e){}
+  }
+  try{
+    const r=await fetch(REM_URL,{cache:'no-cache'});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const d=await r.json();
+    if(!d||!Array.isArray(d.tamar)||!Array.isArray(d.tcn)||!Array.isArray(d.ipc))
+      throw new Error('rem.json sin las series esperadas');
+    REM_DATA=d;
+    try{localStorage.setItem(REM_LS,JSON.stringify({ts:Date.now(),data:d}));}catch(e){}
+    proyInvalidar();
+    return REM_DATA;
+  }catch(e){
+    console.warn('[REM] no se pudo actualizar:',e.message);
+    // Sin red servimos lo último que haya en caché, aunque esté vencido.
+    try{
+      const raw=localStorage.getItem(REM_LS);
+      if(raw){const c=JSON.parse(raw);if(c&&c.data){REM_DATA=c.data;return REM_DATA;}}
+    }catch(e2){}
+    return null;
+  }
+}
+function remRelevamiento(){return REM_DATA&&REM_DATA.relevamiento?REM_DATA.relevamiento:null;}
+
+function proySaveLs(){
+  try{
+    localStorage.setItem(PROY_TAMAR_LS,JSON.stringify(PROJ_TAMAR));
+    localStorage.setItem(PROY_TCN_LS,JSON.stringify(PROJ_TCN));
+    localStorage.setItem(PROY_FUENTE_LS,JSON.stringify(PROJ_FUENTE));
+  }catch(e){}
+}
+function proyLoadLs(){
+  try{const r=localStorage.getItem(PROY_TAMAR_LS);const p=r?JSON.parse(r):null;if(Array.isArray(p))PROJ_TAMAR=p;}catch(e){}
+  try{const r=localStorage.getItem(PROY_TCN_LS);const p=r?JSON.parse(r):null;if(Array.isArray(p))PROJ_TCN=p;}catch(e){}
+  try{
+    const r=localStorage.getItem(PROY_FUENTE_LS);const p=r?JSON.parse(r):null;
+    if(p&&typeof p==='object')PROJ_FUENTE={...PROJ_FUENTE,...p};
+  }catch(e){}
+  proyInvalidar();
+}
+
+// ── Sendero de TAMAR ─────────────────────────────────────────────────────────
+function tamarProm5(){
+  if(!TAMAR_INDEX.length)return 0;
+  const s=[...TAMAR_INDEX].sort((a,b)=>a.fecha.localeCompare(b.fecha)).slice(-5);
+  return s.reduce((acc,t)=>acc+t.valor,0)/s.length;
+}
+
+// [{mes,v,origen}] desde el mes actual, ya con los overrides manuales aplicados.
+function tamarSenderoLista(){
+  const hoy=proyMesHoy(),hasta=proyMesAdd(hoy,PROY_MESES);
+  const fuente=PROJ_FUENTE.tamar||'5dias';
+  const plano=tamarProm5();
+  let base=[];
+  if(fuente==='rem'&&REM_DATA&&REM_DATA.tamar&&REM_DATA.tamar.length){
+    base=proyExtender(REM_DATA.tamar,(REM_DATA.anclas||{}).tamar,'tamar',hasta);
+  }
+  const porMes=new Map(base.map(p=>[p.mes,p]));
+  const out=[];
+  let ultimo=null;
+  for(let k=0;k<=PROY_MESES;k++){
+    const mes=proyMesAdd(hoy,k);
+    let p=porMes.get(mes);
+    if(!p){
+      // Antes del primer mes del REM, o sin REM: el promedio de 5 días plano.
+      p={mes,v:ultimo!=null?ultimo:plano,origen:fuente==='rem'?'auto':(fuente==='manual'?'auto':'5dias')};
+    }
+    ultimo=p.v;
+    out.push({mes,v:p.v,origen:p.origen});
+  }
+  const idx=new Map(out.map((p,i)=>[p.mes,i]));
+  (PROJ_TAMAR||[]).forEach(o=>{
+    if(!o||!o.mes||o.v==null||!isFinite(+o.v))return;
+    const i=idx.get(o.mes);
+    if(i!=null)out[i]={mes:o.mes,v:+o.v,origen:'manual'};
+  });
+  // Un override manual arrastra a los meses siguientes que nadie fijó, igual
+  // que hace la tabla de inflación con su relleno automático.
+  if(fuente==='manual'){
+    let arrastre=null;
+    for(const p of out){
+      if(p.origen==='manual')arrastre=p.v;
+      else if(arrastre!=null){p.v=arrastre;p.origen='auto';}
+    }
+  }
+  return out;
+}
+function tamarSendero(){
+  if(_proySendero.tamar)return _proySendero.tamar;
+  const lista=tamarSenderoLista();
+  const s={lista,mapa:new Map(lista.map(p=>[p.mes,p])),
+           min:lista.length?lista[0].mes:null,max:lista.length?lista[lista.length-1].mes:null};
+  _proySendero.tamar=s;
+  return s;
+}
+// TNA % que le corresponde a una fecha según la fuente activa.
+function tamarTNAProy(fechaStr){
+  const s=tamarSendero();
+  if(!s.lista.length)return tamarProm5();
+  const mes=String(fechaStr).substring(0,7);
+  if(mes<s.min)return s.mapa.get(s.min).v;
+  if(mes>s.max)return s.mapa.get(s.max).v;
+  const p=s.mapa.get(mes);
+  return p?p.v:tamarProm5();
+}
+
+// ── Sendero del dólar ────────────────────────────────────────────────────────
+// [{mes,v,origen}] de cierres de mes, desde el mes actual.
+function dlkSenderoLista(){
+  const hoy=proyMesHoy(),hasta=proyMesAdd(hoy,PROY_MESES);
+  const fuente=PROJ_FUENTE.tcn||'futuros';
+  const spot=dlkTCHoy();
+  const rem=(REM_DATA&&REM_DATA.tcn&&REM_DATA.tcn.length)
+    ?proyExtender(REM_DATA.tcn,(REM_DATA.anclas||{}).tcn,'tcn',hasta):null;
+
+  let base=null;
+  if(fuente==='rem'&&rem)base=rem.filter(p=>p.mes>=hoy);
+  else if(fuente==='futuros'){
+    base=(typeof MAE_FUTUROS!=='undefined'?MAE_FUTUROS:[])
+      .map(c=>({mes:`${c.anio}-${String(c.mes).padStart(2,'0')}`,v:c.precio,origen:'futuro'}))
+      .filter(p=>p.mes>=hoy&&p.v>0)
+      .sort((a,b)=>a.mes.localeCompare(b.mes));
+    if(base.length){
+      // Más allá del último contrato seguimos con el ritmo del respaldo,
+      // enganchado en el último precio para que no haya un salto.
+      const fin=base[base.length-1];
+      const faltan=proyMesDelta(fin.mes,hasta);
+      const propio=base.length>1&&base[base.length-2].v>0?fin.v/base[base.length-2].v:1;
+      const porMes=rem?new Map(rem.map(p=>[p.mes,p.v])):null;
+      let v=fin.v;
+      for(let k=1;k<=faltan;k++){
+        const mes=proyMesAdd(fin.mes,k),prevMes=proyMesAdd(fin.mes,k-1);
+        let f=propio;
+        if(porMes&&porMes.get(mes)>0&&porMes.get(prevMes)>0)f=porMes.get(mes)/porMes.get(prevMes);
+        v=v*(isFinite(f)&&f>0?f:1);
+        base.push({mes,v,origen:rem?'respaldo':'extrap'});
+      }
+    }else base=null;
+    // Fuera de la rueda mayorista, o antes del primer tick del día, no hay
+    // contratos. Un dólar plano sería una proyección peor que el REM, así que
+    // se cae ahí antes que a la nada.
+    if(!base&&rem)base=rem.filter(p=>p.mes>=hoy).map(p=>({...p,origen:'respaldo'}));
+  }
+  if(!base||!base.length){
+    // Fuente manual, o sin nada: plano en el spot, que los overrides pisan.
+    base=[];
+    const v0=spot!=null&&spot>0?spot:0;
+    for(let k=0;k<=PROY_MESES;k++)base.push({mes:proyMesAdd(hoy,k),v:v0,origen:'auto'});
+  }
+
+  const porMes=new Map(base.map(p=>[p.mes,p]));
+  const out=[];
+  let ultimo=spot!=null&&spot>0?spot:0;
+  for(let k=0;k<=PROY_MESES;k++){
+    const mes=proyMesAdd(hoy,k);
+    const p=porMes.get(mes);
+    if(p){ultimo=p.v;out.push({mes,v:p.v,origen:p.origen});}
+    else out.push({mes,v:ultimo,origen:'auto'});
+  }
+  const idx=new Map(out.map((p,i)=>[p.mes,i]));
+  (PROJ_TCN||[]).forEach(o=>{
+    if(!o||!o.mes||o.v==null||!isFinite(+o.v))return;
+    const i=idx.get(o.mes);
+    if(i!=null)out[i]={mes:o.mes,v:+o.v,origen:'manual'};
+  });
+  if(fuente==='manual'){
+    let arrastre=null;
+    for(const p of out){
+      if(p.origen==='manual')arrastre=p.v;
+      else if(arrastre!=null){p.v=arrastre;p.origen='auto';}
+    }
+  }
+  return out;
+}
+function dlkSendero(){
+  if(_proySendero.tcn)return _proySendero.tcn;
+  const lista=dlkSenderoLista();
+  const hoyStr=fmtDate(TODAY);
+  const spot=dlkTCHoy();
+  const puntos=[];
+  if(spot!=null&&spot>0)puntos.push({fecha:hoyStr,v:spot});
+  lista.forEach(p=>{const f=proyUltDiaMes(p.mes);if(f>hoyStr&&p.v>0)puntos.push({fecha:f,v:p.v});});
+  puntos.sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  const s={lista,puntos,mapa:new Map(lista.map(p=>[p.mes,p]))};
+  _proySendero.tcn=s;
+  return s;
+}
+// Tipo de cambio proyectado para una fecha cualquiera. Dentro del mes interpola
+// a ritmo diario constante entre los cierres que la rodean. Es la función de
+// interpolación de TC futuro que antes no existía en ningún lado.
+function dlkTCProy(fechaStr){
+  const s=dlkSendero(),pts=s.puntos;
+  const spot=dlkTCHoy();
+  if(!pts.length)return spot;
+  const f=String(fechaStr).substring(0,10);
+  if(f<=pts[0].fecha)return pts[0].v;
+  for(let i=1;i<pts.length;i++){
+    if(f<=pts[i].fecha){
+      const a=pts[i-1],b=pts[i];
+      const n=diasACT(parseDate(a.fecha),parseDate(b.fecha));
+      if(n<=0||a.v<=0||b.v<=0)return b.v;
+      const k=diasACT(parseDate(a.fecha),parseDate(f));
+      return a.v*Math.pow(b.v/a.v,k/n);
+    }
+  }
+  // Más allá del último punto se mantiene el último ritmo diario.
+  const ult=pts[pts.length-1],pre=pts.length>1?pts[pts.length-2]:null;
+  if(!pre||pre.v<=0||ult.v<=0)return ult.v;
+  const n=diasACT(parseDate(pre.fecha),parseDate(ult.fecha));
+  if(n<=0)return ult.v;
+  const k=diasACT(parseDate(ult.fecha),parseDate(f));
+  return ult.v*Math.pow(ult.v/pre.v,k/n);
+}
+function proyFuenteLabel(serie){
+  const f=PROJ_FUENTE[serie];
+  if(serie==='tamar')return f==='rem'?'REM':(f==='manual'?'Manual':'5 días');
+  if(serie==='tcn')return f==='rem'?'REM':(f==='manual'?'Manual':'Futuros');
+  return f==='rem'?'REM':'Manual';
+}
+
+// ── Selectores de fuente ─────────────────────────────────────────────────────
+// Una sola perilla por serie, repetida en todos lados con data-proy-sel. Así el
+// selector de TAMAR aparece en Proyecciones, en la solapa TAMAR y en el Resumen
+// sin que haya tres estados que se puedan desincronizar.
+const PROY_OPCIONES={
+  infla:[['manual','Manual'],['rem','REM']],
+  tamar:[['5dias','5 días'],['rem','REM'],['manual','Manual']],
+  tcn:[['futuros','Futuros'],['rem','REM'],['manual','Manual']],
+};
+const PROY_TITULOS={infla:'Inflación',tamar:'TAMAR',tcn:'Dólar'};
+
+function proySelectorHTML(serie){
+  const opts=PROY_OPCIONES[serie]||[];
+  const cur=PROJ_FUENTE[serie];
+  return`<label style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap">${PROY_TITULOS[serie]||serie}
+    <select onchange="proySetFuente('${serie}',this.value)" title="Fuente del sendero proyectado de ${PROY_TITULOS[serie]||serie}"
+      style="background:var(--surface2);border:1px solid var(--border2);border-radius:3px;padding:1px 4px;font-size:10px;font-family:var(--mono);color:var(--text);outline:none;text-transform:none;letter-spacing:0;cursor:pointer">
+      ${opts.map(([v,l])=>`<option value="${v}"${v===cur?' selected':''}>${l}</option>`).join('')}
+    </select></label>`;
+}
+function proyPintarSelectores(){
+  document.querySelectorAll('[data-proy-sel]').forEach(el=>{
+    const serie=el.getAttribute('data-proy-sel');
+    if(PROY_OPCIONES[serie])el.innerHTML=proySelectorHTML(serie);
+  });
+}
+function tamarPintarFuente(){proyPintarSelectores();}
+
+function proySetFuente(serie,val){
+  if(!PROY_OPCIONES[serie])return;
+  if(!PROY_OPCIONES[serie].some(o=>o[0]===val))return;
+  PROJ_FUENTE[serie]=val;
+  proySaveLs();
+  proyInvalidar();
+  proyPintarSelectores();
+  proyRepropagar();
+}
+
+// Repinta todo lo que depende de un sendero. El Resumen va siempre: es la
+// solapa que se mira todo el día, y recalcular sin repintarla se ve igual que
+// no haber hecho nada.
+function proyRepropagar(){
+  try{
+    if(typeof currentTab!=='undefined'){
+      if(currentTab==='tamar'){tamarRenderTable();if(typeof tamarRenderTabChart==='function')tamarRenderTabChart();}
+      else if(currentTab==='dlk'){dlkRenderTable();if(dlkSelectedTicker)dlkRecalcPanel();}
+      else if(currentTab==='proyecciones'&&typeof projRecalc==='function')projRecalc();
+      else if(currentTab==='forwards'&&typeof fwdRecalc==='function')fwdRecalc();
+    }
+  }catch(e){console.warn('[proy] repropagar:',e.message);}
+  try{if(typeof beRefreshIfVisible==='function')beRefreshIfVisible();}catch(e){}
+}
+
+// ── Selector dólares / pesos de la solapa DLK ────────────────────────────────
+function dlkModoHTML(){
+  const m=PROJ_FUENTE.dlkModo||'usd';
+  return`<label style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap">Tasa
+    <select onchange="dlkSetModo(this.value)" title="TIR y TNA en dólares, o en pesos usando el sendero proyectado del mayorista"
+      style="background:var(--surface2);border:1px solid var(--border2);border-radius:3px;padding:1px 4px;font-size:10px;font-family:var(--mono);color:var(--text);outline:none;text-transform:none;letter-spacing:0;cursor:pointer">
+      <option value="usd"${m==='usd'?' selected':''}>USD</option>
+      <option value="pesos"${m==='pesos'?' selected':''}>Pesos</option>
+    </select></label>`;
+}
+function dlkPintarModo(){
+  const pesos=(PROJ_FUENTE.dlkModo||'usd')==='pesos';
+  document.querySelectorAll('[data-dlk-modo]').forEach(el=>{el.innerHTML=dlkModoHTML();});
+  const thTir=document.getElementById('dlk-th-tir'),thTna=document.getElementById('dlk-th-tna');
+  if(thTir)thTir.textContent=pesos?'TIR $':'TIR USD';
+  if(thTna)thTna.textContent=pesos?'TNA $':'TNA USD';
+  proyPintarSelectores();
+}
+function dlkSetModo(v){
+  PROJ_FUENTE.dlkModo=v==='pesos'?'pesos':'usd';
+  proySaveLs();
+  if(typeof currentTab!=='undefined'&&currentTab==='dlk'){
+    dlkRenderTable();
+    if(dlkSelectedTicker)dlkRecalcPanel();
+  }else dlkPintarModo();
+}
+
 function projDiasMes(año, mes0){
   // mes0 = 0-based
   return new Date(año, mes0+1, 0).getDate();
@@ -6058,10 +6593,209 @@ function cerGetProyectado(fechaStr){
 // ── INIT / RENDER ─────────────────────────────────────────────────────────────
 function projInit(){
   projLoadLs();
+  proyLoadLs();
   // rellenar meses faltantes en el sendero (gaps o extensión hasta horizonte)
   projRellenarMeses();
   projDetectarPublicados();
   projRecalc();
+}
+
+// ── Sub-solapas de Proyecciones ──────────────────────────────────────────────
+const PROY_SUB_TITULOS={
+  infla:['Proyecciones · Inflación & CER','Sendero de inflación mensual · coeficiente diario CER proyectado'],
+  tamar:['Proyecciones · TAMAR','Sendero de TNA mensual · alimenta la tasa proyectada de los bonos TAMAR'],
+  tcn:['Proyecciones · Dólar','Sendero del mayorista a fin de mes · alimenta la TIR en pesos de los DLK'],
+};
+function proySubtabGo(sub){
+  if(!PROY_SUB_TITULOS[sub])return;
+  projSubtab=sub;
+  ['infla','tamar','tcn'].forEach(s=>{
+    const pane=document.getElementById('proy-pane-'+s);
+    if(pane)pane.style.display=s===sub?'':'none';
+    const btn=document.getElementById('proy-sub-'+s);
+    if(btn)btn.classList.toggle('active',s===sub);
+  });
+  const t=PROY_SUB_TITULOS[sub];
+  const tit=document.getElementById('proy-titulo'),sub2=document.getElementById('proy-subtitulo');
+  if(tit)tit.textContent=t[0];
+  if(sub2)sub2.textContent=t[1];
+  const exp=document.getElementById('proj-export-btn');
+  if(exp)exp.style.display=sub==='infla'?'':'none';
+  projRecalc();
+}
+
+async function remRefrescar(){
+  await remFetch(true);
+  proyInvalidar();
+  projRecalc();
+  proyRepropagar();
+}
+function proyPintarSello(){
+  const el=document.getElementById('proy-rem-sello');
+  if(!el)return;
+  const f=remRelevamiento();
+  el.textContent=f?`REM ${f.split('-').reverse().join('/')}`:'REM no disponible';
+  el.style.color=f?'var(--text3)':'var(--warn)';
+}
+
+// Copia las medianas del REM al sendero como valores manuales. Para inflación
+// respeta los meses ya publicados, que no se tocan nunca.
+function proyAplicarREM(serie){
+  if(!REM_DATA){alert('El REM todavía no se descargó. Probá con ↻ REM.');return;}
+  const hasta=proyMesAdd(proyMesHoy(),PROY_MESES);
+  if(serie==='infla'){
+    const path=proyExtender(REM_DATA.ipc,(REM_DATA.anclas||{}).ipc,'ipc',hasta);
+    const byMes=new Map(path.map(p=>[p.mes,p.v]));
+    let n=0;
+    PROJ_INFLACION.forEach(r=>{
+      if(r.tipo==='publicado')return;
+      const v=byMes.get(r.mes);
+      if(v!=null&&isFinite(v)){r.infla=+v.toFixed(4);n++;}
+    });
+    projSaveLs();projRecalc();
+    try{beRecalc();}catch(e){}
+    proyRepropagar();
+    alert(`${n} meses cargados con el REM del ${remRelevamiento()}.`);
+    return;
+  }
+  const src=serie==='tamar'?REM_DATA.tamar:REM_DATA.tcn;
+  const anc=(REM_DATA.anclas||{})[serie==='tamar'?'tamar':'tcn'];
+  const path=proyExtender(src,anc,serie==='tamar'?'tamar':'tcn',hasta);
+  const hoy=proyMesHoy();
+  const destino=path.filter(p=>p.mes>=hoy).map(p=>({mes:p.mes,v:+p.v.toFixed(4)}));
+  if(serie==='tamar')PROJ_TAMAR=destino;else PROJ_TCN=destino;
+  PROJ_FUENTE[serie]='manual';
+  proySaveLs();proyInvalidar();
+  proyPintarSelectores();projRecalc();proyRepropagar();
+}
+function proyLimpiar(serie){
+  if(serie==='tamar')PROJ_TAMAR=[];else if(serie==='tcn')PROJ_TCN=[];else return;
+  proySaveLs();proyInvalidar();projRecalc();proyRepropagar();
+}
+function proySetValor(serie,mes,val){
+  const v=parseFloat(val);
+  const arr=serie==='tamar'?PROJ_TAMAR:PROJ_TCN;
+  const i=arr.findIndex(o=>o&&o.mes===mes);
+  if(val===''||isNaN(v)){if(i>=0)arr.splice(i,1);}
+  else if(i>=0)arr[i]={mes,v};
+  else arr.push({mes,v});
+  arr.sort((a,b)=>a.mes.localeCompare(b.mes));
+  proySaveLs();proyInvalidar();projRecalc();proyRepropagar();
+}
+
+const PROY_ORIGEN_ESTILO={
+  rem:['REM','#6366f1'],ancla:['ancla REM','#6366f1'],extrap:['extrap','#6b7280'],
+  futuro:['futuro','#f59e0b'],respaldo:['respaldo','#6b7280'],
+  manual:['manual','#f59e0b'],auto:['auto','#6b7280'],'5dias':['5 días','#38bdf8'],
+};
+function proyBadge(origen){
+  const[txt,color]=PROY_ORIGEN_ESTILO[origen]||[origen,'#6b7280'];
+  return`<span style="font-size:9px;font-family:var(--mono);padding:1px 5px;border-radius:3px;border:1px solid ${color};color:${color}">${txt}</span>`;
+}
+
+// Las tablas muestran 36 meses: alcanza de sobra para el bono más largo y
+// evita volcar seis años de filas que nadie mira.
+const PROY_FILAS=36;
+
+function proyRenderTablaTamar(){
+  const tb=document.getElementById('proy-tamar-tbody');
+  if(!tb)return;
+  const lista=tamarSendero().lista.slice(0,PROY_FILAS);
+  const ovr=new Map((PROJ_TAMAR||[]).map(o=>[o.mes,o.v]));
+  tb.innerHTML=lista.map(p=>{
+    const tem=tamarTEM(p.v);
+    const esManual=ovr.has(p.mes);
+    return`<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:4px 8px;font-size:12px;font-family:var(--mono);color:var(--text2);text-align:left">${proyMesLabel(p.mes)}</td>
+      <td style="padding:4px 8px;text-align:left">${proyBadge(p.origen)}</td>
+      <td style="padding:4px 8px;text-align:right">
+        <input type="number" step="0.01" min="0" max="500" value="${esManual?ovr.get(p.mes):p.v.toFixed(2)}"
+          onchange="proySetValor('tamar','${p.mes}',this.value)"
+          style="width:88px;text-align:right;background:var(--surface2);border:1px solid var(--border2);border-radius:3px;padding:2px 6px;font-family:var(--mono);font-size:12px;color:${esManual?'var(--warn)':'var(--text)'};outline:none"></td>
+      <td style="padding:4px 8px;text-align:right;font-family:var(--mono);font-size:12px;color:var(--text3)">${isFinite(tem)?tem.toFixed(2)+'%':'—'}</td>
+      <td style="padding:4px 8px;text-align:center">${esManual?`<span onclick="proySetValor('tamar','${p.mes}','')" style="cursor:pointer;color:var(--text3);font-size:12px" title="Quitar el override">×</span>`:''}</td>
+    </tr>`;
+  }).join('');
+
+  const last=TAMAR_INDEX.length?TAMAR_INDEX[TAMAR_INDEX.length-1]:null;
+  set('proy-tamar-ult',last?last.valor.toFixed(2)+'%':'—');
+  set('proy-tamar-ult-fecha',last?last.fecha.split('-').reverse().join('/'):'—');
+  set('proy-tamar-prom5',TAMAR_INDEX.length?tamarProm5().toFixed(2)+'%':'—');
+  set('proy-tamar-fuente',proyFuenteLabel('tamar'));
+  const det=PROJ_FUENTE.tamar==='rem'
+    ?(remRelevamiento()?'relevamiento '+remRelevamiento().split('-').reverse().join('/'):'sin REM descargado')
+    :PROJ_FUENTE.tamar==='manual'?`${(PROJ_TAMAR||[]).length} meses cargados`
+    :'promedio de las últimas 5 ruedas';
+  set('proy-tamar-fuente-det',det);
+}
+
+function proyRenderTablaTcn(){
+  const tb=document.getElementById('proy-tcn-tbody');
+  if(!tb)return;
+  const lista=dlkSendero().lista.slice(0,PROY_FILAS);
+  const ovr=new Map((PROJ_TCN||[]).map(o=>[o.mes,o.v]));
+  const spot=dlkTCHoy();
+  tb.innerHTML=lista.map((p,i)=>{
+    const prev=i===0?spot:lista[i-1].v;
+    const dev=prev>0?(p.v/prev-1)*100:null;
+    const esManual=ovr.has(p.mes);
+    return`<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:4px 8px;font-size:12px;font-family:var(--mono);color:var(--text2);text-align:left">${proyMesLabel(p.mes)}</td>
+      <td style="padding:4px 8px;text-align:left">${proyBadge(p.origen)}</td>
+      <td style="padding:4px 8px;text-align:right">
+        <input type="number" step="0.01" min="0" value="${esManual?ovr.get(p.mes):p.v.toFixed(2)}"
+          onchange="proySetValor('tcn','${p.mes}',this.value)"
+          style="width:100px;text-align:right;background:var(--surface2);border:1px solid var(--border2);border-radius:3px;padding:2px 6px;font-family:var(--mono);font-size:12px;color:${esManual?'var(--warn)':'var(--text)'};outline:none"></td>
+      <td style="padding:4px 8px;text-align:right;font-family:var(--mono);font-size:12px;color:var(--text3)">${dev!=null&&isFinite(dev)?dev.toFixed(2)+'%':'—'}</td>
+      <td style="padding:4px 8px;text-align:center">${esManual?`<span onclick="proySetValor('tcn','${p.mes}','')" style="cursor:pointer;color:var(--text3);font-size:12px" title="Quitar el override">×</span>`:''}</td>
+    </tr>`;
+  }).join('');
+
+  set('proy-tcn-spot',spot!=null?'$'+spot.toFixed(2):'—');
+  try{const f=dlkTCFuente();set('proy-tcn-spot-det',f&&f.etiqueta?f.etiqueta:'—');}catch(e){set('proy-tcn-spot-det','—');}
+  const a12=lista.length>=12?lista[11].v:null;
+  set('proy-tcn-dev12',a12&&spot>0?((a12/spot-1)*100).toFixed(1)+'%':'—');
+  set('proy-tcn-dev12-det',a12?`a ${proyMesLabel(lista[11].mes)}: $${a12.toFixed(2)}`:'—');
+  set('proy-tcn-fuente',proyFuenteLabel('tcn'));
+  const det=PROJ_FUENTE.tcn==='rem'
+    ?(remRelevamiento()?'relevamiento '+remRelevamiento().split('-').reverse().join('/'):'sin REM descargado')
+    :PROJ_FUENTE.tcn==='manual'?`${(PROJ_TCN||[]).length} meses cargados`
+    :((typeof MAE_FUTUROS!=='undefined'&&MAE_FUTUROS.length)
+       ?`${MAE_FUTUROS.length} contratos del MAE`
+       :'sin contratos hoy · se usa el REM');
+  set('proy-tcn-fuente-det',det);
+}
+
+function proyRenderChart(serie){
+  const id=serie==='tamar'?'proy-tamar-chart':'proy-tcn-chart';
+  const cv=document.getElementById(id);
+  if(!cv||typeof Chart==='undefined')return;
+  const lista=(serie==='tamar'?tamarSendero():dlkSendero()).lista.slice(0,PROY_FILAS);
+  const prev=serie==='tamar'?projTamarChart:projTcnChart;
+  if(prev)prev.destroy();
+  const color=serie==='tamar'?'#38bdf8':'#a855f7';
+  const ch=new Chart(cv.getContext('2d'),{
+    type:'line',
+    data:{labels:lista.map(p=>proyMesLabel(p.mes)),
+      datasets:[{label:serie==='tamar'?'TAMAR TNA %':'$/USD fin de mes',
+        data:lista.map(p=>+p.v.toFixed(4)),
+        borderColor:color,backgroundColor:color+'22',
+        borderWidth:2,pointRadius:2,pointHoverRadius:4,tension:.15,fill:true}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},
+        // El plugin de etiquetas está registrado global: con 36 puntos tapa
+        // la curva entera. El dato puntual va en el tooltip y en la tabla.
+        datalabels:{display:false},
+        tooltip:{callbacks:{label:c=>{
+          const p=lista[c.dataIndex];
+          const v=serie==='tamar'?c.parsed.y.toFixed(2)+'% TNA':'$'+c.parsed.y.toFixed(2);
+          return `${v} · ${(PROY_ORIGEN_ESTILO[p.origen]||[p.origen])[0]}`;
+        }}}},
+      scales:{
+        x:{ticks:{color:'#6b7280',font:{size:9},maxRotation:0,autoSkip:true,maxTicksLimit:12},grid:{display:false}},
+        y:{ticks:{color:'#6b7280',font:{size:9},callback:v=>serie==='tamar'?v+'%':'$'+v},grid:{color:'rgba(107,114,128,.12)'}}}}
+  });
+  if(serie==='tamar')projTamarChart=ch;else projTcnChart=ch;
 }
 
 function projRellenarMeses(){
@@ -6097,6 +6831,15 @@ function projRecalc(){
   projRenderTabla();
   projRenderChart();
   projRenderSummary();
+
+  proyPintarSelectores();
+  proyPintarSello();
+  // Los paneles nuevos sólo se dibujan cuando están a la vista: projRecalc() lo
+  // llaman también cerFetchIndex y el arranque, con la solapa cerrada.
+  if(typeof currentTab!=='undefined'&&currentTab==='proyecciones'){
+    if(projSubtab==='tamar'){proyRenderTablaTamar();proyRenderChart('tamar');}
+    else if(projSubtab==='tcn'){proyRenderTablaTcn();proyRenderChart('tcn');}
+  }
 
   set('proj-status','');
 }
@@ -6641,35 +7384,52 @@ function tamarEnrich(r){
    while(fmtDate(d)<=fixVtStr){if(esHabil(d))DIAS_TAMAR_PROYECTAR++;d.setDate(d.getDate()+1);}}
   DIAS_TAMAR_PROYECTAR=Math.max(0,DIAS_TAMAR_PROYECTAR);
 
-  // TAMAR_MARGEN_PROYECTAR: (((1 + (prom5dTNA% + margen%) / 100 * 32/365)^(365/32))^(1/12)) - 1
+  // TAMAR_MARGEN_PROYECTAR: (((1 + (TNA% + margen%) / 100 * 32/365)^(365/32))^(1/12)) - 1
   const ultimos5=tamarSorted.slice(-5);
   const prom5TNA_val=ultimos5.reduce((s,t)=>s+t.valor,0)/ultimos5.length; // % TNA
   const prom5TEM=ultimos5.reduce((s,t)=>s+tamarTEM(t.valor),0)/ultimos5.length/100; // decimal (para debug)
+  const prom5TEMpct=prom5TEM*100;
 
-  const TAMAR_MARGEN_PROYECTAR=Math.pow(Math.pow(1+(prom5TNA_val+margen)/100*32/365,365/32),1/12)-1;
+  const mensualDe=tna=>Math.pow(Math.pow(1+(tna+margen)/100*32/365,365/32),1/12)-1;
 
-  // TASA_NOMINAL_MENSUAL_CAPITALIZABLE
+  // Definición congelada: sendero plano en el promedio de 5 días. Es la que
+  // guarda el snapshot de curvas, así que no puede cambiar de significado.
+  const TAMAR_MARGEN_PROYECTAR=mensualDe(prom5TNA_val);
+
+  // Misma cuenta con la fuente activa: se promedia la tasa mensual sobre los
+  // días hábiles que faltan proyectar, tomando para cada uno la TNA de su mes.
+  const _fuenteTamar=(typeof PROJ_FUENTE!=='undefined'&&PROJ_FUENTE.tamar)||'5dias';
+  let TAMAR_MARGEN_PROY_F=TAMAR_MARGEN_PROYECTAR;
+  if(_fuenteTamar!=='5dias'&&DIAS_TAMAR_PROYECTAR>0){
+    let acc=0,n=0;
+    const d=new Date(lastTamarDate);d.setDate(d.getDate()+1);
+    while(fmtDate(d)<=fixVtStr){
+      if(esHabil(d)){acc+=mensualDe(tamarTNAProy(fmtDate(d)));n++;}
+      d.setDate(d.getDate()+1);
+    }
+    if(n>0)TAMAR_MARGEN_PROY_F=acc/n;
+  }
+
+  // TASA_NOMINAL_MENSUAL_CAPITALIZABLE → VPV → tasas
   const totalDias=DIAS_TAMAR_TRANSCURRIDOS+DIAS_TAMAR_PROYECTAR;
-  const TASA_NMC=totalDias>0
-    ?(DIAS_TAMAR_TRANSCURRIDOS*TAMAR_MARGEN_DIAS_TRANSCURRIDOS+DIAS_TAMAR_PROYECTAR*TAMAR_MARGEN_PROYECTAR)/totalDias
-    :TAMAR_MARGEN_PROYECTAR;
-
-  // VPV
-  const VPV=100*Math.pow(1+TASA_NMC,(DIAS_360/360)*12);
-
-  // TASA_DIRECTA (precio ajustado por TC inicial para bonos DLK+TAMAR)
   const tcInicial=r.tcInicial||1;
-  const TASA_DIRECTA=VPV/(r.precio/tcInicial)-1;
+  const cierre=proyMensual=>{
+    const nmc=totalDias>0
+      ?(DIAS_TAMAR_TRANSCURRIDOS*TAMAR_MARGEN_DIAS_TRANSCURRIDOS+DIAS_TAMAR_PROYECTAR*proyMensual)/totalDias
+      :proyMensual;
+    const vpv=100*Math.pow(1+nmc,(DIAS_360/360)*12);
+    const directa=vpv/(r.precio/tcInicial)-1;
+    const tem=(Math.pow(1+directa,(365/12)/DIAS)-1)*100;
+    return{nmc,vpv,directa,
+      tna:directa*365/DIAS*100,
+      tir:(Math.pow(1+directa,365/DIAS)-1)*100,
+      tem,margenTNA:(tem-prom5TEMpct)*12};
+  };
+  const base=cierre(TAMAR_MARGEN_PROYECTAR);
+  const proy=_fuenteTamar==='5dias'?base:cierre(TAMAR_MARGEN_PROY_F);
 
-  // TNA, TIR, TEM_MERCADO
-  const TNA=TASA_DIRECTA*365/DIAS*100;
-  const TIR=(Math.pow(1+TASA_DIRECTA,365/DIAS)-1)*100;
-  const TEM_MERCADO=(Math.pow(1+TASA_DIRECTA,(365/12)/DIAS)-1)*100;
-
-  // MARGEN_TNA
-  const prom5TNApct=ultimos5.reduce((s,t)=>s+t.valor,0)/ultimos5.length;
-  const prom5TEMpct=ultimos5.reduce((s,t)=>s+tamarTEM(t.valor),0)/ultimos5.length;
-  const MARGEN_TNA=(TEM_MERCADO-prom5TEMpct)*12;
+  const TASA_NMC=base.nmc,VPV=base.vpv,TASA_DIRECTA=base.directa;
+  const TNA=base.tna,TIR=base.tir,TEM_MERCADO=base.tem,MARGEN_TNA=base.margenTNA;
 
   const modDuration=!isNaN(TIR)&&DIAS>0?duration/(1+TIR/100):NaN;
 
@@ -6680,10 +7440,24 @@ function tamarEnrich(r){
     TAMAR_MARGEN_DIAS_TRANSCURRIDOS:TAMAR_MARGEN_DIAS_TRANSCURRIDOS*100,
     DIAS_TAMAR_PROYECTAR,TAMAR_MARGEN_PROYECTAR:TAMAR_MARGEN_PROYECTAR*100,
     TASA_NMC:TASA_NMC*100,VPV,TASA_DIRECTA:TASA_DIRECTA*100,
-    TNA,TIR,TEM_MERCADO,MARGEN_TNA,prom5TNA:prom5TNApct,prom5TEM:prom5TEMpct
+    TNA,TIR,TEM_MERCADO,MARGEN_TNA,prom5TNA:prom5TNA_val,prom5TEM:prom5TEMpct,
+    fuente:_fuenteTamar,
+    TAMAR_MARGEN_PROY_F:TAMAR_MARGEN_PROY_F*100,
+    TASA_NMC_F:proy.nmc*100,VPV_F:proy.vpv
   };
 
-  return{...r,dias:DIAS,modDuration,tir:TIR,tna:TNA,tem:TEM_MERCADO,margenTNA:MARGEN_TNA,_debug};
+  return{...r,dias:DIAS,modDuration,tir:TIR,tna:TNA,tem:TEM_MERCADO,margenTNA:MARGEN_TNA,
+    tirProy:proy.tir,tnaProy:proy.tna,temProy:proy.tem,margenTNAProy:proy.margenTNA,
+    fuenteTamar:_fuenteTamar,_debug};
+}
+
+// Lo que hay que mostrar en pantalla según el selector de fuente. El snapshot
+// de curvas NO usa esto: sigue leyendo e.margenTNA y e.tna directo.
+function tamarVista(e){
+  if(!e)return e;
+  const f=e.fuenteTamar||'5dias';
+  if(f==='5dias'||e.tnaProy==null||isNaN(e.tnaProy))return e;
+  return{...e,tna:e.tnaProy,tir:e.tirProy,tem:e.temProy,margenTNA:e.margenTNAProy};
 }
 
 function tamarSortBy(col){
@@ -6692,7 +7466,8 @@ function tamarSortBy(col){
 }
 
 function tamarRenderTable(){
-  TAMAR_DATA=TAMAR_BONDS.map(tamarEnrich);
+  TAMAR_DATA=TAMAR_BONDS.map(b=>tamarVista(tamarEnrich(b)));
+  tamarPintarFuente();
   const q=(document.getElementById('tamar-search')?.value||'').toLowerCase();
   const showV=document.getElementById('tamar-show-vencidas')?.checked;
   let rows=TAMAR_DATA.filter(r=>(showV||r.dias>0)&&(!q||r.ticker.toLowerCase().includes(q)));
@@ -7669,6 +8444,8 @@ document.getElementById('g-fecha-op').value=fmtDate(TODAY);
 updateSettlement();
 loadPortfolio();
 tamarLoadBonds();
+proyLoadLs();
+remFetch();
 cerFetchIndex();
 tamarFetchIndex();
 dlkFetchIndex();
@@ -8193,7 +8970,8 @@ function beCPEnrich(item){
     if(!b||!b.vcto)return null;
     const liq=G_LIQ||addHabiles(TODAY,1);
     if(diasACT(liq,parseDate(b.vcto))<=0)return{ticker,tipo,expired:true};
-    const e=tamarEnrich(b);
+    const e0=tamarEnrich(b);
+    const e=tamarVista(e0);
     const vctoStr=b.vcto.split('-').reverse().join('/');
     const fixStr=e._debug?e._debug.fixVto.split('-').reverse().join('/'):'—';
     return{ticker,tipo,vctoStr,fixing:fixStr,px:b.precio,
@@ -8217,9 +8995,15 @@ function beCPEnrich(item){
       let cnt=0;
       while(cnt<3){fixDate.setDate(fixDate.getDate()-1);if(esHabil(fixDate))cnt++;}
       const fixStr=fmtDate(fixDate).split('-').reverse().join('/');
+      // La columna real lleva la TIR en dólares; el trío proyectado, que para
+      // DLK salía vacío, lleva la tasa en pesos del sendero de tipo de cambio.
+      const temP=(e.tirPesos!=null&&isFinite(e.tirPesos))
+        ?(Math.pow(1+e.tirPesos/100,1/12)-1)*100:null;
       return{ticker,tipo,vctoStr,fixing:fixStr,px:b.precio,
         tirReal:e.tir,  // TIR en col TIR R/MGN
-        tna:null,tir:null,tem:null,bg,ac};
+        tna:e.tnaPesos!=null&&isFinite(e.tnaPesos)?e.tnaPesos:null,
+        tir:e.tirPesos!=null&&isFinite(e.tirPesos)?e.tirPesos:null,
+        tem:temP,bg,ac};
     }catch(e){return null;}
   }
   if(tipo==='sint'){
@@ -8828,7 +9612,7 @@ function beGetExcludedForTipo(tipo, chartId='tf'){
 function beEnrichForTipo(b,tipo){
   if(tipo==='tf')    return calcLecap(b)||{};
   if(tipo==='cer')   return cerEnrich(b)||{};
-  if(tipo==='tamar') return tamarEnrich(b)||{};
+  if(tipo==='tamar') return tamarVista(tamarEnrich(b))||{};
   if(tipo==='dlk')   return dlkEnrich(b)||{};
   return{};
 }
@@ -8837,7 +9621,10 @@ function beGetChartRate(e,tipo,mode){
   if(tipo==='tf')    return({tna:e.tna,tir:e.tir,tem:e.tem}[mode]??null);
   if(tipo==='cer')   return({tirReal:e.tir,tna:e.tnaProy,tir:e.tirProy,tem:e.temProy}[mode]??null);
   if(tipo==='tamar') return({tna:e.tna,tir:e.tir,tem:e.tem,tirReal:e.margenTNA}[mode]??null);
-  if(tipo==='dlk')   return({tna:e.tna,tir:e.tir,tirReal:e.tir}[mode]??null);
+  // dlk: la columna real es la tasa en dólares; lo proyectado, la tasa en pesos
+  if(tipo==='dlk')   return({tna:e.tnaPesos,tir:e.tirPesos,
+                             tem:e.tirPesos!=null?(Math.pow(1+e.tirPesos/100,1/12)-1)*100:null,
+                             tirReal:e.tir}[mode]??null);
   return null;
 }
 
@@ -9155,6 +9942,37 @@ function dlkTIRtoPrice(tir, bond, liq, tc){
 }
 
 // ── Enrich ────────────────────────────────────────────────────────────────────
+// TIR en pesos: los mismos flujos en dólares, cada uno convertido con el
+// tipo de cambio proyectado de su fecha. La TIR en dólares de dlkCalcTIR es el
+// caso particular de un sendero plano en el spot.
+function dlkCalcTIRPesos(precioPesos, bond, liq){
+  if(!precioPesos||precioPesos<=0) return null;
+  const{ff}=dlkBuildFF(bond,liq);
+  if(!ff.length) return null;
+  const flujos=[];
+  for(const ev of ff){
+    const tc=dlkTCProy(ev.fecha);
+    if(tc==null||!isFinite(tc)||tc<=0) return null;
+    flujos.push({cf:ev.cf*tc,t:ev.dias/365});
+  }
+  let r=0.3; // semilla en tasa de pesos, no de dólares
+  for(let iter=0;iter<200;iter++){
+    let f=-precioPesos,df=0;
+    flujos.forEach(x=>{
+      const disc=Math.pow(1+r,x.t);
+      f+=x.cf/disc;
+      df-=x.t*x.cf/Math.pow(1+r,x.t+1);
+    });
+    if(Math.abs(df)<1e-12) break;
+    const rNew=r-f/df;
+    if(!isFinite(rNew)) return null;
+    if(Math.abs(rNew-r)<1e-9){r=rNew;break;}
+    r=rNew;
+    if(r<-0.999) r=-0.999;
+  }
+  return isFinite(r)?r*100:null;
+}
+
 function dlkEnrich(bond){
   const liq=G_LIQ||addHabiles(TODAY,1);
   const tc=dlkTCHoy();
@@ -9163,7 +9981,22 @@ function dlkEnrich(bond){
   const tir=bond.precio&&tc?dlkCalcTIR(bond.precio,bond,liq,tc):null;
   const tna=tir!=null?dlkCalcTNA(tir,dias):null;
   const paridad=bond.precio&&tc?dlkCalcParidad(bond.precio,tc):null;
-  return{...bond,dias,tir,tna,paridad,tc};
+  // tir/tna quedan intactos a propósito: el snapshot de curvas los guarda y no
+  // pueden cambiar de significado según lo que el usuario tenga seleccionado.
+  let tirPesos=null,tnaPesos=null;
+  try{
+    if(bond.precio)tirPesos=dlkCalcTIRPesos(bond.precio,bond,liq);
+    if(tirPesos!=null)tnaPesos=dlkCalcTNA(tirPesos,dias);
+  }catch(e){}
+  return{...bond,dias,tir,tna,paridad,tc,tirPesos,tnaPesos};
+}
+
+// Lo que muestra la pantalla según el selector dólares/pesos de la solapa DLK.
+function dlkVista(e){
+  if(!e)return e;
+  if((PROJ_FUENTE.dlkModo||'usd')!=='pesos')return e;
+  if(e.tirPesos==null||!isFinite(e.tirPesos))return e;
+  return{...e,tir:e.tirPesos,tna:e.tnaPesos};
 }
 
 // ── Render parcial: tabla FF ──────────────────────────────────────────────────
@@ -9195,7 +10028,8 @@ function dlkRenderFFTable(ff){
 // ── Tabla ─────────────────────────────────────────────────────────────────────
 function dlkRenderTable(){
   authUpdateAdminUI();
-  DLK_DATA=DLK_BONDS.map(dlkEnrich);
+  DLK_DATA=DLK_BONDS.map(b=>dlkVista(dlkEnrich(b)));
+  dlkPintarModo();
   const tbody=document.getElementById('dlk-table-body');
   if(!tbody)return;
   if(!DLK_BONDS.length){
@@ -9235,7 +10069,9 @@ function dlkRenderTable(){
 // ── Panel calculadora ─────────────────────────────────────────────────────────
 function dlkOpenPanel(ticker){
   dlkSelectedTicker=ticker;
-  const r=DLK_DATA.find(x=>x.ticker===ticker)||dlkEnrich(DLK_BONDS.find(x=>x.ticker===ticker));
+  // El panel es una calculadora de ida y vuelta sobre la TIR en dólares, así
+  // que acá se usa el enrich crudo. La tasa en pesos se muestra al lado.
+  const r=dlkEnrich(DLK_BONDS.find(x=>x.ticker===ticker));
   if(!r) return;
   const panel=document.getElementById('dlk-right-panel');
   const pTicker=document.getElementById('dlk-p-ticker');
@@ -9292,7 +10128,8 @@ function dlkRenderPanel(r){
 
     <div class="section-label">Tasas implícitas</div>
     <table class="res-table" style="margin-bottom:10px">
-      <tr class="bl"><td>TIR (anual, base ACT/365)</td><td id="dlk-r-tir">${r.tir!=null?r.tir.toFixed(2)+'%':'—'}</td></tr>
+      <tr class="bl"><td>TIR USD (anual, base ACT/365)</td><td id="dlk-r-tir">${r.tir!=null?r.tir.toFixed(2)+'%':'—'}</td></tr>
+      <tr class="bl"><td>TIR $ · sendero ${proyFuenteLabel('tcn')}</td><td id="dlk-r-tir-pesos" style="color:var(--warn)">${r.tirPesos!=null&&isFinite(r.tirPesos)?r.tirPesos.toFixed(2)+'%':'—'}</td></tr>
       <tr class="mu"><td>Días residuales</td><td>${diasResid}</td></tr>
       <tr class="mu"><td>VN residual</td><td id="dlk-r-vn">${f2(vnResidual)}%</td></tr>
     </table>
@@ -9309,8 +10146,9 @@ function dlkOnA3500Change(val){
   const manual=dlkTCOverride!=null;
   const lbl=document.getElementById('usd-a3500-label');
   if(lbl) lbl.textContent=manual?'(manual)':'';
+  proyInvalidar(); // el sendero del dólar arranca en el spot
   if(currentTab==='dlk'){
-    DLK_DATA=DLK_BONDS.map(dlkEnrich);
+    DLK_DATA=DLK_BONDS.map(b=>dlkVista(dlkEnrich(b)));
     dlkRenderTable();
     if(dlkSelectedTicker) dlkRecalcPanel();
   } else if(currentTab==='sintetico'){
@@ -9615,7 +10453,7 @@ function fwdTasa(bond, tipo){
   if(tipo==='cer') return fwdGetCERTasa(bond);
   if(tipo==='tamar'){
     if(!TAMAR_INDEX.length)return null;
-    const e=tamarEnrich(bond);
+    const e=tamarVista(tamarEnrich(bond));
     return(!e||isNaN(e.margenTNA))?null:e.margenTNA;
   }
   const calc=calcLecap(bond);
@@ -10148,7 +10986,8 @@ function a3500Repropagar(){
   // gráficos de Chart.js cada cinco minutos para nada.
   if(val===_a3500Pintado)return;
   _a3500Pintado=val;
-  if(currentTab==='dlk'){DLK_DATA=DLK_BONDS.map(dlkEnrich);dlkRenderTable();if(dlkSelectedTicker)dlkRecalcPanel();}
+  proyInvalidar(); // el sendero del dólar arranca en el spot
+  if(currentTab==='dlk'){DLK_DATA=DLK_BONDS.map(b=>dlkVista(dlkEnrich(b)));dlkRenderTable();if(dlkSelectedTicker)dlkRecalcPanel();}
   else if(currentTab==='sintetico'){
     SINT_DATA=SINT_BONDS.map(sintEnrich);sintRenderTable();
     if(sintSelectedTicker){const r=SINT_DATA.find(x=>x.ticker===sintSelectedTicker);if(r)sintRenderPanelBody(r);}
@@ -10190,6 +11029,8 @@ function maeAplicarFuturos(curva){
   // Sin definiciones DLK no hay vencimiento con el cual elegir el contrato. Pasa
   // en el arranque, antes de que Supabase conteste; sintInit() reintenta después.
   if(!DLK_BONDS.length)return 0;
+  // La curva nueva es el sendero del dólar cuando la fuente son los futuros.
+  proyInvalidar();
   let actualizados=0;
   for(const sb of SINT_BONDS){
     const dlkBond=DLK_BONDS.find(b=>b.ticker===sb.ticker);

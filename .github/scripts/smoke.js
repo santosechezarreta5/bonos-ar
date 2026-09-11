@@ -309,16 +309,20 @@ const check = (cond, label, detalle = '') => {
     check(r.d1 < r.d2, `${sec}: rango por defecto válido`, `${r.d1} a ${r.d2}`);
     check(/%/.test(r.ejeY), `${sec}: eje Y con la métrica`, r.ejeY);
 
-    // Destildar uno saca su línea
+    // Destildar uno saca su línea.
+    // Si Supabase no devolvió ruedas no hay gráfico, y sin esta guarda el
+    // evaluate tira un TypeError que aborta el smoke entero: el resto de las
+    // secciones queda sin correr y el log no dice por qué.
     const tog = await page.evaluate(s => {
       const st = seriesEstado[s];
+      if (!st.chart || !st.cache.porBono.size) return { sinDatos: true };
       const t = [...st.cache.porBono.keys()].sort()[0];
       const antes = st.chart.data.datasets.length;
       seriesToggle(s, t);
       return { t, antes, despues: st.chart ? st.chart.data.datasets.length : -1 };
     }, sec);
-    check(tog.despues === tog.antes - 1, `${sec}: destildar quita la línea`,
-          `${tog.t}: ${tog.antes} → ${tog.despues}`);
+    check(!tog.sinDatos && tog.despues === tog.antes - 1, `${sec}: destildar quita la línea`,
+          tog.sinDatos ? 'sin ruedas: no se armó el gráfico' : `${tog.t}: ${tog.antes} → ${tog.despues}`);
 
     // Cambiar de sector recarga
     const otro = await page.evaluate(async s => {
@@ -660,6 +664,201 @@ const check = (cond, label, detalle = '') => {
   check(iol.funcs.length === 0, 'no quedan funciones de IOL', iol.funcs.join(', '));
   check(!iol.creds && !iol.token, 'las credenciales guardadas de IOL se borran');
   check(/MAE/.test(iol.boton), 'el botón de futuros apunta al MAE', iol.boton);
+
+  // ── Senderos proyectados: REM, TAMAR y dólar ──────────────────────────────
+  console.log('\nProyecciones — REM, TAMAR y dólar');
+
+  const rem = await page.evaluate(async () => {
+    await remFetch(true);
+    if (!REM_DATA) return { falla: 'rem.json no se pudo leer' };
+    const dias = Math.round((Date.now() - new Date(REM_DATA.relevamiento + 'T00:00:00Z')) / 86400000);
+    return {
+      relevamiento: REM_DATA.relevamiento, dias,
+      ipc: REM_DATA.ipc.length, tamar: REM_DATA.tamar.length, tcn: REM_DATA.tcn.length,
+      anclas: Object.keys(REM_DATA.anclas || {}).length,
+      tcnEsNivel: REM_DATA.tcn.every(p => p.v > 100),
+      tamarEsTNA: REM_DATA.tamar.every(p => p.v > 0 && p.v < 300),
+    };
+  });
+  check(!rem.falla, 'rem.json se sirve y parsea', rem.falla || '');
+  check(rem.ipc >= 5 && rem.tamar >= 5 && rem.tcn >= 5,
+        'el REM trae las tres series mensuales', JSON.stringify(rem));
+  // El REM sale una vez por mes. Más de 75 días sin renovarse significa que el
+  // workflow dejó de andar y la app está proyectando con datos viejos.
+  check(rem.dias != null && rem.dias <= 75,
+        'el relevamiento del REM está al día', `${rem.relevamiento} (${rem.dias} días)`);
+  check(rem.tcnEsNivel, 'el tipo de cambio del REM viene en niveles, no en variación');
+  check(rem.tamarEsTNA, 'la TAMAR del REM viene como TNA en porcentaje');
+
+  // La extensión por anclas tiene que aterrizar exactamente sobre el ancla.
+  const anc = await page.evaluate(() => {
+    const hasta = proyMesAdd(proyMesHoy(), 72);
+    const out = {};
+    const tcn = proyExtender(REM_DATA.tcn, REM_DATA.anclas.tcn, 'tcn', hasta);
+    const tam = proyExtender(REM_DATA.tamar, REM_DATA.anclas.tamar, 'tamar', hasta);
+    const ipc = proyExtender(REM_DATA.ipc, REM_DATA.anclas.ipc, 'ipc', hasta);
+    for (const [k, path, anclas] of [['tcn', tcn, REM_DATA.anclas.tcn],
+                                      ['tamar', tam, REM_DATA.anclas.tamar]]) {
+      const mes = Object.keys(anclas).sort().pop();
+      const p = path.find(x => x.mes === mes);
+      out[k] = { mes, esperado: anclas[mes], obtenido: p ? p.v : null };
+    }
+    // El acumulado del año calendario tiene que reproducir el ancla interanual.
+    const mesIpc = Object.keys(REM_DATA.anclas.ipc).sort().pop();
+    const anio = mesIpc.substring(0, 4);
+    const delAnio = ipc.filter(x => x.mes.startsWith(anio + '-'));
+    let acc = 1; delAnio.forEach(x => acc *= 1 + x.v / 100);
+    out.ipc = { anio, meses: delAnio.length, esperado: REM_DATA.anclas.ipc[mesIpc],
+                obtenido: (acc - 1) * 100 };
+    out.largo = tcn.length;
+    out.creciente = tcn.every((p, i) => i === 0 || p.v >= tcn[i - 1].v - 1e-9);
+    return out;
+  });
+  check(anc.tcn.obtenido != null && Math.abs(anc.tcn.obtenido - anc.tcn.esperado) < 0.01,
+        'el sendero del dólar aterriza en el ancla anual del REM', JSON.stringify(anc.tcn));
+  check(anc.tamar.obtenido != null && Math.abs(anc.tamar.obtenido - anc.tamar.esperado) < 0.01,
+        'el sendero de TAMAR aterriza en el ancla anual del REM', JSON.stringify(anc.tamar));
+  check(anc.ipc.meses === 12 && Math.abs(anc.ipc.obtenido - anc.ipc.esperado) < 0.01,
+        'la inflación acumulada del año reproduce el ancla interanual', JSON.stringify(anc.ipc));
+  check(anc.largo >= 60, 'el sendero cubre el horizonte completo', 'meses: ' + anc.largo);
+  check(anc.creciente, 'el sendero del dólar es monótono');
+
+  // El método de 5 días tiene que reproducirse exactamente: es el caso
+  // degenerado del sendero nuevo, no un camino de código aparte.
+  const tam5 = await page.evaluate(() => {
+    const b = [...TAMAR_BONDS].filter(x => x.precio != null && x.vcto)
+      .sort((a, c) => c.vcto.localeCompare(a.vcto))[0];
+    if (!b) return { sinBonos: true };
+    const prev = PROJ_FUENTE.tamar;
+    PROJ_FUENTE.tamar = '5dias'; proyInvalidar();
+    const e = tamarEnrich(b);
+    PROJ_FUENTE.tamar = prev; proyInvalidar();
+    return { t: b.ticker,
+      identico: e.tna === e.tnaProy && e.tir === e.tirProy &&
+                e.tem === e.temProy && e.margenTNA === e.margenTNAProy };
+  });
+  check(tam5.sinBonos || tam5.identico,
+        'con fuente 5 días la proyección reproduce el cálculo de siempre', JSON.stringify(tam5));
+
+  // La que protege el histórico: cambiar la fuente NO puede mover los campos
+  // que _curvasSnapshotTodayImpl guarda en Supabase.
+  const congelado = await page.evaluate(() => {
+    const out = { tamar: [], dlk: [], movio: [] };
+    const prevT = PROJ_FUENTE.tamar, prevD = PROJ_FUENTE.tcn, prevM = PROJ_FUENTE.dlkModo;
+    for (const b of TAMAR_BONDS.filter(x => x.precio != null && x.vcto).slice(0, 6)) {
+      PROJ_FUENTE.tamar = '5dias'; proyInvalidar();
+      const a = tamarEnrich(b);
+      PROJ_FUENTE.tamar = 'rem'; proyInvalidar();
+      const c = tamarEnrich(b);
+      if (a.margenTNA !== c.margenTNA) out.movio.push('TAMAR ' + b.ticker);
+      out.tamar.push(b.ticker);
+    }
+    for (const b of DLK_BONDS.filter(x => x.precio != null && x.vcto).slice(0, 6)) {
+      PROJ_FUENTE.tcn = 'futuros'; PROJ_FUENTE.dlkModo = 'usd'; proyInvalidar();
+      const a = dlkEnrich(b);
+      PROJ_FUENTE.tcn = 'rem'; PROJ_FUENTE.dlkModo = 'pesos'; proyInvalidar();
+      const c = dlkEnrich(b);
+      if (a.tna !== c.tna || a.tir !== c.tir) out.movio.push('DLK ' + b.ticker);
+      out.dlk.push(b.ticker);
+    }
+    PROJ_FUENTE.tamar = prevT; PROJ_FUENTE.tcn = prevD; PROJ_FUENTE.dlkModo = prevM;
+    proyInvalidar();
+    return out;
+  });
+  check(congelado.movio.length === 0,
+        'el selector no mueve los campos que guarda el snapshot de curvas',
+        congelado.movio.join(', '));
+  check(congelado.tamar.length > 0 && congelado.dlk.length > 0,
+        'la prueba anterior corrió sobre bonos reales',
+        `TAMAR ${congelado.tamar.length} · DLK ${congelado.dlk.length}`);
+
+  // dlkTCProy: coincide con el contrato en su fin de mes e interpola adentro.
+  const tcproy = await page.evaluate(() => {
+    const guardado = (typeof MAE_FUTUROS !== 'undefined' ? MAE_FUTUROS : []).slice();
+    const prev = PROJ_FUENTE.tcn;
+    const spot = dlkTCHoy();
+    const hoyMes = proyMesHoy();
+    MAE_FUTUROS = [];
+    for (let k = 0; k < 12; k++) {
+      const mes = proyMesAdd(hoyMes, k);
+      const [y, m] = mes.split('-').map(Number);
+      MAE_FUTUROS.push({ ticker: `DLR${String(m).padStart(2, '0')}${y}`, mes: m, anio: y,
+                         precio: +(spot * Math.pow(1.02, k + 1)).toFixed(2), hora: '14:00' });
+    }
+    PROJ_FUENTE.tcn = 'futuros'; proyInvalidar();
+    const c = MAE_FUTUROS[2];
+    const mesC = `${c.anio}-${String(c.mes).padStart(2, '0')}`;
+    const enFin = dlkTCProy(proyUltDiaMes(mesC));
+    const medio = dlkTCProy(`${mesC}-15`);
+    const anterior = MAE_FUTUROS[1].precio;
+    const cola = dlkSendero().lista[14].origen;
+    MAE_FUTUROS = guardado; PROJ_FUENTE.tcn = prev; proyInvalidar();
+    return { coincide: Math.abs(enFin - c.precio) < 0.01,
+             interpola: medio > anterior && medio < c.precio, cola,
+             enFin: +enFin.toFixed(2), contrato: c.precio };
+  });
+  check(tcproy.coincide, 'el sendero devuelve el precio del contrato en su fin de mes',
+        `${tcproy.enFin} vs ${tcproy.contrato}`);
+  check(tcproy.interpola, 'interpola dentro del mes entre dos cierres');
+  check(tcproy.cola === 'respaldo' || tcproy.cola === 'extrap',
+        'pasado el último contrato el sendero sigue con el respaldo', tcproy.cola);
+
+  // Sin contratos —rueda cerrada— el dólar no puede quedar plano.
+  const sinRueda = await page.evaluate(() => {
+    const guardado = (typeof MAE_FUTUROS !== 'undefined' ? MAE_FUTUROS : []).slice();
+    const prev = PROJ_FUENTE.tcn;
+    MAE_FUTUROS = [];
+    PROJ_FUENTE.tcn = 'futuros'; proyInvalidar();
+    const l = dlkSendero().lista;
+    const spot = dlkTCHoy();
+    MAE_FUTUROS = guardado; PROJ_FUENTE.tcn = prev; proyInvalidar();
+    return { origen: l[3].origen, sube: l[11].v > spot * 1.02 };
+  });
+  check(sinRueda.sube && sinRueda.origen === 'respaldo',
+        'sin contratos del MAE el sendero cae al REM, no a un dólar plano',
+        JSON.stringify(sinRueda));
+
+  // El Resumen: la columna proyectada de DLK, que antes salía vacía.
+  const resumenProy = await page.evaluate(() => {
+    const db = DLK_BONDS.find(b => b.precio != null && b.vcto);
+    const d = db ? beCPEnrich({ ticker: db.ticker, tipo: 'dlk' }) : null;
+    const sels = [...document.querySelectorAll('[data-proy-sel="tamar"] select')];
+    return {
+      selectores: sels.length,
+      sincronizados: sels.every(s => s.value === PROJ_FUENTE.tamar),
+      dlkLlena: !!(d && d.tir != null && d.tna != null && d.tirReal != null),
+      dlkPesosMayor: !!(d && d.tir > d.tirReal),
+      modos: document.querySelectorAll('[data-dlk-modo] select').length,
+    };
+  });
+  check(resumenProy.selectores >= 3, 'el selector de TAMAR está en los tres lugares',
+        'encontrados: ' + resumenProy.selectores);
+  check(resumenProy.sincronizados, 'los selectores de TAMAR están sincronizados');
+  check(resumenProy.dlkLlena, 'en el Resumen los DLK ya no tienen la columna proyectada vacía');
+  check(resumenProy.dlkPesosMayor, 'la tasa en pesos de un DLK supera a la de dólares');
+  check(resumenProy.modos >= 1, 'la solapa DLK tiene el selector dólares/pesos');
+
+  // Las sub-solapas de Proyecciones.
+  const subs = await page.evaluate(async () => {
+    switchSection('pesos'); switchTab('proyecciones');
+    await new Promise(r => setTimeout(r, 600));
+    const out = {};
+    for (const s of ['tamar', 'tcn', 'infla']) {
+      proySubtabGo(s);
+      await new Promise(r => setTimeout(r, 500));
+      const pane = document.getElementById('proy-pane-' + s);
+      out[s] = {
+        visible: pane && pane.style.display !== 'none',
+        filas: s === 'infla' ? document.querySelectorAll('#proj-tbody tr').length
+                             : document.querySelectorAll(`#proy-${s}-tbody tr`).length,
+      };
+    }
+    return out;
+  });
+  for (const s of ['tamar', 'tcn', 'infla']) {
+    check(subs[s].visible && subs[s].filas > 0,
+          `la sub-solapa ${s} de Proyecciones se dibuja`, JSON.stringify(subs[s]));
+  }
 
   console.log('\nResto de pestañas (no deben lanzar)');
   const antes = errores.length;
